@@ -119,6 +119,7 @@
     <div class="row">
       <button class="navbtn active" id="nav-hazards" onclick="showView('hazards')">Hazards</button>
       <button class="navbtn hide" id="nav-emp" onclick="showView('emp')">Empleados</button>
+      <button class="navbtn hide" id="nav-cumpl" onclick="showView('cumpl')">Cumplimiento</button>
       <span class="who" id="who"></span>
       <button class="btn sm ghost" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="logout()">Salir</button>
     </div>
@@ -170,6 +171,31 @@
     </table>
     <p class="muted" id="emp-empty" style="text-align:center;padding:30px;display:none">No hay empleados que coincidan.</p>
   </div>
+
+  <!-- VISTA CUMPLIMIENTO (solo admin) -->
+  <div class="wrap hide" id="view-cumpl">
+    <div class="toolbar">
+      <label style="margin:0 6px 0 0;font-size:13px;align-self:center">Mes:</label>
+      <input type="month" id="cumpl-mes" onchange="loadCumplimiento()" style="flex:0 0 auto"/>
+      <input id="cumpl-q" placeholder="Buscar por nombre o nómina..." oninput="renderCumplimiento()"/>
+      <select id="cumpl-filter" onchange="renderCumplimiento()">
+        <option value="todos">Todos</option>
+        <option value="faltan">Solo los que faltan</option>
+        <option value="cumplieron">Solo los que cumplieron</option>
+      </select>
+      <button class="btn sm" onclick="exportCumplimiento()">Exportar Excel</button>
+    </div>
+    <div class="stat" id="cumpl-stats"></div>
+    <div id="cumpl-bar"></div>
+    <table>
+      <thead><tr>
+        <th>Nómina</th><th>Nombre</th><th class="hide-sm">País</th>
+        <th style="text-align:center">Hazards</th><th>Estado</th><th class="hide-sm">Último reporte</th>
+      </tr></thead>
+      <tbody id="cumpl-rows"></tbody>
+    </table>
+    <p class="muted" id="cumpl-empty" style="text-align:center;padding:30px;display:none">No hay empleados que coincidan.</p>
+  </div>
 </div>
 
 <div id="modal">
@@ -188,6 +214,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let SESSION = null, HAZARDS = [], _needsPass = false;
 let COMMENTS_BY_CODE = {};
 let EMPLEADOS = [], EMP_CAT = null; // catálogos: paises, hse, oficinas
+let CUMPL = null; // datos de cumplimiento {resumen, empleados, desde, hasta}
 
 const CLASIFICACION = [
   {codigo:"A",label:"Transporte"},
@@ -248,9 +275,10 @@ async function doLogin(){
   document.getElementById('login').classList.add('hide');
   document.getElementById('app').classList.remove('hide');
   document.getElementById('who').textContent=`${SESSION.full_name} · ${SESSION.role==='admin'?'Administrador':SESSION.country_code}`;
-  // Mostrar pestaña Empleados solo para admin
+  // Mostrar pestañas de admin (Empleados y Cumplimiento)
   if(SESSION.role==='admin'){
     document.getElementById('nav-emp').classList.remove('hide');
+    document.getElementById('nav-cumpl').classList.remove('hide');
   }
   await loadHazards();
 }
@@ -279,12 +307,26 @@ function escapeHtml(s){return String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>'
 
 // ═══════════ NAVEGACIÓN ENTRE VISTAS ═══════════
 function showView(v){
-  const isHaz = v==='hazards';
-  document.getElementById('view-hazards').classList.toggle('hide', !isHaz);
-  document.getElementById('view-emp').classList.toggle('hide', isHaz);
-  document.getElementById('nav-hazards').classList.toggle('active', isHaz);
-  document.getElementById('nav-emp').classList.toggle('active', !isHaz);
-  if(!isHaz && !EMP_CAT){ loadEmpleados(); }
+  document.getElementById('view-hazards').classList.toggle('hide', v!=='hazards');
+  document.getElementById('view-emp').classList.toggle('hide', v!=='emp');
+  document.getElementById('view-cumpl').classList.toggle('hide', v!=='cumpl');
+  document.getElementById('nav-hazards').classList.toggle('active', v==='hazards');
+  document.getElementById('nav-emp').classList.toggle('active', v==='emp');
+  document.getElementById('nav-cumpl').classList.toggle('active', v==='cumpl');
+  if(v==='emp' && !EMP_CAT){ loadEmpleados(); }
+  if(v==='cumpl'){
+    // Asegurar catálogos (para paisNombre) y cargar cumplimiento del mes actual
+    if(!EMP_CAT){ loadEmpleados().then(()=>{ initCumplMes(); loadCumplimiento(); }); }
+    else { initCumplMes(); if(!CUMPL) loadCumplimiento(); }
+  }
+}
+
+function initCumplMes(){
+  const el=document.getElementById('cumpl-mes');
+  if(el && !el.value){
+    const now=new Date();
+    el.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  }
 }
 
 // ═══════════ HAZARDS (sin cambios) ═══════════
@@ -679,6 +721,84 @@ async function procesarBulk(){
   }
   res.innerHTML=html;
   await loadEmpleados(); // refrescar lista detrás del modal
+}
+
+// ═══════════════════════════════════════════════
+// CUMPLIMIENTO DE REPORTES (solo admin)
+// ═══════════════════════════════════════════════
+async function loadCumplimiento(){
+  const mesInput = document.getElementById('cumpl-mes');
+  let desde=null, hasta=null;
+  if(mesInput && mesInput.value){
+    const [y,m] = mesInput.value.split('-').map(Number);
+    desde = `${y}-${String(m).padStart(2,'0')}-01`;
+    const last = new Date(y, m, 0).getDate();
+    hasta = `${y}-${String(m).padStart(2,'0')}-${String(last).padStart(2,'0')}`;
+  }
+  const d = await api('cumplimiento', (desde&&hasta) ? {desde, hasta} : {});
+  if(!d.ok){ alert(d.error||'No se pudo cargar el cumplimiento.'); return; }
+  CUMPL = d;
+  renderCumplimiento();
+}
+
+function renderCumplimiento(){
+  if(!CUMPL) return;
+  const r = CUMPL.resumen;
+  document.getElementById('cumpl-stats').innerHTML =
+    `<span class="pill">Activos <b>${r.total_activos}</b></span>`+
+    `<span class="pill">Cumplieron <b style="color:var(--green)">${r.cumplieron}</b></span>`+
+    `<span class="pill">Faltan <b style="color:var(--red)">${r.faltan}</b></span>`+
+    `<span class="pill">Cumplimiento <b>${r.porcentaje}%</b></span>`;
+  document.getElementById('cumpl-bar').innerHTML =
+    `<div style="background:#e8edf3;border-radius:10px;height:22px;overflow:hidden;margin:6px 0 16px">
+       <div style="background:var(--green);height:100%;width:${r.porcentaje}%;transition:width .4s;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;color:#fff;font-size:12px;font-weight:700">${r.porcentaje>8?r.porcentaje+'%':''}</div>
+     </div>`;
+  const q=(document.getElementById('cumpl-q').value||'').toLowerCase();
+  const filtro=document.getElementById('cumpl-filter').value;
+  let list = (CUMPL.empleados||[]).filter(e=>{
+    const txt=`${e.payroll_no} ${e.full_name}`.toLowerCase();
+    if(q && !txt.includes(q)) return false;
+    if(filtro==='faltan') return !e.cumplio;
+    if(filtro==='cumplieron') return e.cumplio;
+    return true;
+  });
+  const rows=document.getElementById('cumpl-rows');
+  rows.innerHTML = list.map(e=>{
+    const estado = e.cumplio
+      ? '<span class="tag cerrado">✓ Cumplió</span>'
+      : '<span class="tag abierto">Falta</span>';
+    const ultima = e.ultima_fecha ? new Date(e.ultima_fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '—';
+    return `<tr>
+      <td><b>${escapeHtml(e.payroll_no)}</b></td>
+      <td>${escapeHtml(e.full_name)}</td>
+      <td class="hide-sm">${paisNombre(e.country_id)}</td>
+      <td style="text-align:center">${e.hazards_periodo}</td>
+      <td>${estado}</td>
+      <td class="hide-sm">${ultima}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('cumpl-empty').style.display=list.length?'none':'block';
+}
+
+function exportCumplimiento(){
+  if (typeof XLSX === 'undefined') { alert('La librería de Excel no cargó.'); return; }
+  if(!CUMPL){ alert('Primero carga el cumplimiento.'); return; }
+  const todos = (CUMPL.empleados||[]).map(e=>({
+    'Nómina': e.payroll_no, 'Nombre': e.full_name,
+    'País': e.country_name || '', 'Zona': e.hse_zone || '',
+    'Hazards en periodo': e.hazards_periodo,
+    'Estado': e.cumplio ? 'Cumplió' : 'Falta',
+    'Último reporte': e.ultima_fecha ? new Date(e.ultima_fecha).toLocaleString('es-MX') : ''
+  }));
+  const faltan = (CUMPL.empleados||[]).filter(e=>!e.cumplio).map(e=>({
+    'Nómina': e.payroll_no, 'Nombre': e.full_name,
+    'País': e.country_name || '', 'Zona': e.hse_zone || ''
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(todos), 'Cumplimiento');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(faltan.length?faltan:[{'Sin faltantes':''}]), 'Quiénes faltan');
+  const periodo = CUMPL.desde ? String(CUMPL.desde).slice(0,7) : new Date().toISOString().slice(0,7);
+  XLSX.writeFile(wb, `cumplimiento_${periodo}.xlsx`);
 }
 
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});

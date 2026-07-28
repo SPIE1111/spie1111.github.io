@@ -177,6 +177,9 @@
     <div class="toolbar">
       <label style="margin:0 6px 0 0;font-size:13px;align-self:center">Mes:</label>
       <input type="month" id="cumpl-mes" onchange="loadCumplimiento()" style="flex:0 0 auto"/>
+      <select id="cumpl-pais" onchange="renderCumplimiento()">
+        <option value="">Todos los países</option>
+      </select>
       <input id="cumpl-q" placeholder="Buscar por nombre o nómina..." oninput="renderCumplimiento()"/>
       <select id="cumpl-filter" onchange="renderCumplimiento()">
         <option value="todos">Todos</option>
@@ -185,8 +188,8 @@
       </select>
       <button class="btn sm" onclick="exportCumplimiento()">Exportar Excel</button>
     </div>
+    <div id="cumpl-gauge"></div>
     <div class="stat" id="cumpl-stats"></div>
-    <div id="cumpl-bar"></div>
     <table>
       <thead><tr>
         <th>Nómina</th><th>Nombre</th><th class="hide-sm">País</th>
@@ -738,24 +741,87 @@ async function loadCumplimiento(){
   const d = await api('cumplimiento', (desde&&hasta) ? {desde, hasta} : {});
   if(!d.ok){ alert(d.error||'No se pudo cargar el cumplimiento.'); return; }
   CUMPL = d;
+  buildCumplPaisFilter();
   renderCumplimiento();
+}
+
+function buildCumplPaisFilter(){
+  const sel=document.getElementById('cumpl-pais');
+  if(!sel) return;
+  // Países presentes en los datos actuales
+  const vistos = new Map();
+  (CUMPL.empleados||[]).forEach(e=>{
+    if(e.country_id!=null && !vistos.has(e.country_id))
+      vistos.set(e.country_id, e.country_name || paisNombre(e.country_id));
+  });
+  const actual = sel.value;
+  sel.innerHTML = '<option value="">Todos los países</option>' +
+    [...vistos.entries()].sort((a,b)=>a[0]-b[0])
+      .map(([id,nom])=>`<option value="${id}">${nom}</option>`).join('');
+  sel.value = actual; // conservar selección si sigue válida
+}
+
+// Medidor lineal con color por nivel y línea de meta al 95%
+function gaugeHtml(pct){
+  const META = 95;
+  const p = Math.max(0, Math.min(100, pct));
+  // Color por nivel
+  let color = '#c0392b';                 // rojo (<50)
+  if(p >= META) color = '#1a8a4a';        // verde (meta cumplida)
+  else if(p >= 75) color = '#4caf50';     // verde claro (cerca)
+  else if(p >= 50) color = '#f5a623';     // ámbar
+  else if(p >= 30) color = '#e67e22';     // naranja
+  const estadoTxt = p >= META ? 'Meta alcanzada' : `Faltan ${(META-p).toFixed(1)} pts para la meta`;
+  return `
+  <div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:16px;box-shadow:0 2px 10px rgba(34,41,83,.05)">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div style="font-size:13px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em">Avance de cumplimiento</div>
+      <div style="font-size:40px;font-weight:800;color:${color};line-height:1">${p}<span style="font-size:22px">%</span></div>
+    </div>
+    <div style="position:relative;height:30px;margin:6px 0 4px">
+      <!-- Riel -->
+      <div style="position:absolute;top:9px;left:0;right:0;height:14px;background:#e8edf3;border-radius:8px;overflow:hidden">
+        <!-- Relleno -->
+        <div style="height:100%;width:${p}%;background:${color};border-radius:8px;transition:width .5s ease"></div>
+      </div>
+      <!-- Línea de meta al 95% -->
+      <div style="position:absolute;top:2px;left:${META}%;height:28px;width:3px;background:var(--spie,#222953);border-radius:2px" title="Meta 95%"></div>
+      <div style="position:absolute;top:-14px;left:${META}%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--spie,#222953);white-space:nowrap">META 95%</div>
+    </div>
+    <!-- Escala -->
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#aab4bd;margin-top:2px">
+      <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+    </div>
+    <div style="margin-top:10px;font-size:13px;color:${color};font-weight:700">${estadoTxt}</div>
+  </div>`;
 }
 
 function renderCumplimiento(){
   if(!CUMPL) return;
-  const r = CUMPL.resumen;
+  const paisSel = document.getElementById('cumpl-pais').value;
+  const paisId = paisSel ? parseInt(paisSel,10) : null;
+
+  // Base filtrada por país (afecta medidor y stats)
+  const base = (CUMPL.empleados||[]).filter(e => paisId===null || e.country_id===paisId);
+  const total = base.length;
+  const cumplieron = base.filter(e=>e.cumplio).length;
+  const faltan = total - cumplieron;
+  const pct = total>0 ? Math.round(1000*cumplieron/total)/10 : 0;
+
+  // Medidor
+  document.getElementById('cumpl-gauge').innerHTML = gaugeHtml(pct);
+
+  // Stats (del país seleccionado o global)
   document.getElementById('cumpl-stats').innerHTML =
-    `<span class="pill">Activos <b>${r.total_activos}</b></span>`+
-    `<span class="pill">Cumplieron <b style="color:var(--green)">${r.cumplieron}</b></span>`+
-    `<span class="pill">Faltan <b style="color:var(--red)">${r.faltan}</b></span>`+
-    `<span class="pill">Cumplimiento <b>${r.porcentaje}%</b></span>`;
-  document.getElementById('cumpl-bar').innerHTML =
-    `<div style="background:#e8edf3;border-radius:10px;height:22px;overflow:hidden;margin:6px 0 16px">
-       <div style="background:var(--green);height:100%;width:${r.porcentaje}%;transition:width .4s;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;color:#fff;font-size:12px;font-weight:700">${r.porcentaje>8?r.porcentaje+'%':''}</div>
-     </div>`;
+    `<span class="pill">Activos <b>${total}</b></span>`+
+    `<span class="pill">Cumplieron <b style="color:var(--green)">${cumplieron}</b></span>`+
+    `<span class="pill">Faltan <b style="color:var(--red)">${faltan}</b></span>`+
+    `<span class="pill">Cumplimiento <b>${pct}%</b></span>`;
+
+  // Lista con búsqueda y filtro de estado, dentro del país seleccionado
   const q=(document.getElementById('cumpl-q').value||'').toLowerCase();
   const filtro=document.getElementById('cumpl-filter').value;
-  let list = (CUMPL.empleados||[]).filter(e=>{
+  let list = base.filter(e=>{
     const txt=`${e.payroll_no} ${e.full_name}`.toLowerCase();
     if(q && !txt.includes(q)) return false;
     if(filtro==='faltan') return !e.cumplio;
@@ -783,14 +849,17 @@ function renderCumplimiento(){
 function exportCumplimiento(){
   if (typeof XLSX === 'undefined') { alert('La librería de Excel no cargó.'); return; }
   if(!CUMPL){ alert('Primero carga el cumplimiento.'); return; }
-  const todos = (CUMPL.empleados||[]).map(e=>({
+  const paisSel = document.getElementById('cumpl-pais').value;
+  const paisId = paisSel ? parseInt(paisSel,10) : null;
+  const base = (CUMPL.empleados||[]).filter(e => paisId===null || e.country_id===paisId);
+  const todos = base.map(e=>({
     'Nómina': e.payroll_no, 'Nombre': e.full_name,
     'País': e.country_name || '', 'Zona': e.hse_zone || '',
     'Hazards en periodo': e.hazards_periodo,
     'Estado': e.cumplio ? 'Cumplió' : 'Falta',
     'Último reporte': e.ultima_fecha ? new Date(e.ultima_fecha).toLocaleString('es-MX') : ''
   }));
-  const faltan = (CUMPL.empleados||[]).filter(e=>!e.cumplio).map(e=>({
+  const faltan = base.filter(e=>!e.cumplio).map(e=>({
     'Nómina': e.payroll_no, 'Nombre': e.full_name,
     'País': e.country_name || '', 'Zona': e.hse_zone || ''
   }));

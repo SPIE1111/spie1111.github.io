@@ -1,47 +1,69 @@
-// Service Worker · Hazard HSE
-// Cachea el "shell" de la app para que cargue sin conexión.
-const CACHE = 'hazard-hse-v3';
-const ASSETS = [
+// ════════════════════════════════════════════
+// Service Worker · Hazard HSE SPIE
+// Estrategia:
+//  - index.html y archivos raíz: NETWORK-FIRST (siempre busca la versión nueva;
+//    usa caché solo si no hay conexión). Esto evita que los cambios no se vean.
+//  - Otros recursos (íconos, librerías): CACHE-FIRST (rápidos, offline).
+// Sube el número de versión cada vez que quieras forzar actualización total.
+// ════════════════════════════════════════════
+const CACHE = 'hazard-hse-v5';
+const CORE = [
   './',
   './index.html',
   './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
 ];
 
-// Instalar: precachear el shell
+// Instalar: precachear lo esencial
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)));
-  self.skipWaiting();
+  self.skipWaiting(); // activar de inmediato la nueva versión
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE).catch(() => {})));
 });
 
-// Activar: limpiar cachés viejos
+// Activar: borrar cachés viejos
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Fetch: red primero para llamadas a Supabase; cache primero para el shell.
+// Fetch
 self.addEventListener('fetch', (e) => {
-  const url = e.request.url;
-  // Nunca cachear llamadas a la API/funciones (siempre red)
-  if (url.includes('supabase.co') || url.includes('powerplatform.com')) {
-    return; // deja pasar a la red normalmente
+  const req = e.request;
+  if (req.method !== 'GET') return;
+
+  const url = new URL(req.url);
+  const esDocumento = req.mode === 'navigate' ||
+    url.pathname.endsWith('/') ||
+    url.pathname.endsWith('index.html') ||
+    url.pathname.endsWith('panel.html');
+
+  if (esDocumento) {
+    // NETWORK-FIRST: intenta red; si falla, usa caché. Así los cambios se ven al instante.
+    e.respondWith(
+      fetch(req)
+        .then((resp) => {
+          const copia = resp.clone();
+          caches.open(CACHE).then((c) => c.put(req, copia)).catch(() => {});
+          return resp;
+        })
+        .catch(() => caches.match(req).then((r) => r || caches.match('./index.html')))
+    );
+    return;
   }
-  // Para navegación y assets: intenta cache, si no red, y guarda copia
+
+  // CACHE-FIRST para el resto (íconos, librerías): rápido y offline.
   e.respondWith(
-    caches.match(e.request).then((cached) =>
+    caches.match(req).then((cached) =>
       cached ||
-      fetch(e.request).then((resp) => {
-        // Guardar copia de respuestas GET válidas del mismo origen
-        if (e.request.method === 'GET' && resp.ok && url.startsWith(self.location.origin)) {
-          const copy = resp.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copy));
-        }
+      fetch(req).then((resp) => {
+        const copia = resp.clone();
+        caches.open(CACHE).then((c) => c.put(req, copia)).catch(() => {});
         return resp;
-      }).catch(() => caches.match('./index.html')) // fallback offline
+      }).catch(() => cached)
     )
   );
 });

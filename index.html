@@ -948,7 +948,6 @@ let openRiskCode = null;
 // UTILS
 // ════════════════════════════════════════════
 function getWeek(d=new Date()){const dd=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));dd.setUTCDate(dd.getUTCDate()+4-(dd.getUTCDay()||7));const y=new Date(Date.UTC(dd.getUTCFullYear(),0,1));return Math.ceil((((dd-y)/86400000)+1)/7)}
-function genId(){return`H-${new Date().getFullYear()}-${String(Math.floor(Math.random()*900)+100)}`}
 function setScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0)}
 
 // ── PANTALLA INICIO ──────────────────────────────────────────
@@ -1518,14 +1517,11 @@ function buildSummary(){
 // SUBMIT + EMAIL LOGIC
 // ════════════════════════════════════════════
 // ════════════════════════════════════════════
-// CONFIGURACIÓN POWER AUTOMATE + SHAREPOINT
+// GUARDADO EN SUPABASE (destino único de los hazards)
+// El código del reporte lo genera el SERVIDOR (submit-hazard) de forma
+// única y secuencial. La app ya no genera códigos.
 // ════════════════════════════════════════════
-// PA_URL eliminada en Fase 1 (estaba expuesta). El envío de hazards se migrará a Supabase en Fase 4.
-const PA_URL = null;
-const SP_SITE = "https://spie-my.sharepoint.com/personal/evelyn_sanchez_spie_com";
-const SP_LIST = "Empelados HSE";
-
-// Guardar hazard en Supabase (destino CRÍTICO). Devuelve true si se guardó.
+// Guarda el hazard en Supabase. Devuelve el código REAL asignado por el servidor.
 async function sendToSupabase(payload) {
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/submit-hazard`, {
     method: "POST",
@@ -1533,28 +1529,8 @@ async function sendToSupabase(payload) {
     body: JSON.stringify(payload)
   });
   const data = await resp.json().catch(()=>({}));
-  if (resp.ok && data.ok) return data.hazard_code || null;  // devuelve el código REAL del servidor
+  if (resp.ok && data.ok) return data.hazard_code || null;  // código real del servidor
   throw new Error(data.error || `HTTP ${resp.status}`);
-}
-
-// Respaldo OPCIONAL a SharePoint/Power Automate. Nunca rompe el flujo.
-// Si en el futuro reactivas Power Automate, pon su URL en PA_URL.
-async function sendToSharePoint(payload) {
-  if (!PA_URL) return; // sin URL configurada -> se omite silenciosamente
-  try {
-    await fetch(PA_URL, {
-      method: "POST", mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-  } catch(_e) { /* respaldo: si falla, no afecta */ }
-}
-
-// Mantiene compatibilidad con el sync offline: ahora usa Supabase.
-async function sendToPA(payload) {
-  const ok = await sendToSupabase(payload);
-  sendToSharePoint(payload); // respaldo, sin await crítico
-  return ok;
 }
 
 // ════════════════════════════════════════════
@@ -1613,19 +1589,18 @@ async function submitForm(){
   btn.disabled=true;
   btn.innerHTML='<span class="spinner"></span>Enviando Hazard...';
 
-  const id    = genId();
   const nivel = document.getElementById('f-nivel').value;
   const hse   = SESSION?.hse;
   const emp   = SESSION?.empleado;
 
-  // Monica = destinataria principal, sin CC adicional
-  const emailCC  = '';
+  // ID temporal SOLO para la cola offline (llave en IndexedDB).
+  // El código real y definitivo lo asigna el servidor al guardar.
+  const idLocal = `TMP-${Date.now()}-${Math.floor(Math.random()*1000)}`;
 
   const payload = {
-    // Identificación
-    HazardID:      id,
+    // Identificación (HazardID es solo la llave temporal de la cola offline)
+    HazardID:      idLocal,
     Semana:        `W${getWeek()}`,
-    Timestamp:     new Date().toISOString(),
     // Empleado
     Pais:          emp?.pais    || '',
     Nomina:        emp?.nomina  || '',
@@ -1635,8 +1610,6 @@ async function submitForm(){
     // HSE
     HSE:           hse?.nombre  || '',
     HSEEmail:      hse?.email   || '',
-    EmailPara:     hse?.email || '',
-    EmailCC:       emailCC,
     // Ubicación
     Parque:        document.getElementById('f-parque-val').value,
     TipoTrabajo:   document.getElementById('f-tipo-trabajo').value,
@@ -1657,19 +1630,14 @@ async function submitForm(){
     // Fotos (base64)
     FotoEvidencia:  FOTOS.evidencia ? FOTOS.evidencia.base64  : null,
     FotoEvidenciaMime: FOTOS.evidencia ? FOTOS.evidencia.mime : null,
-    FotoEvidenciaNombre: FOTOS.evidencia ? FOTOS.evidencia.nombre : null,
     FotoCierre:     FOTOS.cierre    ? FOTOS.cierre.base64    : null,
     FotoCierreMime: FOTOS.cierre    ? FOTOS.cierre.mime      : null,
-    FotoCierreNombre: FOTOS.cierre  ? FOTOS.cierre.nombre    : null,
-    // Meta para Power Automate / SharePoint
-    SitioSP:       SP_SITE,
-    ListaSP:       SP_LIST,
   };
 
   let savedOnline = false;
   let syncMsg     = '';
   let notifMsg    = '';
-  let codigoMostrar = id;  // por defecto el local; se reemplaza con el del servidor
+  let codigoMostrar = '';  // se asigna con el código real del servidor
 
   if (!navigator.onLine) {
     // ── OFFLINE: guardar en IndexedDB (soporta fotos) ──
@@ -1683,7 +1651,6 @@ async function submitForm(){
     btn.innerHTML='<span class="spinner"></span>Enviando Hazard...';
     try {
       const codigoServidor = await sendToSupabase(payload);   // crítico; devuelve el código REAL
-      sendToSharePoint(payload);              // respaldo opcional
       savedOnline = true;
       if (codigoServidor) codigoMostrar = codigoServidor;     // usar el código del servidor
       syncMsg  = `✓ Registro guardado correctamente`;
@@ -1721,7 +1688,6 @@ async function syncPendientes(){
   for (const payload of q) {
     try {
       const codigoServidor = await sendToSupabase(payload);   // guarda en Supabase (dispara correo)
-      sendToSharePoint(payload);          // respaldo opcional
       await idbDelete(payload.HazardID);  // quitar de la cola al lograrlo
       if (codigoServidor) codigosReales.push(codigoServidor);
       console.log(`✓ Sincronizado: ${payload.HazardID} → ${codigoServidor||'(sin código)'}`);

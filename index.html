@@ -1533,7 +1533,7 @@ async function sendToSupabase(payload) {
     body: JSON.stringify(payload)
   });
   const data = await resp.json().catch(()=>({}));
-  if (resp.ok && data.ok) return true;
+  if (resp.ok && data.ok) return data.hazard_code || null;  // devuelve el código REAL del servidor
   throw new Error(data.error || `HTTP ${resp.status}`);
 }
 
@@ -1669,20 +1669,23 @@ async function submitForm(){
   let savedOnline = false;
   let syncMsg     = '';
   let notifMsg    = '';
+  let codigoMostrar = id;  // por defecto el local; se reemplaza con el del servidor
 
   if (!navigator.onLine) {
     // ── OFFLINE: guardar en IndexedDB (soporta fotos) ──
     await idbSave(payload);
     syncMsg  = '📵 Sin conexión — guardado en el dispositivo. Se enviará solo al reconectarse.';
     notifMsg = '⏳ El reporte se sincronizará automáticamente cuando haya señal.';
+    codigoMostrar = 'Se asignará al enviarse';  // offline: el código real llega al sincronizar
 
   } else {
     // ── ONLINE: guardar en Supabase (crítico) + respaldo SharePoint ──
     btn.innerHTML='<span class="spinner"></span>Enviando Hazard...';
     try {
-      await sendToSupabase(payload);          // crítico
+      const codigoServidor = await sendToSupabase(payload);   // crítico; devuelve el código REAL
       sendToSharePoint(payload);              // respaldo opcional
       savedOnline = true;
+      if (codigoServidor) codigoMostrar = codigoServidor;     // usar el código del servidor
       syncMsg  = `✓ Registro guardado correctamente`;
       const hseNombre = hse?.nombre || 'HSE asignado';
       notifMsg = `✓ Reporte registrado. HSE asignado: ${hseNombre}.`;
@@ -1691,11 +1694,12 @@ async function submitForm(){
       await idbSave(payload);
       syncMsg  = `⚠️ No se pudo guardar en línea: ${err.message}`;
       notifMsg = '📋 Guardado en el dispositivo — se reintentará al reconectarse.';
+      codigoMostrar = 'Se asignará al enviarse';  // no se guardó: aún no hay código real
     }
   }
 
   // Pantalla de éxito
-  document.getElementById('suc-id').textContent   = id;
+  document.getElementById('suc-id').textContent   = codigoMostrar;
   document.getElementById('suc-msg').textContent  = notifMsg;
   document.getElementById('suc-sync').textContent = syncMsg;
   btn.disabled = false;
@@ -1713,16 +1717,25 @@ async function syncPendientes(){
   try { q = await idbGetAll(); } catch(_e) { return; }
   if (!q.length) return;
   console.log(`🔄 Sincronizando ${q.length} reporte(s) pendiente(s)...`);
+  const codigosReales = [];
   for (const payload of q) {
     try {
-      await sendToSupabase(payload);     // guarda en Supabase (dispara correo)
+      const codigoServidor = await sendToSupabase(payload);   // guarda en Supabase (dispara correo)
       sendToSharePoint(payload);          // respaldo opcional
       await idbDelete(payload.HazardID);  // quitar de la cola al lograrlo
-      console.log(`✓ Sincronizado: ${payload.HazardID}`);
+      if (codigoServidor) codigosReales.push(codigoServidor);
+      console.log(`✓ Sincronizado: ${payload.HazardID} → ${codigoServidor||'(sin código)'}`);
     } catch(e) {
       console.error(`✗ Pendiente aún: ${payload.HazardID}`, e);
       // se queda en IndexedDB para el próximo intento
     }
+  }
+  // Avisar al empleado los códigos reales asignados al sincronizar
+  if (codigosReales.length) {
+    const lista = codigosReales.join(', ');
+    try {
+      alert(`✓ Se enviaron tus reportes pendientes.\n\nCódigo(s) asignado(s): ${lista}\n\nUsa este código para dar seguimiento a tu evidencia.`);
+    } catch(_e) { /* si alert falla, no rompe el sync */ }
   }
   showOffline();
 }

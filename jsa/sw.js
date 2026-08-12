@@ -5,12 +5,13 @@
 //  - Otros recursos (íconos, fuentes): CACHE-FIRST
 // Sube la versión para forzar actualización total.
 // ════════════════════════════════════════════
-const CACHE = 'jsa-spie-v5';
+const CACHE = 'jsa-spie-v6';
 const CORE = [
   './',
   './index.html',
   './manifest.json',
   './jspdf.umd.min.js',
+  './pdf-assets.js',
   './pdf.js',
   './icon-192.png',
   './icon-512.png',

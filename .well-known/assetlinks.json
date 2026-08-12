@@ -12,7 +12,7 @@
     "target": {
       "namespace": "android_app",
       "package_name": "io.github.spie1111.jsa",
-      "sha256_cert_fingerprints": ["37:E2:A4:CD:35:01:F6:C0:83:B4:BA:FB:C2:AD:32:45:E7:C3:8B:D6:55:99:05:3D:AE:FD:EF:F5:75:CB:E3:9D"]
+      "sha256_cert_fingerprints": ["B8:BE:FC:18:D1:FD:28:04:AE:BF:54:FF:95:22:DE:1C:70:B7:FE:97:6E:DA:CD:1B:39:CE:F2:57:6E:E3:B8:FE"]
     }
   }
 ]

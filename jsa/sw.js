@@ -5,13 +5,14 @@
 //  - Otros recursos (íconos, fuentes): CACHE-FIRST
 // Sube la versión para forzar actualización total.
 // ════════════════════════════════════════════
-const CACHE = 'jsa-spie-v3';
+const CACHE = 'jsa-spie-v4';
 const CORE = [
   './',
   './index.html',
   './manifest.json',
-  '../icon-192.png',
-  '../icon-512.png',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-maskable-512.png',
   '../spie-logo.png',
 ];
 
@@ -69,8 +70,8 @@ self.addEventListener('push', (e) => {
   e.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: '../icon-192.png',
-      badge: '../icon-192.png',
+      icon: './icon-192.png',
+      badge: './icon-192.png',
       data: { url: './' },
       vibrate: [80, 40, 80],
     })

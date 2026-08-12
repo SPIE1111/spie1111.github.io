@@ -19,6 +19,8 @@
   }
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="jspdf.umd.min.js"></script>
+<script src="pdf.js"></script>
 <style>
 /* ── RESET ── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -490,7 +492,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
   <div id="v-detalle" class="view">
     <div class="wiz-head">
       <button class="back" id="det-back" onclick="showView('v-aprob')">‹</button>
-      <div><div class="wt" id="det-folio">JSA</div><div class="ws" id="det-site"></div></div>
+      <div style="flex:1"><div class="wt" id="det-folio">JSA</div><div class="ws" id="det-site"></div></div>
+      <button class="sig-btn" style="border-color:#9fd8ff;color:#fff;background:rgba(255,255,255,.12)" onclick="descargarPDF(_detId, this)">📄 PDF</button>
     </div>
     <div class="card" style="max-width:560px">
       <div id="det-body"></div>
@@ -1372,11 +1375,11 @@ async function verMisJSA(){
   }
   outbox.forEach(o=>{
     const j = o.payload.jsa;
-    wrap.appendChild(jsaItem({folio:'(pendiente de enviar)', work_date:j.work_date, work_description:j.work_description, status:'pendiente', site:''}));
+    wrap.appendChild(jsaItem({folio:'(pendiente de enviar)', work_date:j.work_date, work_description:j.work_description, status:'pendiente', site:''}, true));
   });
   lista.forEach(j=>wrap.appendChild(jsaItem(j)));
 }
-function jsaItem(j){
+function jsaItem(j, pendiente){
   const div = document.createElement('div');
   div.className = 'jsa-item';
   const est = j.status||'enviado';
@@ -1387,6 +1390,18 @@ function jsaItem(j){
     </div>
     <div class="desc">${j.work_description||''}</div>
     <div class="meta">${[j.work_date, j.site].filter(Boolean).join(' · ')}</div>`;
+  if(!pendiente && j.id){
+    const bar = document.createElement('div');
+    bar.style = 'display:flex;gap:8px;margin-top:10px';
+    const ver = document.createElement('button');
+    ver.className='sig-btn'; ver.textContent='Ver detalle';
+    ver.onclick=(e)=>{e.stopPropagation(); abrirDetalle(j.id,false);};
+    const pdf = document.createElement('button');
+    pdf.className='sig-btn'; pdf.textContent='📄 PDF';
+    pdf.onclick=(e)=>{e.stopPropagation(); descargarPDF(j.id, pdf);};
+    bar.appendChild(ver); bar.appendChild(pdf);
+    div.appendChild(bar);
+  }
   return div;
 }
 
@@ -1561,6 +1576,27 @@ function fmtFecha(iso){
   if(!iso) return '';
   const d = new Date(iso);
   return d.toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+
+// ════════════════════════════════════════════
+// PDF del JSA (idéntico al formato oficial)
+// ════════════════════════════════════════════
+async function descargarPDF(id, btn){
+  if(typeof generarJSAPDF!=='function'){ toast('⚠️ El generador de PDF aún no cargó, reintenta.'); return; }
+  const txt = btn ? btn.textContent : null;
+  if(btn){ btn.disabled=true; btn.textContent='Generando…'; }
+  try{
+    const d = await api('jsa-detail',{id});
+    await precargarFirmasJSA(d);        // URLs de firma → dataURL
+    const doc = generarJSAPDF(d);
+    const folio = (d.head && d.head.folio) ? d.head.folio : 'JSA';
+    doc.save(folio + '.pdf');
+    toast('📄 PDF generado');
+  }catch(e){
+    toast('No se pudo generar el PDF: '+e.message);
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent=txt; }
+  }
 }
 
 // ════════════════════════════════════════════

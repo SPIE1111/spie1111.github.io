@@ -92,6 +92,9 @@
   @media(max-width:640px){.kv{grid-template-columns:1fr}.hide-sm{display:none}}
 </style>
 <script src="xlsx.min.js"></script>
+<script src="jsa/jspdf.umd.min.js?v=6"></script>
+<script src="jsa/pdf-assets.js?v=6"></script>
+<script src="jsa/pdf.js?v=6"></script>
 </head>
 <body>
 
@@ -118,6 +121,7 @@
     <div style="display:flex;align-items:center;gap:10px"><img src="spie-logo.png" alt="SPIE" style="width:30px;height:30px;border-radius:7px"/><b>Panel HSE</b></div>
     <div class="row">
       <button class="navbtn active" id="nav-hazards" onclick="showView('hazards')">Hazards</button>
+      <button class="navbtn" id="nav-jsa" onclick="showView('jsa')">JSA</button>
       <button class="navbtn hide" id="nav-emp" onclick="showView('emp')">Empleados</button>
       <button class="navbtn hide" id="nav-cumpl" onclick="showView('cumpl')">Cumplimiento</button>
       <span class="who" id="who"></span>
@@ -199,6 +203,32 @@
     </table>
     <p class="muted" id="cumpl-empty" style="text-align:center;padding:30px;display:none">No hay empleados que coincidan.</p>
   </div>
+
+  <!-- VISTA JSA -->
+  <div class="wrap hide" id="view-jsa">
+    <div class="stat" id="jsa-stats"></div>
+    <div class="toolbar">
+      <input id="jsa-q" placeholder="Buscar por folio, sitio, nómina, descripción..." oninput="renderJSA()"/>
+      <select id="jsa-estatus" onchange="loadJSA()">
+        <option value="">Todos los estatus</option>
+        <option value="enviado">Enviado (por aprobar)</option>
+        <option value="aprobado">Aprobado</option>
+        <option value="rechazado">Rechazado</option>
+      </select>
+      <select id="jsa-pais" class="hide" onchange="renderJSA()">
+        <option value="">Todos los países</option>
+      </select>
+      <button class="btn sm ghost" onclick="loadJSA()">↻ Actualizar</button>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Folio</th><th>Fecha</th><th class="hide-sm">Sitio</th>
+        <th class="hide-sm">Creó</th><th>Trabajo</th><th>Estatus</th><th>Reporte</th>
+      </tr></thead>
+      <tbody id="jsa-rows"></tbody>
+    </table>
+    <p class="muted" id="jsa-empty" style="text-align:center;padding:30px;display:none">No hay JSA que coincidan.</p>
+  </div>
 </div>
 
 <div id="modal">
@@ -218,6 +248,20 @@ let SESSION = null, HAZARDS = [], _needsPass = false;
 let COMMENTS_BY_CODE = {};
 let EMPLEADOS = [], EMP_CAT = null; // catálogos: paises, hse, oficinas
 let CUMPL = null; // datos de cumplimiento {resumen, empleados, desde, hasta}
+let JSA_LIST = null, JSA_COUNTRIES = []; // JSA para el panel HSE
+
+// Llama a la Edge Function jsa-api (la app de JSA)
+async function jsaApi(action, extra){
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/jsa-api`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
+    body:JSON.stringify({action,...(extra||{})})
+  });
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error||('Error '+r.status));
+  return d;
+}
+const JSA_PAIS_NOMBRE = {MX:'Mexico', UY:'Uruguay', RD:'Republica Dominicana', CL:'Chile'};
 
 const CLASIFICACION = [
   {codigo:"A",label:"Transporte"},
@@ -313,15 +357,130 @@ function showView(v){
   document.getElementById('view-hazards').classList.toggle('hide', v!=='hazards');
   document.getElementById('view-emp').classList.toggle('hide', v!=='emp');
   document.getElementById('view-cumpl').classList.toggle('hide', v!=='cumpl');
+  document.getElementById('view-jsa').classList.toggle('hide', v!=='jsa');
   document.getElementById('nav-hazards').classList.toggle('active', v==='hazards');
+  document.getElementById('nav-jsa').classList.toggle('active', v==='jsa');
   document.getElementById('nav-emp').classList.toggle('active', v==='emp');
   document.getElementById('nav-cumpl').classList.toggle('active', v==='cumpl');
+  if(v==='jsa' && JSA_LIST===null){ loadJSA(); }
   if(v==='emp' && !EMP_CAT){ loadEmpleados(); }
   if(v==='cumpl'){
     // Asegurar catálogos (para paisNombre) y cargar cumplimiento del mes actual
     if(!EMP_CAT){ loadEmpleados().then(()=>{ initCumplMes(); loadCumplimiento(); }); }
     else { initCumplMes(); if(!CUMPL) loadCumplimiento(); }
   }
+}
+
+// ═══════════ VISTA JSA (panel HSE) ═══════════
+async function loadJSA(){
+  const tb = document.getElementById('jsa-rows');
+  tb.innerHTML = '<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">Cargando…</td></tr>';
+  const esAdmin = SESSION.role==='admin';
+  const paisFiltro = esAdmin ? '' : (JSA_PAIS_NOMBRE[SESSION.country_code]||'');
+  const status = document.getElementById('jsa-estatus').value;
+  try{
+    const d = await jsaApi('panel-jsas', { status, country: paisFiltro });
+    JSA_LIST = d.jsas||[];
+    JSA_COUNTRIES = d.countries||[];
+    // filtro de país solo para admin
+    const selP = document.getElementById('jsa-pais');
+    if(esAdmin){
+      selP.classList.remove('hide');
+      if(selP.options.length<=1){ selP.innerHTML = '<option value="">Todos los países</option>' + JSA_COUNTRIES.map(c=>`<option>${escapeHtml(c)}</option>`).join(''); }
+    } else selP.classList.add('hide');
+    renderJSA();
+  }catch(e){
+    tb.innerHTML = `<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">No se pudo cargar (${escapeHtml(e.message)})</td></tr>`;
+  }
+}
+
+function renderJSA(){
+  if(!JSA_LIST) return;
+  const q = (document.getElementById('jsa-q').value||'').toLowerCase().trim();
+  const pais = document.getElementById('jsa-pais').value;
+  let list = JSA_LIST.slice();
+  if(pais) list = list.filter(j=>j.country===pais);
+  if(q) list = list.filter(j=>[j.folio,j.work_description,j.site,j.created_by,j.supervisor].join(' ').toLowerCase().includes(q));
+  // stats
+  const cnt = s=>JSA_LIST.filter(j=>j.status===s).length;
+  document.getElementById('jsa-stats').innerHTML =
+    `<span class="pill">Total <b>${JSA_LIST.length}</b></span>`+
+    `<span class="pill">Por aprobar <b>${cnt('enviado')}</b></span>`+
+    `<span class="pill">Aprobados <b>${cnt('aprobado')}</b></span>`+
+    `<span class="pill">Rechazados <b>${cnt('rechazado')}</b></span>`;
+  const tb = document.getElementById('jsa-rows');
+  document.getElementById('jsa-empty').style.display = list.length?'none':'block';
+  const tagCls = {enviado:'abierto', aprobado:'cerrado', rechazado:'baja', borrador:'proceso'};
+  tb.innerHTML = list.map(j=>`
+    <tr class="main" onclick="openJSADetail('${j.id}')">
+      <td class="catcode">${escapeHtml(j.folio||'—')}</td>
+      <td>${escapeHtml(j.work_date||'')} <span class="seg">${escapeHtml((j.work_time||'').slice(0,5))}</span></td>
+      <td class="hide-sm">${escapeHtml(j.site||'')}<div class="seg">${escapeHtml(j.country||'')}</div></td>
+      <td class="hide-sm">${escapeHtml(j.created_by||'')}</td>
+      <td>${escapeHtml((j.work_description||'').slice(0,60))}${(j.work_description||'').length>60?'…':''}</td>
+      <td><span class="tag ${tagCls[j.status]||'proceso'}">${escapeHtml((j.status||'').charAt(0).toUpperCase()+(j.status||'').slice(1))}</span></td>
+      <td onclick="event.stopPropagation()">${j.report_signed
+        ? `<a class="mini green" href="${j.report_signed}" target="_blank" rel="noopener">📄 PDF</a>`
+        : `<button class="mini" onclick="genJSAPDF('${j.id}',this)">Generar PDF</button>`}</td>
+    </tr>`).join('');
+}
+
+async function openJSADetail(id){
+  const modal = document.getElementById('modal');
+  document.getElementById('m-code').textContent = 'JSA';
+  document.getElementById('m-body').innerHTML = '<p class="muted">Cargando…</p>';
+  modal.classList.add('show');
+  try{
+    const d = await jsaApi('jsa-detail', { id });
+    const h = d.head||{};
+    const risksByCat = {};
+    (d.risks||[]).forEach(r=>{ (risksByCat[r.category]=risksByCat[r.category]||[]).push(r.risk==='Otro'?('Otro: '+(r.other_text||'')):r.risk); });
+    const risksHtml = Object.entries(risksByCat).map(([c,v])=>`<b>${escapeHtml(c)}:</b> ${escapeHtml(v.join(', '))}`).join('<br>')||'—';
+    const eppHtml = (d.epp||[]).map(e=>escapeHtml(e.epp==='Otro'?('Otro: '+(e.other_text||'')):e.epp)).join(', ')||'—';
+    const acts = (d.activities||[]).filter(a=>!a.during_execution);
+    const actHtml = acts.map(a=>`<div class="cmt"><b>${a.position}. ${escapeHtml(a.task||'')}</b><div class="meta">Riesgos: ${escapeHtml(a.risk||'—')} · Control: ${escapeHtml(a.control||'—')}</div></div>`).join('')||'<span class="muted">—</span>';
+    const crewHtml = (d.crew||[]).map(c=>`<div class="row" style="gap:8px;margin-bottom:4px"><span>${escapeHtml(c.employee_name||'')} <span class="muted">(${escapeHtml(c.payroll_no||'—')})</span></span>${c.signature_url?`<img src="${c.signature_url}" style="height:26px;border:1px solid var(--line);border-radius:4px">`:'<span class="muted" style="font-size:12px">sin firma</span>'}</div>`).join('')||'—';
+    const ap = (d.approvals||[])[0];
+    document.getElementById('m-code').textContent = h.folio||'JSA';
+    document.getElementById('m-body').innerHTML = `
+      <div class="kv">
+        <div class="k">Estatus</div><div class="v">${escapeHtml(h.status||'')}</div>
+        <div class="k">Sitio</div><div class="v">${escapeHtml((h.jsa_sites&&h.jsa_sites.site)||'')} · ${escapeHtml((h.jsa_sites&&h.jsa_sites.country)||'')}</div>
+        <div class="k">Fecha / hora</div><div class="v">${escapeHtml(h.work_date||'')} ${escapeHtml((h.work_time||'').slice(0,5))}</div>
+        <div class="k">Trabajo</div><div class="v">${escapeHtml(h.work_description||'')}</div>
+        ${h.project?`<div class="k">Proyecto</div><div class="v">${escapeHtml(h.project)}</div>`:''}
+        ${h.work_area?`<div class="k">Área</div><div class="v">${escapeHtml(h.work_area)}</div>`:''}
+        ${h.work_permit?`<div class="k">Permiso</div><div class="v">${escapeHtml(h.work_permit)}</div>`:''}
+        <div class="k">Creado por</div><div class="v">Nómina ${escapeHtml(h.created_by_payroll_no||'')}</div>
+        <div class="k">Condiciones área</div><div class="v">${escapeHtml(h.area_conditions||'—')}</div>
+      </div>
+      <h3>Riesgos generales</h3><div class="muted" style="font-size:13.5px;color:var(--ink)">${risksHtml}</div>
+      ${h.extra_risk?`<div style="margin-top:6px"><b>Riesgo extra:</b> ${escapeHtml(h.extra_risk)}</div>`:''}
+      <h3>Barreras de protección (EPP)</h3><div style="font-size:13.5px">${eppHtml}</div>
+      <h3>Actividades</h3>${actHtml}
+      <h3>Personal involucrado (${(d.crew||[]).length})</h3>${crewHtml}
+      ${ap?`<h3>Aprobación</h3><div class="cmt"><b style="color:${ap.result==='aprobado'?'var(--green)':'var(--red)'}">${escapeHtml((ap.result||'').toUpperCase())}</b> por ${escapeHtml(ap.approver_name||'')} ${ap.approver_role?('· '+escapeHtml(ap.approver_role)):''}${ap.comment?`<div class="meta">${escapeHtml(ap.comment)}</div>`:''}${ap.signature_url?`<div style="margin-top:6px"><img src="${ap.signature_url}" style="height:34px;border:1px solid var(--line);border-radius:4px"></div>`:''}</div>`:''}
+      <div class="row" style="margin-top:18px">
+        <button class="btn sm" onclick="genJSAPDF('${h.id}',this)">📄 Descargar PDF (formato oficial)</button>
+      </div>`;
+  }catch(e){
+    document.getElementById('m-body').innerHTML = `<p class="err show">No se pudo cargar: ${escapeHtml(e.message)}</p>`;
+  }
+}
+
+// Genera el PDF en el formato oficial (reutiliza el generador de la app JSA)
+async function genJSAPDF(id, btn){
+  const item = (JSA_LIST||[]).find(j=>j.id===id);
+  if(item && item.report_signed){ window.open(item.report_signed,'_blank'); return; }
+  if(typeof generarJSAPDF!=='function'){ alert('El generador de PDF aún no cargó, reintenta en un momento.'); return; }
+  const t = btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='Generando…'; }
+  try{
+    const d = await jsaApi('jsa-detail', { id });
+    await precargarFirmasJSA(d);
+    const doc = generarJSAPDF(d);
+    doc.save((d.head&&d.head.folio?d.head.folio:'JSA')+'.pdf');
+  }catch(e){ alert('No se pudo generar el PDF: '+e.message); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent=t; } }
 }
 
 function initCumplMes(){

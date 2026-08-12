@@ -1608,6 +1608,7 @@ async function enviarDecision(result, signaturePng){
       token: SUP_TOKEN,
     });
     toast(result==='aprobado'?'✅ JSA aprobado':'JSA rechazado');
+    if(result==='aprobado') archivarReporte(_detId);   // guarda el PDF final (best-effort)
     await refreshMe();
     verAprobaciones();
   }catch(e){
@@ -1660,6 +1661,18 @@ function fmtFecha(iso){
 // ════════════════════════════════════════════
 // PDF del JSA (idéntico al formato oficial)
 // ════════════════════════════════════════════
+// Genera el PDF final y lo archiva en el bucket (report_url). Best-effort.
+async function archivarReporte(id){
+  try{
+    if(typeof generarJSAPDF!=='function') return;
+    const d = await api('jsa-detail',{id});
+    await precargarFirmasJSA(d);
+    const doc = generarJSAPDF(d);
+    const b64 = doc.output('datauristring').split(',').pop();
+    await api('store-report',{ jsa_id:id, pdf_base64:b64, token:SUP_TOKEN, supervisor_payroll_no:SESSION.nomina });
+  }catch(_e){ /* si falla, el panel podrá regenerarlo luego */ }
+}
+
 async function descargarPDF(id, btn){
   if(typeof generarJSAPDF!=='function'){ toast('⚠️ El generador de PDF aún no cargó, reintenta.'); return; }
   const txt = btn ? btn.textContent : null;

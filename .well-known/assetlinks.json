@@ -1,8 +1,18 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "io.github.spie1111.twa",
-        "sha256_cert_fingerprints": ["2C:69:2E:BB:18:9A:BF:1D:BF:B7:01:34:23:D6:B2:06:25:D0:59:70:57:25:53:0B:E6:40:75:37:2F:F4:C7:D9"]
-      }
-    }]
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.spie1111.twa",
+      "sha256_cert_fingerprints": ["2C:69:2E:BB:18:9A:BF:1D:BF:B7:01:34:23:D6:B2:06:25:D0:59:70:57:25:53:0B:E6:40:75:37:2F:F4:C7:D9"]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.spie1111.jsa",
+      "sha256_cert_fingerprints": ["37:E2:A4:CD:35:01:F6:C0:83:B4:BA:FB:C2:AD:32:45:E7:C3:8B:D6:55:99:05:3D:AE:FD:EF:F5:75:CB:E3:9D"]
+    }
+  }
+]

@@ -296,7 +296,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
       <h1>PIN de supervisor</h1>
       <div class="sub" id="pin-sub">Hola <span id="pin-nombre"></span>. Ingresa tu PIN de 4 dígitos para aprobar JSA.</div>
       <label for="l-pin">PIN</label>
-      <input id="l-pin" type="tel" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" style="letter-spacing:10px;font-size:22px;text-align:center" oninput="pinInput()"/>
+      <input id="l-pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" style="letter-spacing:10px;font-size:22px;text-align:center" oninput="pinInput()"/>
       <div id="pin-err" class="err"></div>
       <button class="btn" id="pin-btn" onclick="verificarPIN()" disabled>Entrar</button>
       <button class="btn ghost" onclick="doSalir()">Cancelar</button>

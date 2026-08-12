@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<meta name="referrer" content="no-referrer"/>
+<title>JSA · SPIE</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#0f1e5a"/>
+<link rel="apple-touch-icon" href="../icon-192.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<script>
+  // Service worker propio de la app JSA (alcance /jsa/)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW no registrado:', e));
+    });
+  }
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+/* ── RESET ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+/* ── VARIABLES (mismas del sistema HSE) ── */
+:root{
+  --navy:#0f1e5a;
+  --cyan:#00A8E8;
+  --cyan2:#0090cc;
+  --white:#ffffff;
+  --card:#ffffff;
+  --border:#d0d8e8;
+  --text:#0a1540;
+  --text2:#5a6680;
+  --text3:#8a96b0;
+  --red:#e53535;
+  --amber:#f5a623;
+  --green:#27ae60;
+  --r:16px;
+  --rs:10px;
+  --font:'Jost',sans-serif;
+  --shadow:0 6px 28px rgba(0,0,0,0.16);
+}
+
+html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;background:#0d1f4e;min-height:100vh;color:var(--text)}
+
+.app-bg{
+  min-height:100vh;position:relative;
+  background:linear-gradient(160deg,#0d1f4e 0%,#0f1e5a 45%,#123070 100%);
+}
+
+/* ── VISTAS ── */
+.view{display:none;min-height:100vh;padding:20px;position:relative;z-index:1}
+.view.active{display:flex;flex-direction:column;align-items:center}
+
+/* ── TARJETA ── */
+.card{
+  background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);
+  padding:26px 22px;width:100%;max-width:520px;
+}
+
+/* ── ENCABEZADO ── */
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.brand img{height:34px}
+.brand .t{font-weight:800;font-size:20px;letter-spacing:.5px}
+.brand .s{font-size:12.5px;color:var(--text2);line-height:1.3}
+
+h1{font-size:19px;font-weight:700;margin-bottom:4px}
+h2{font-size:16.5px;font-weight:700;margin-bottom:2px}
+.sub{font-size:13.5px;color:var(--text2);margin-bottom:18px}
+
+/* ── CAMPOS ── */
+label{display:block;font-size:13px;font-weight:600;color:var(--text2);margin:14px 0 5px}
+input[type=text],input[type=tel],input[type=date],input[type=time],select,textarea{
+  width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--rs);
+  font-family:var(--font);font-size:16px;outline:none;transition:border-color .15s;
+  background:#fff;color:var(--text);
+}
+textarea{resize:vertical;min-height:74px}
+input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
+.req::after{content:' *';color:var(--red)}
+
+/* ── BOTONES ── */
+.btn{
+  display:block;width:100%;padding:13px;border:none;border-radius:var(--rs);
+  background:linear-gradient(135deg,var(--cyan),var(--cyan2));color:#fff;
+  font-family:var(--font);font-size:16px;font-weight:700;cursor:pointer;
+  margin-top:18px;transition:opacity .15s;
+}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:none;border:1.5px solid var(--border);color:var(--text2);font-weight:600}
+.btn.sm{width:auto;padding:8px 16px;font-size:14px;margin-top:0;display:inline-block}
+.btn.danger{background:none;border:1.5px solid #f2b8b8;color:var(--red)}
+
+/* ── VERIFICACIÓN DE EMPLEADO ── */
+.vwrap{display:none;margin-top:10px;padding:10px 12px;border-radius:var(--rs);background:#eef7ee;border:1px solid #bfe3c5}
+.vwrap .n{font-weight:700;color:#1c7a34}
+.vwrap .d{font-size:13px;color:var(--text2)}
+.err{display:none;margin-top:10px;padding:10px 12px;border-radius:var(--rs);background:#fdeaea;border:1px solid #f2b8b8;color:var(--red);font-size:13.5px}
+.err.show,.vwrap.show{display:block}
+
+/* ── HOME ── */
+.home-head{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;color:#fff}
+.home-head .hola{font-size:17px;font-weight:700}
+.home-head .np{font-size:12.5px;opacity:.75}
+.link-out{background:none;border:none;color:#9fd8ff;font-family:var(--font);font-size:13px;cursor:pointer;text-decoration:underline}
+
+.menu{width:100%;max-width:520px;display:flex;flex-direction:column;gap:12px}
+.menu-btn{
+  display:flex;align-items:center;gap:14px;background:var(--card);border:none;
+  border-radius:var(--r);box-shadow:var(--shadow);padding:18px;cursor:pointer;
+  font-family:var(--font);text-align:left;transition:transform .1s;width:100%;
+}
+.menu-btn:active{transform:scale(.985)}
+.menu-btn .ic{font-size:26px}
+.menu-btn .tt{font-size:16px;font-weight:700;color:var(--text)}
+.menu-btn .dd{font-size:12.5px;color:var(--text2);line-height:1.35}
+.badge{margin-left:auto;background:var(--amber);color:#fff;font-size:12px;font-weight:700;border-radius:20px;padding:2px 9px;display:none;white-space:nowrap}
+.badge.show{display:inline-block}
+
+/* ── INDICADOR OFFLINE ── */
+.offline-bar{
+  display:none;width:100%;max-width:520px;margin-bottom:12px;
+  background:#3b2a06;color:#ffd27a;border:1px solid #7a5a10;border-radius:var(--rs);
+  padding:8px 12px;font-size:13px;text-align:center;
+}
+.offline-bar.show{display:block}
+
+/* ── WIZARD ── */
+.wiz-head{width:100%;max-width:520px;display:flex;align-items:center;gap:10px;color:#fff;margin-bottom:10px}
+.wiz-head .back{background:none;border:none;color:#9fd8ff;font-size:22px;cursor:pointer;line-height:1;padding:4px 8px}
+.wiz-head .wt{font-weight:700;font-size:16px}
+.wiz-head .ws{font-size:12px;opacity:.75}
+.progress{width:100%;max-width:520px;height:6px;background:rgba(255,255,255,.18);border-radius:6px;margin-bottom:14px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--cyan);border-radius:6px;transition:width .25s}
+.step{display:none}
+.step.active{display:block}
+.wiz-nav{display:flex;gap:10px;margin-top:20px}
+.wiz-nav .btn{margin-top:0}
+
+/* ── RIESGOS / EPP ── */
+.cat{border:1.5px solid var(--border);border-radius:var(--rs);margin-top:12px;overflow:hidden}
+.cat-h{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:11px 14px;background:#f2f6fc;cursor:pointer;user-select:none;
+}
+.cat-h .cn{font-weight:700;font-size:14.5px}
+.cat-h .cc{font-size:12px;color:#fff;background:var(--cyan);border-radius:20px;padding:1px 8px;display:none}
+.cat-h .cc.show{display:inline-block}
+.cat-h .ar{color:var(--text3);transition:transform .2s}
+.cat.open .cat-h .ar{transform:rotate(180deg)}
+.cat-b{display:none;padding:6px 14px 12px}
+.cat.open .cat-b{display:block}
+.chk{display:flex;align-items:flex-start;gap:10px;padding:7px 0;cursor:pointer;font-size:14.5px;line-height:1.45}
+.chk input{width:19px;height:19px;margin-top:2px;accent-color:var(--cyan);flex:none}
+.otro-inp{margin:4px 0 6px 29px;display:none}
+.otro-inp.show{display:block}
+.otro-inp input{padding:8px 12px;font-size:14px}
+
+/* ── ACTIVIDADES ── */
+.act{border:1.5px solid var(--border);border-radius:var(--rs);padding:12px 14px;margin-top:12px;position:relative}
+.act .no{position:absolute;top:-10px;left:12px;background:var(--navy);color:#fff;font-size:12px;font-weight:700;border-radius:20px;padding:0 9px}
+.act .del{position:absolute;top:-10px;right:10px;background:#fff;border:1.5px solid #f2b8b8;color:var(--red);border-radius:20px;font-size:11px;padding:0 8px;cursor:pointer;font-family:var(--font)}
+.act label{margin-top:8px}
+.act label:first-of-type{margin-top:2px}
+
+/* ── CUADRILLA ── */
+.crew-row{
+  display:flex;align-items:center;gap:8px;border:1.5px solid var(--border);
+  border-radius:var(--rs);padding:10px 12px;margin-top:10px;flex-wrap:wrap;
+}
+.crew-row .ci{flex:1 1 55%;min-width:0}
+.crew-row .cn{font-weight:700;font-size:14.5px;line-height:1.3}
+.crew-row .cd{font-size:12.5px;color:var(--text2)}
+.crew-row .tag{font-size:11px;background:#eef2fa;color:var(--text2);border-radius:6px;padding:1px 6px}
+.sig-ok{color:var(--green);font-weight:700;font-size:13px;white-space:nowrap}
+.sig-btn{background:none;border:1.5px solid var(--cyan);color:var(--cyan2);border-radius:8px;padding:6px 12px;font-family:var(--font);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap}
+.crew-x{background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:2px 6px}
+.addrow{display:flex;gap:8px;margin-top:12px}
+.addrow input{flex:1}
+.addrow .btn{width:auto;margin-top:0;padding:12px 18px}
+
+.decl{
+  background:#f7f9fd;border:1.5px solid var(--border);border-radius:var(--rs);
+  padding:12px 14px;font-size:13px;color:var(--text2);line-height:1.55;margin-top:14px;font-style:italic;
+}
+
+/* ── RESUMEN ── */
+.sum{border-left:3px solid var(--cyan);padding:2px 0 2px 12px;margin-top:12px}
+.sum .sl{font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
+.sum .sv{font-size:14.5px}
+
+/* ── MODAL FIRMA ── */
+.modal{display:none;position:fixed;inset:0;background:rgba(8,14,40,.75);z-index:50;align-items:center;justify-content:center;padding:16px}
+.modal.show{display:flex}
+.modal .card{max-width:520px}
+#sig-canvas{width:100%;height:260px;border:1.5px dashed var(--border);border-radius:var(--rs);touch-action:none;background:#fff;display:block}
+.sig-hint{text-align:center;font-size:12.5px;color:var(--text3);margin-top:6px}
+
+/* ── LISTA MIS JSA ── */
+.jsa-item{
+  width:100%;background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);
+  padding:14px 16px;margin-top:12px;border:none;font-family:var(--font);text-align:left;cursor:default;
+}
+.jsa-item .fr{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.jsa-item .folio{font-weight:800;font-size:15px}
+.jsa-item .desc{font-size:13.5px;color:var(--text2);margin-top:2px;line-height:1.4}
+.jsa-item .meta{font-size:12px;color:var(--text3);margin-top:4px}
+.est{font-size:12px;font-weight:700;border-radius:20px;padding:2px 10px;white-space:nowrap}
+.est.enviado{background:#fff4dd;color:#a06b00}
+.est.aprobado{background:#e5f7ea;color:#1c7a34}
+.est.rechazado{background:#fdeaea;color:var(--red)}
+.est.pendiente{background:#eef2fa;color:var(--text2)}
+
+/* ── TOAST ── */
+#toast{
+  display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:#0a1540;color:#fff;border-radius:12px;padding:12px 20px;font-size:14px;
+  box-shadow:var(--shadow);z-index:99;max-width:90vw;text-align:center;
+}
+#toast.show{display:block}
+
+/* ── ÉXITO ── */
+.ok-big{font-size:52px;text-align:center;margin:10px 0}
+.folio-big{text-align:center;font-size:26px;font-weight:800;letter-spacing:1px;color:var(--navy)}
+
+.foot{margin-top:22px;font-size:11.5px;color:rgba(255,255,255,.45);text-align:center}
+.mt0{margin-top:0}
+
+/* ── CAMPANITA ── */
+.bell{position:relative;background:none;border:none;font-size:20px;cursor:pointer;line-height:1;padding:2px}
+.bell-dot{position:absolute;top:-2px;right:-2px;width:10px;height:10px;background:var(--red);border-radius:50%;border:2px solid #0f1e5a;display:none}
+.bell-dot.show{display:block}
+
+/* ── DETALLE JSA ── */
+.det-sec{margin-top:16px}
+.det-sec h3{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--navy);border-bottom:2px solid #eef2fa;padding-bottom:5px;margin-bottom:8px}
+.det-kv{font-size:14px;margin:3px 0}
+.det-kv b{color:var(--text2);font-weight:600}
+.det-act{border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:7px;font-size:13.5px}
+.det-act .an{font-weight:700;color:var(--navy)}
+.det-chip{display:inline-block;background:#eef2fa;border-radius:6px;padding:2px 9px;font-size:13px;margin:3px 4px 0 0}
+.det-crew{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:7px}
+.det-crew img{width:70px;height:38px;object-fit:contain;border:1px solid #eef2fa;border-radius:5px;background:#fff}
+.det-crew .dn{font-weight:600;font-size:14px}
+.det-crew .dp{font-size:12px;color:var(--text2)}
+.notif-item{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:12px 14px;margin-top:10px;font-size:14px}
+.notif-item.unread{border-left:3px solid var(--cyan)}
+.notif-item .nt{font-size:12px;color:var(--text3);margin-top:3px}
+</style>
+</head>
+<body>
+<div class="app-bg">
+
+  <!-- ════════ VISTA: LOGIN (nómina — se pide siempre) ════════ -->
+  <div id="v-login" class="view active">
+    <div class="card" style="margin-top:6vh">
+      <div class="brand">
+        <img src="../spie-logo.png" alt="SPIE"/>
+        <div>
+          <div class="t">JSA</div>
+          <div class="s">Análisis de Seguridad en el Trabajo</div>
+        </div>
+      </div>
+      <h1>Identifícate</h1>
+      <div class="sub">Escribe tu número de nómina para comenzar.</div>
+
+      <label for="l-nomina">Número de nómina</label>
+      <input id="l-nomina" type="tel" inputmode="numeric" autocomplete="off" placeholder="Ej. 12345" oninput="loginNominaInput()"/>
+
+      <div id="l-verif" class="vwrap">
+        <div class="n" id="l-emp-nombre"></div>
+        <div class="d" id="l-emp-detalle"></div>
+      </div>
+      <div id="login-err" class="err"></div>
+
+      <button class="btn" id="l-btn" onclick="doEntrar()" disabled>Entrar</button>
+    </div>
+    <div class="foot">SPIE · HSE · v0.2</div>
+  </div>
+
+  <!-- ════════ VISTA: HOME ════════ -->
+  <div id="v-home" class="view">
+    <div class="home-head">
+      <div>
+        <div class="hola" id="h-nombre">—</div>
+        <div class="np" id="h-detalle">—</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="bell" id="bell-btn" onclick="verNotifs()" title="Notificaciones">🔔<span class="bell-dot" id="bell-dot"></span></button>
+        <button class="link-out" onclick="doSalir()">Salir</button>
+      </div>
+    </div>
+
+    <div id="off-home" class="offline-bar">📴 Sin conexión — puedes trabajar; se sincroniza al volver la señal.</div>
+
+    <div class="menu">
+      <button class="menu-btn" id="mb-aprob" onclick="verAprobaciones()" style="display:none">
+        <span class="ic">✅</span>
+        <span>
+          <span class="tt">Aprobaciones</span><br/>
+          <span class="dd">JSA de tus sitios que esperan tu revisión y firma.</span>
+        </span>
+        <span class="badge" id="badge-aprob"></span>
+      </button>
+      <button class="menu-btn" onclick="nuevoJSA()">
+        <span class="ic">📝</span>
+        <span>
+          <span class="tt">Nuevo JSA</span><br/>
+          <span class="dd">Llenar el análisis de seguridad del trabajo de hoy con tu equipo.</span>
+        </span>
+        <span class="badge" id="badge-draft">borrador</span>
+      </button>
+      <button class="menu-btn" onclick="verMisJSA()">
+        <span class="ic">📋</span>
+        <span>
+          <span class="tt">Mis JSA</span><br/>
+          <span class="dd">Consulta tus JSA enviados y su estado de aprobación.</span>
+        </span>
+        <span class="badge" id="badge-pend"></span>
+      </button>
+    </div>
+    <button class="btn ghost" id="push-btn" style="max-width:520px;display:none;margin-top:14px" onclick="activarPush()">🔔 Activar avisos en este celular</button>
+
+    <div class="foot">SPIE · HSE · v0.2</div>
+  </div>
+
+  <!-- ════════ VISTA: WIZARD JSA ════════ -->
+  <div id="v-jsa" class="view">
+    <div class="wiz-head">
+      <button class="back" onclick="salirWizard()">‹</button>
+      <div>
+        <div class="wt">Nuevo JSA</div>
+        <div class="ws" id="wiz-sub">Paso 1 de 7</div>
+      </div>
+    </div>
+    <div class="progress"><i id="wiz-bar" style="width:14%"></i></div>
+
+    <div class="card">
+
+      <!-- PASO 1 · Datos generales -->
+      <div class="step active" id="st-1">
+        <h2>Datos generales</h2>
+        <div class="sub mt0">Información del trabajo por realizar.</div>
+
+        <label class="req">Sitio / Parque</label>
+        <select id="f-site" onchange="D.site_id=this.value;D.site_name=this.options[this.selectedIndex]?.text||''"></select>
+        <div id="site-err" class="err">No se pudo cargar el catálogo de sitios. Conéctate una vez para descargarlo.</div>
+
+        <div style="display:flex;gap:10px">
+          <div style="flex:1">
+            <label class="req">Fecha</label>
+            <input id="f-date" type="date"/>
+          </div>
+          <div style="flex:1">
+            <label class="req">Hora</label>
+            <input id="f-time" type="time"/>
+          </div>
+        </div>
+
+        <label class="req">Trabajo por realizar</label>
+        <textarea id="f-desc" placeholder="Describe el trabajo que se realizará…"></textarea>
+
+        <label>Permiso de trabajo</label>
+        <input id="f-permit" type="text" placeholder="No. de permiso (si aplica)"/>
+
+        <label>Proyecto / Instalación</label>
+        <input id="f-project" type="text" placeholder="Nombre del proyecto o instalación"/>
+
+        <label>Área donde se realiza la tarea</label>
+        <input id="f-area" type="text" placeholder="Área o ubicación específica"/>
+      </div>
+
+      <!-- PASO 2 · Riesgos generales -->
+      <div class="step" id="st-2">
+        <h2>1. Riesgos generales y potenciales</h2>
+        <div class="sub mt0">Marca los riesgos asociados a la tarea (al menos uno).</div>
+        <div id="riesgos-wrap"></div>
+
+        <label>Si detectaste algún riesgo extra a la actividad, descríbelo</label>
+        <textarea id="f-extra-risk" placeholder="Riesgo adicional no listado…"></textarea>
+      </div>
+
+      <!-- PASO 3 · Zona de trabajo -->
+      <div class="step" id="st-3">
+        <h2>2. Zona de trabajo previo al inicio</h2>
+        <div class="sub mt0">Antes de iniciar actividades.</div>
+
+        <label class="req">Condiciones del área donde se desarrollará la actividad</label>
+        <textarea id="f-conds" placeholder="Describe las condiciones del área…"></textarea>
+
+        <h2 style="margin-top:20px">3. ¿Has identificado riesgos distintos a la jornada anterior?</h2>
+        <label class="chk" style="margin-top:8px"><input type="radio" name="f-dr" value="SI" onchange="drChange()"/> Sí</label>
+        <label class="chk"><input type="radio" name="f-dr" value="NO" onchange="drChange()"/> No</label>
+        <label class="chk"><input type="radio" name="f-dr" value="NA" onchange="drChange()"/> No aplica</label>
+        <div id="dr-detail-wrap" style="display:none">
+          <label class="req">¿Cuáles?</label>
+          <textarea id="f-dr-detail" placeholder="Describe los riesgos distintos…"></textarea>
+        </div>
+      </div>
+
+      <!-- PASO 4 · Barreras de protección -->
+      <div class="step" id="st-4">
+        <h2>4. Barreras de protección</h2>
+        <div class="sub mt0">Equipos de protección personal y colectiva (al menos uno).</div>
+        <div id="epp-wrap"></div>
+      </div>
+
+      <!-- PASO 5 · Actividades -->
+      <div class="step" id="st-5">
+        <h2>5. Listado de actividades a realizar</h2>
+        <div class="sub mt0">Tarea, riesgos identificados y medidas de control (máx. 20).</div>
+        <div id="acts-wrap"></div>
+        <button class="btn ghost" onclick="addAct(false)">＋ Agregar actividad</button>
+
+        <h2 style="margin-top:24px">Riesgos identificados durante la ejecución</h2>
+        <div class="sub mt0">Solo si surgen al ejecutar la tarea. Puedes dejarlo vacío al inicio.</div>
+        <div id="acts-exec-wrap"></div>
+        <button class="btn ghost" onclick="addAct(true)">＋ Agregar (durante ejecución)</button>
+      </div>
+
+      <!-- PASO 6 · Cuadrilla -->
+      <div class="step" id="st-6">
+        <h2>6. Lista del personal involucrado</h2>
+        <div class="sub mt0">Agrega a tus compañeros por número de nómina. Cada integrante debe firmar.</div>
+
+        <div id="crew-wrap"></div>
+
+        <div class="addrow">
+          <input id="crew-nomina" type="tel" inputmode="numeric" placeholder="Nómina del compañero" autocomplete="off"/>
+          <button class="btn" onclick="addCrew()">Agregar</button>
+        </div>
+        <div id="crew-err" class="err"></div>
+        <div id="crew-manual" style="display:none">
+          <label>No se encontró en línea. Escribe el nombre completo para agregarlo manualmente:</label>
+          <div class="addrow">
+            <input id="crew-nombre-manual" type="text" placeholder="Nombre completo"/>
+            <button class="btn" onclick="addCrewManual()">OK</button>
+          </div>
+        </div>
+
+        <div class="decl" id="decl-text">
+          “Entiendo y cumpliré los pasos, peligros y controles descritos en este AST. Entiendo que realizar un trabajo que no sea como se describe o fuera de secuencia puede representar una amenaza significativa y, por lo tanto, realizar el trabajo de esta manera no está autorizado. Me pondré en contacto con mi supervisor antes de continuar con el trabajo, si el alcance del trabajo cambia o se introducen nuevos peligros. Entiendo que tengo la autoridad y la obligación de detener el trabajo que considero inseguro.”
+        </div>
+        <label class="chk" style="margin-top:10px">
+          <input type="checkbox" id="f-decl" onchange="D.crew_declaration_accepted=this.checked"/>
+          Todo el equipo leyó y acepta la declaración anterior.
+        </label>
+      </div>
+
+      <!-- PASO 7 · Revisión y envío -->
+      <div class="step" id="st-7">
+        <h2>Revisión y envío</h2>
+        <div class="sub mt0">Verifica la información antes de enviar a aprobación.</div>
+        <div id="resumen"></div>
+        <div id="send-err" class="err"></div>
+      </div>
+
+      <!-- ÉXITO -->
+      <div class="step" id="st-ok">
+        <div class="ok-big">✅</div>
+        <h2 style="text-align:center" id="ok-title">JSA enviado</h2>
+        <div class="folio-big" id="ok-folio"></div>
+        <div class="sub" style="text-align:center;margin-top:8px" id="ok-msg"></div>
+        <button class="btn" onclick="salirWizardOk()">Volver al inicio</button>
+      </div>
+
+      <!-- Navegación -->
+      <div class="wiz-nav" id="wiz-nav">
+        <button class="btn ghost" id="btn-prev" onclick="wizPrev()">Atrás</button>
+        <button class="btn" id="btn-next" onclick="wizNext()">Siguiente</button>
+      </div>
+    </div>
+    <div class="foot">Tu avance se guarda automáticamente en este dispositivo.</div>
+  </div>
+
+  <!-- ════════ VISTA: APROBACIONES (supervisor) ════════ -->
+  <div id="v-aprob" class="view">
+    <div class="wiz-head">
+      <button class="back" onclick="showView('v-home')">‹</button>
+      <div><div class="wt">Aprobaciones pendientes</div><div class="ws" id="aprob-sub"></div></div>
+    </div>
+    <div id="off-aprob" class="offline-bar">📴 Sin conexión — necesitas señal para revisar y aprobar.</div>
+    <div style="width:100%;max-width:520px" id="aprob-wrap"></div>
+    <div class="foot">SPIE · HSE · v0.2</div>
+  </div>
+
+  <!-- ════════ VISTA: DETALLE JSA (revisar/aprobar) ════════ -->
+  <div id="v-detalle" class="view">
+    <div class="wiz-head">
+      <button class="back" id="det-back" onclick="showView('v-aprob')">‹</button>
+      <div><div class="wt" id="det-folio">JSA</div><div class="ws" id="det-site"></div></div>
+    </div>
+    <div class="card" style="max-width:560px">
+      <div id="det-body"></div>
+      <div id="det-actions" style="display:none">
+        <label class="chk" style="margin-top:16px">
+          <input type="checkbox" id="det-authcheck"/>
+          He revisado la actividad, los pasos, riesgos y controles con todos los trabajadores; son competentes y aptos para el trabajo, y los autorizo a realizarlo.
+        </label>
+        <label>Comentario (opcional / motivo si rechazas)</label>
+        <textarea id="det-comment" placeholder="Observaciones…"></textarea>
+        <div id="det-err" class="err"></div>
+        <div class="wiz-nav">
+          <button class="btn danger" style="width:auto;padding:13px 18px" onclick="decidir('rechazado')">Rechazar</button>
+          <button class="btn" onclick="decidir('aprobado')">✔ Aprobar y firmar</button>
+        </div>
+      </div>
+    </div>
+    <div class="foot">SPIE · HSE · v0.2</div>
+  </div>
+
+  <!-- ════════ VISTA: NOTIFICACIONES ════════ -->
+  <div id="v-notifs" class="view">
+    <div class="wiz-head">
+      <button class="back" onclick="showView('v-home')">‹</button>
+      <div><div class="wt">Notificaciones</div></div>
+    </div>
+    <div style="width:100%;max-width:520px" id="notifs-wrap"></div>
+    <div class="foot">SPIE · HSE · v0.2</div>
+  </div>
+
+  <!-- ════════ VISTA: MIS JSA ════════ -->
+  <div id="v-misjsa" class="view">
+    <div class="wiz-head">
+      <button class="back" onclick="showView('v-home')">‹</button>
+      <div><div class="wt">Mis JSA</div></div>
+    </div>
+    <div id="off-list" class="offline-bar">📴 Sin conexión — mostrando lo guardado en este dispositivo.</div>
+    <div style="width:100%;max-width:520px" id="misjsa-wrap"></div>
+    <div class="foot">SPIE · HSE · v0.2</div>
+  </div>
+
+</div>
+
+<!-- ════════ MODAL FIRMA ════════ -->
+<div class="modal" id="sig-modal">
+  <div class="card">
+    <h2 id="sig-title">Firma</h2>
+    <div class="sub mt0" id="sig-sub">Firma con el dedo dentro del recuadro.</div>
+    <canvas id="sig-canvas"></canvas>
+    <div class="sig-hint">Firma dentro del recuadro</div>
+    <div class="wiz-nav">
+      <button class="btn ghost" onclick="sigClear()">Borrar</button>
+      <button class="btn danger" style="width:auto;padding:13px 16px" onclick="sigCancel()">Cancelar</button>
+      <button class="btn" onclick="sigSave()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════
+// CONFIG — mismo Supabase del sistema HSE
+// ════════════════════════════════════════════
+const SUPABASE_URL = "https://lzvkrechpvxuaczvhfwh.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6dmtyZWNocHZ4dWFjenZoZndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3OTA1NzMsImV4cCI6MjA5NzM2NjU3M30.qLxLeMl7vVusb1jC4R_nQWYxdRWSB9GK-xcvbGAo-oA"; // pública: RLS protege las tablas
+
+// Clave pública VAPID para push. Pega aquí la MISMA clave pública que pongas
+// como secret VAPID_PUBLIC_KEY en la Edge Function. Déjala vacía para desactivar push.
+const VAPID_PUBLIC_KEY = "BNM3S7smQNNZo6x26s6Kgo4U_WTu2_blsBL2ajto1NifpiXD5-VnmPOjBQwBfTAufhlGRnYNmBHK5iiMozYi-Eo";
+
+async function api(action, body){
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/jsa-api`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
+    body:JSON.stringify({action,...body})
+  });
+  const data = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(data.error||('Error '+r.status));
+  return data;
+}
+
+// ════════════════════════════════════════════
+// CATÁLOGOS (del formato oficial JSA)
+// ════════════════════════════════════════════
+const RIESGOS = {
+  'Mecánico':['Golpe, contusión','Atrapamiento','Mecanismos en movimiento','Proyección de partículas','Choque (con / contra)','Espacio reducido','Corte por herramienta','Vibraciones','Resbalones, tropiezos'],
+  'Ergonómico':['Sobre esfuerzo (carga)','Diseño inadecuado','Posturas incómodas'],
+  'Ambiental':['Contaminación agua, suelo, aire','Generación de residuos','Derrame de químicos','Emisiones','Ruido'],
+  'Biológico':['Bacterias, virus, hongos','Ofidio (serpiente)','Picadura / Mordedura'],
+  'Químico':['Aerosoles','Vapores / Atmósfera inadecuada','Polvos'],
+  'Físico':['Radiación solar','Frío / Humedad / Calor','Viento alto','Iluminación deficiente','Tormenta eléctrica'],
+  'Eléctrico':['Alta / Media / Baja tensión','Arco eléctrico / Quemaduras','Electricidad estática','Explosión','Incendio'],
+  'Alturas':['Caída al mismo nivel','Caída a distinto nivel','Caída de objetos'],
+  'Locativo':['Derrumbe / Hundimiento','Interferencia con otra tarea','Atropello'],
+  'Flora y Fauna':['Alergias / intoxicación por contacto con plantas','Lesiones por contacto con plantas','Caída de ramas o árboles','Picaduras de fauna nociva y ponzoñosa','Ramas o arbustos que obstruyan la zona de trabajo','Área con mucha vegetación','Terreno irregular (huecos, piedras, desniveles)'],
+};
+const EPP = ['Casco','Gafas de seguridad','Protección auditiva','Equipo de protección respiratoria','Calzado de seguridad','Guantes','Ropa de protección','Equipo LOTO','Bandejas para contención de derrames','Arnés / Cabos con absorbedor de energía','Botiquín PA','Extintores','Puntos fijos / De anclaje','Señalización móvil','Uso de polainas'];
+const MAX_ACTS = 20;
+
+// ════════════════════════════════════════════
+// INDEXEDDB (offline)
+// ════════════════════════════════════════════
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const rq = indexedDB.open('jsa-db',2);
+    rq.onupgradeneeded = ()=>{
+      const db = rq.result;
+      if(!db.objectStoreNames.contains('employees')) db.createObjectStore('employees',{keyPath:'nomina'});
+      if(!db.objectStoreNames.contains('drafts'))    db.createObjectStore('drafts',{keyPath:'id'});
+      if(!db.objectStoreNames.contains('outbox'))    db.createObjectStore('outbox',{keyPath:'id'});
+      if(!db.objectStoreNames.contains('meta'))      db.createObjectStore('meta',{keyPath:'k'});
+    };
+    rq.onsuccess = ()=>res(rq.result);
+    rq.onerror = ()=>rej(rq.error);
+  });
+}
+async function idbPut(store,val){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(store,'readwrite');
+    tx.objectStore(store).put(val);
+    tx.oncomplete = ()=>res();
+    tx.onerror = ()=>rej(tx.error);
+  });
+}
+async function idbGet(store,key){
+  const db = await idbOpen();
+  return new Promise((res)=>{
+    const rq = db.transaction(store,'readonly').objectStore(store).get(key);
+    rq.onsuccess = ()=>res(rq.result||null);
+    rq.onerror  = ()=>res(null);
+  });
+}
+async function idbDel(store,key){
+  const db = await idbOpen();
+  return new Promise((res)=>{
+    const tx = db.transaction(store,'readwrite');
+    tx.objectStore(store).delete(key);
+    tx.oncomplete = ()=>res();
+    tx.onerror = ()=>res();
+  });
+}
+async function idbAll(store){
+  const db = await idbOpen();
+  return new Promise((res)=>{
+    const rq = db.transaction(store,'readonly').objectStore(store).getAll();
+    rq.onsuccess = ()=>res(rq.result||[]);
+    rq.onerror  = ()=>res([]);
+  });
+}
+
+function uuid(){
+  return (crypto.randomUUID) ? crypto.randomUUID() :
+    'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+      const r=Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16);
+    });
+}
+
+function toast(msg,ms=2600){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._tm); t._tm = setTimeout(()=>t.classList.remove('show'),ms);
+}
+
+// ════════════════════════════════════════════
+// SESIÓN — la nómina se pide SIEMPRE al abrir (regla de negocio)
+// ════════════════════════════════════════════
+let SESSION = null;
+let _empValidado = null;
+let _nominaTimer = null;
+
+function loginNominaInput(){
+  const val = (document.getElementById('l-nomina').value||'').trim();
+  const verif = document.getElementById('l-verif');
+  const errEl = document.getElementById('login-err');
+  const btn = document.getElementById('l-btn');
+  _empValidado = null;
+  verif.classList.remove('show');
+  errEl.classList.remove('show');
+  btn.disabled = true;
+  clearTimeout(_nominaTimer);
+  if(!/^\d{3,10}$/.test(val)) return;
+  _nominaTimer = setTimeout(()=>validarNomina(val), 400);
+}
+
+async function validarEmpleado(nomina){
+  // Devuelve {nomina,nombre,pais,parque,_hse} usando la Edge Function existente; null si no existe.
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/validate-employee`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
+    body:JSON.stringify({payroll_no:nomina})
+  });
+  const data = await r.json();
+  if(!r.ok || !data.employee) return null;
+  const e = data.employee;
+  const emp = {
+    nomina:e.payroll_no,
+    nombre:e.employee_name,
+    pais:({MX:'MEXICO',UY:'URUGUAY',RD:'REPUBLICA DOMINICANA',CL:'CHILE'})[e.country_code]||e.country_code,
+    parque:e.office_name||'',
+    _hse:e.hse_name?{nombre:e.hse_name,email:e.hse_email}:null
+  };
+  idbPut('employees',emp).catch(()=>{});
+  return emp;
+}
+
+async function validarNomina(nomina){
+  const errEl = document.getElementById('login-err');
+  try{
+    const emp = await validarEmpleado(nomina);
+    if(!emp){
+      errEl.textContent = 'Empleado no encontrado.';
+      errEl.classList.add('show');
+      return;
+    }
+    _empValidado = emp;
+    pintarVerificado(emp,false);
+  }catch(_err){
+    const cached = await idbGet('employees',nomina);
+    if(cached){
+      _empValidado = cached;
+      pintarVerificado(cached,true);
+    }else{
+      errEl.textContent = 'Sin conexión y esta nómina no se ha usado antes en este dispositivo. Conéctate una vez para habilitarla.';
+      errEl.classList.add('show');
+    }
+  }
+}
+
+function pintarVerificado(emp,offline){
+  document.getElementById('l-emp-nombre').textContent = emp.nombre + (offline?' (sin conexión)':'');
+  document.getElementById('l-emp-detalle').textContent = [emp.parque,emp.pais].filter(Boolean).join(' · ');
+  document.getElementById('l-verif').classList.add('show');
+  document.getElementById('l-btn').disabled = false;
+}
+
+let ME = {is_supervisor:false, sites:[], pending_approvals:0, unread_notifications:0};
+
+async function doEntrar(){
+  if(!_empValidado) return;
+  SESSION = _empValidado;
+  document.getElementById('h-nombre').textContent = 'Hola, ' + SESSION.nombre.split(' ')[0];
+  document.getElementById('h-detalle').textContent = [('Nómina '+SESSION.nomina),SESSION.parque].filter(Boolean).join(' · ');
+  showView('v-home');
+  refreshBadges();
+  cargarSitios().catch(()=>{});   // precargar catálogo para uso offline
+  syncOutbox();                    // reintentar envíos pendientes
+  refreshMe();                     // supervisor / notificaciones
+  ofrecerPush();
+}
+
+async function refreshMe(){
+  try{
+    ME = await api('me',{payroll_no:SESSION.nomina});
+  }catch(_e){ return; }
+  const mb = document.getElementById('mb-aprob');
+  mb.style.display = ME.is_supervisor ? 'flex' : 'none';
+  const ba = document.getElementById('badge-aprob');
+  if(ME.pending_approvals>0){ ba.textContent = ME.pending_approvals+' pendiente(s)'; ba.classList.add('show'); }
+  else ba.classList.remove('show');
+  document.getElementById('bell-dot').classList.toggle('show', (ME.unread_notifications||0)>0);
+}
+
+function doSalir(){
+  SESSION = null;
+  _empValidado = null;
+  document.getElementById('l-nomina').value = '';
+  document.getElementById('l-verif').classList.remove('show');
+  document.getElementById('l-btn').disabled = true;
+  showView('v-login');
+}
+
+// ════════════════════════════════════════════
+// NAVEGACIÓN
+// ════════════════════════════════════════════
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+async function refreshBadges(){
+  const n = (await idbAll('outbox')).length;
+  const b = document.getElementById('badge-pend');
+  if(n>0){ b.textContent = n+' por enviar'; b.classList.add('show'); } else b.classList.remove('show');
+  const drafts = await idbAll('drafts');
+  document.getElementById('badge-draft').classList.toggle('show', drafts.some(d=>d._nomina===SESSION?.nomina));
+}
+
+// ════════════════════════════════════════════
+// SITIOS (catálogo jsa_sites vía jsa-api, con caché offline)
+// ════════════════════════════════════════════
+async function cargarSitios(){
+  try{
+    const d = await api('sites',{});
+    await idbPut('meta',{k:'sites',v:d.sites||[]});
+    return d.sites||[];
+  }catch(_e){
+    const m = await idbGet('meta','sites');
+    return m?m.v:null; // null = nunca descargado
+  }
+}
+
+function pintarSitios(sites){
+  const sel = document.getElementById('f-site');
+  const errEl = document.getElementById('site-err');
+  sel.innerHTML = '<option value="">— Selecciona el sitio —</option>';
+  if(!sites || !sites.length){ errEl.classList.add('show'); return; }
+  errEl.classList.remove('show');
+  // Sitios del país del usuario primero
+  const pais = (SESSION?.pais||'').toUpperCase();
+  const orden = [...sites].sort((a,b)=>{
+    const am = (a.country||'').toUpperCase()===pais?0:1;
+    const bm = (b.country||'').toUpperCase()===pais?0:1;
+    return am-bm || (a.country||'').localeCompare(b.country||'') || (a.site||'').localeCompare(b.site||'');
+  });
+  let lastCountry = null, og = null;
+  orden.forEach(s=>{
+    if(s.country!==lastCountry){
+      og = document.createElement('optgroup'); og.label = s.country; sel.appendChild(og);
+      lastCountry = s.country;
+    }
+    const o = document.createElement('option');
+    o.value = s.id; o.textContent = s.site;
+    og.appendChild(o);
+  });
+  if(D.site_id) sel.value = D.site_id;
+}
+
+// ════════════════════════════════════════════
+// WIZARD JSA
+// ════════════════════════════════════════════
+let D = null;        // borrador actual
+let wizStep = 1;
+const TOTAL_STEPS = 7;
+
+function draftNuevo(){
+  const now = new Date();
+  return {
+    id: uuid(),
+    _nomina: SESSION.nomina,           // dueño del borrador en este dispositivo
+    site_id:'', site_name:'',
+    work_date: now.toISOString().slice(0,10),
+    work_time: now.toTimeString().slice(0,5),
+    work_permit:'', work_description:'', project:'', work_area:'',
+    risks:{},                          // {categoria:[riesgo,...]}
+    risk_other:{},                     // {categoria:'texto otro'}
+    extra_risk:'',
+    area_conditions:'',
+    distinct_risks:'', distinct_risks_detail:'',
+    epp:[], epp_other:'',
+    activities:[{task:'',risk:'',control:''}],
+    exec_activities:[],
+    crew:[{payroll_no:SESSION.nomina, employee_name:SESSION.nombre, sig:null, _creator:true}],
+    crew_declaration_accepted:false,
+  };
+}
+
+async function nuevoJSA(){
+  const drafts = (await idbAll('drafts')).filter(d=>d._nomina===SESSION.nomina);
+  if(drafts.length){
+    if(confirm('Tienes un JSA sin terminar. ¿Quieres continuarlo?\n(Aceptar = continuar · Cancelar = empezar uno nuevo)')){
+      D = drafts.sort((a,b)=>(b._ts||0)-(a._ts||0))[0];
+    }else{
+      for(const d of drafts) await idbDel('drafts',d.id);
+      D = draftNuevo();
+    }
+  }else{
+    D = draftNuevo();
+  }
+  wizStep = 1;
+  initWizardUI();
+  showView('v-jsa');
+  const sites = await cargarSitios();
+  pintarSitios(sites);
+}
+
+function initWizardUI(){
+  // Paso 1
+  document.getElementById('f-date').value = D.work_date;
+  document.getElementById('f-time').value = D.work_time;
+  document.getElementById('f-desc').value = D.work_description;
+  document.getElementById('f-permit').value = D.work_permit;
+  document.getElementById('f-project').value = D.project;
+  document.getElementById('f-area').value = D.work_area;
+  // Paso 2
+  renderRiesgos();
+  document.getElementById('f-extra-risk').value = D.extra_risk;
+  // Paso 3
+  document.getElementById('f-conds').value = D.area_conditions;
+  document.querySelectorAll('input[name=f-dr]').forEach(r=>r.checked = (r.value===D.distinct_risks));
+  document.getElementById('f-dr-detail').value = D.distinct_risks_detail;
+  drChange(true);
+  // Paso 4
+  renderEPP();
+  // Paso 5
+  renderActs();
+  // Paso 6
+  renderCrew();
+  document.getElementById('f-decl').checked = D.crew_declaration_accepted;
+  document.getElementById('crew-err').classList.remove('show');
+  document.getElementById('crew-manual').style.display = 'none';
+  // Navegación
+  document.getElementById('send-err').classList.remove('show');
+  gotoStep(wizStep);
+}
+
+function gotoStep(n){
+  wizStep = n;
+  document.querySelectorAll('#v-jsa .step').forEach(s=>s.classList.remove('active'));
+  document.getElementById(n==='ok'?'st-ok':('st-'+n)).classList.add('active');
+  const nav = document.getElementById('wiz-nav');
+  if(n==='ok'){ nav.style.display='none'; document.getElementById('wiz-sub').textContent='Completado'; document.getElementById('wiz-bar').style.width='100%'; return; }
+  nav.style.display='flex';
+  document.getElementById('wiz-sub').textContent = `Paso ${n} de ${TOTAL_STEPS}`;
+  document.getElementById('wiz-bar').style.width = Math.round(n/TOTAL_STEPS*100)+'%';
+  document.getElementById('btn-prev').style.visibility = n===1?'hidden':'visible';
+  document.getElementById('btn-next').textContent = n===TOTAL_STEPS ? '📤 Enviar JSA' : 'Siguiente';
+  if(n===7) renderResumen();
+  window.scrollTo(0,0);
+}
+
+function leerPaso(n){
+  if(n===1){
+    D.work_date = document.getElementById('f-date').value;
+    D.work_time = document.getElementById('f-time').value;
+    D.work_description = document.getElementById('f-desc').value.trim();
+    D.work_permit = document.getElementById('f-permit').value.trim();
+    D.project = document.getElementById('f-project').value.trim();
+    D.work_area = document.getElementById('f-area').value.trim();
+  }
+  if(n===2){ D.extra_risk = document.getElementById('f-extra-risk').value.trim(); }
+  if(n===3){
+    D.area_conditions = document.getElementById('f-conds').value.trim();
+    D.distinct_risks_detail = document.getElementById('f-dr-detail').value.trim();
+  }
+  if(n===5){ leerActs(); }
+}
+
+function validarPaso(n){
+  if(n===1){
+    if(!D.site_id) return 'Selecciona el sitio.';
+    if(!D.work_date) return 'Indica la fecha.';
+    if(!D.work_time) return 'Indica la hora.';
+    if(!D.work_description) return 'Describe el trabajo por realizar.';
+  }
+  if(n===2){
+    const total = Object.values(D.risks).reduce((a,arr)=>a+arr.length,0);
+    if(total===0) return 'Marca al menos un riesgo asociado a la tarea.';
+  }
+  if(n===3){
+    if(!D.area_conditions) return 'Describe las condiciones del área.';
+    if(!D.distinct_risks) return 'Indica si identificaste riesgos distintos a la jornada anterior.';
+    if(D.distinct_risks==='SI' && !D.distinct_risks_detail) return 'Describe cuáles riesgos distintos identificaste.';
+  }
+  if(n===4){
+    if(D.epp.length===0) return 'Marca al menos un equipo de protección.';
+    if(D.epp.includes('Otro') && !D.epp_other) return 'Describe el otro equipo de protección.';
+  }
+  if(n===5){
+    const llenas = D.activities.filter(a=>a.task);
+    if(llenas.length===0) return 'Agrega al menos una actividad con su tarea.';
+    const inc = D.activities.find(a=>a.task && (!a.risk || !a.control));
+    if(inc) return 'Cada actividad necesita riesgos identificados y medidas de control.';
+  }
+  if(n===6){
+    if(D.crew.length===0) return 'Agrega al menos una persona.';
+    const sinFirma = D.crew.filter(c=>!c.sig);
+    if(sinFirma.length) return 'Falta la firma de: '+sinFirma.map(c=>c.employee_name.split(' ')[0]).join(', ')+'.';
+    if(!D.crew_declaration_accepted) return 'Debes aceptar la declaración del equipo.';
+  }
+  return null;
+}
+
+async function wizNext(){
+  leerPaso(wizStep);
+  const err = validarPaso(wizStep);
+  if(err){ toast('⚠️ '+err); return; }
+  await guardarBorrador();
+  if(wizStep===TOTAL_STEPS){ enviarJSA(); return; }
+  gotoStep(wizStep+1);
+}
+
+function wizPrev(){
+  leerPaso(wizStep);
+  guardarBorrador();
+  if(wizStep>1) gotoStep(wizStep-1);
+}
+
+async function guardarBorrador(){
+  if(!D) return;
+  D._ts = Date.now();
+  await idbPut('drafts',D).catch(()=>{});
+}
+
+function salirWizard(){
+  leerPaso(wizStep);
+  guardarBorrador().then(()=>{
+    toast('💾 Borrador guardado');
+    refreshBadges();
+  });
+  showView('v-home');
+}
+function salirWizardOk(){
+  showView('v-home');
+  refreshBadges();
+}
+
+// ── Paso 2: riesgos ──
+function renderRiesgos(){
+  const wrap = document.getElementById('riesgos-wrap');
+  wrap.innerHTML = '';
+  Object.keys(RIESGOS).forEach(cat=>{
+    const sel = D.risks[cat]||[];
+    const card = document.createElement('div');
+    card.className = 'cat'+(sel.length?' open':'');
+    const opts = RIESGOS[cat].map(r=>`
+      <label class="chk"><input type="checkbox" ${sel.includes(r)?'checked':''} onchange="toggleRiesgo('${cat.replace(/'/g,"\\'")}',this)" value="${r.replace(/"/g,'&quot;')}"/> ${r}</label>
+    `).join('');
+    const otroVal = D.risk_other[cat]||'';
+    card.innerHTML = `
+      <div class="cat-h" onclick="this.parentElement.classList.toggle('open')">
+        <span class="cn">${cat}</span>
+        <span style="display:flex;align-items:center;gap:8px">
+          <span class="cc ${sel.length?'show':''}" id="cc-${cssId(cat)}">${sel.length}</span>
+          <span class="ar">▾</span>
+        </span>
+      </div>
+      <div class="cat-b">
+        ${opts}
+        <label class="chk"><input type="checkbox" ${sel.includes('Otro')?'checked':''} onchange="toggleRiesgo('${cat.replace(/'/g,"\\'")}',this)" value="Otro"/> Otro</label>
+        <div class="otro-inp ${sel.includes('Otro')?'show':''}" id="otro-${cssId(cat)}">
+          <input type="text" placeholder="Describe el otro riesgo" value="${otroVal.replace(/"/g,'&quot;')}" oninput="D.risk_other['${cat.replace(/'/g,"\\'")}']=this.value.trim()"/>
+        </div>
+      </div>`;
+    wrap.appendChild(card);
+  });
+}
+function cssId(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-'); }
+function toggleRiesgo(cat,inp){
+  const arr = D.risks[cat]||(D.risks[cat]=[]);
+  const v = inp.value;
+  if(inp.checked){ if(!arr.includes(v)) arr.push(v); }
+  else{ D.risks[cat] = arr.filter(x=>x!==v); }
+  const n = (D.risks[cat]||[]).length;
+  const cc = document.getElementById('cc-'+cssId(cat));
+  cc.textContent = n; cc.classList.toggle('show',n>0);
+  if(v==='Otro') document.getElementById('otro-'+cssId(cat)).classList.toggle('show',inp.checked);
+  guardarBorrador();
+}
+
+// ── Paso 3 ──
+function drChange(soloUI){
+  const sel = document.querySelector('input[name=f-dr]:checked');
+  if(!soloUI && sel) D.distinct_risks = sel.value;
+  const v = sel ? sel.value : D.distinct_risks;
+  document.getElementById('dr-detail-wrap').style.display = v==='SI'?'block':'none';
+  if(soloUI!==true) guardarBorrador();
+}
+
+// ── Paso 4: EPP ──
+function renderEPP(){
+  const wrap = document.getElementById('epp-wrap');
+  const items = EPP.map(e=>`
+    <label class="chk"><input type="checkbox" ${D.epp.includes(e)?'checked':''} value="${e.replace(/"/g,'&quot;')}" onchange="toggleEPP(this)"/> ${e}</label>
+  `).join('');
+  wrap.innerHTML = `${items}
+    <label class="chk"><input type="checkbox" ${D.epp.includes('Otro')?'checked':''} value="Otro" onchange="toggleEPP(this)"/> Otro</label>
+    <div class="otro-inp ${D.epp.includes('Otro')?'show':''}" id="epp-otro">
+      <input type="text" placeholder="Describe el otro equipo" value="${(D.epp_other||'').replace(/"/g,'&quot;')}" oninput="D.epp_other=this.value.trim()"/>
+    </div>`;
+}
+function toggleEPP(inp){
+  const v = inp.value;
+  if(inp.checked){ if(!D.epp.includes(v)) D.epp.push(v); }
+  else D.epp = D.epp.filter(x=>x!==v);
+  if(v==='Otro') document.getElementById('epp-otro').classList.toggle('show',inp.checked);
+  guardarBorrador();
+}
+
+// ── Paso 5: actividades ──
+function renderActs(){
+  const mk = (arr,wrapId,exec)=>{
+    const wrap = document.getElementById(wrapId);
+    wrap.innerHTML = '';
+    arr.forEach((a,i)=>{
+      const div = document.createElement('div');
+      div.className = 'act';
+      div.innerHTML = `
+        <span class="no">${exec?'E':''}${i+1}</span>
+        ${(arr.length>1||exec)?`<button class="del" onclick="delAct(${exec},${i})">✕ quitar</button>`:''}
+        <label class="req">Tarea</label>
+        <input type="text" value="${(a.task||'').replace(/"/g,'&quot;')}" oninput="setAct(${exec},${i},'task',this.value)" placeholder="¿Qué se va a hacer?"/>
+        <label class="req">Identificación de riesgos</label>
+        <input type="text" value="${(a.risk||'').replace(/"/g,'&quot;')}" oninput="setAct(${exec},${i},'risk',this.value)" placeholder="Riesgos de esta tarea"/>
+        <label class="req">Medidas de control</label>
+        <input type="text" value="${(a.control||'').replace(/"/g,'&quot;')}" oninput="setAct(${exec},${i},'control',this.value)" placeholder="¿Cómo se controla el riesgo?"/>`;
+      wrap.appendChild(div);
+    });
+  };
+  mk(D.activities,'acts-wrap',false);
+  mk(D.exec_activities,'acts-exec-wrap',true);
+}
+function setAct(exec,i,k,v){ (exec?D.exec_activities:D.activities)[i][k]=v.trim(); }
+function addAct(exec){
+  leerActs();
+  const arr = exec?D.exec_activities:D.activities;
+  if(!exec && arr.length>=MAX_ACTS){ toast('Máximo '+MAX_ACTS+' actividades (como el formato).'); return; }
+  arr.push({task:'',risk:'',control:''});
+  renderActs(); guardarBorrador();
+}
+function delAct(exec,i){
+  leerActs();
+  (exec?D.exec_activities:D.activities).splice(i,1);
+  if(!exec && D.activities.length===0) D.activities.push({task:'',risk:'',control:''});
+  renderActs(); guardarBorrador();
+}
+function leerActs(){
+  // Los inputs ya actualizan D con oninput; aquí solo limpiamos filas de ejecución vacías al validar/enviar.
+  D.exec_activities = D.exec_activities.filter(a=>a.task||a.risk||a.control);
+  if(document.getElementById('st-5').classList.contains('active')) renderActs();
+}
+
+// ── Paso 6: cuadrilla ──
+function renderCrew(){
+  const wrap = document.getElementById('crew-wrap');
+  wrap.innerHTML = '';
+  D.crew.forEach((c,i)=>{
+    const div = document.createElement('div');
+    div.className = 'crew-row';
+    div.innerHTML = `
+      <div class="ci">
+        <div class="cn">${c.employee_name} ${c._creator?'<span class="tag">tú</span>':''}</div>
+        <div class="cd">Nómina ${c.payroll_no||'—'}</div>
+      </div>
+      ${c.sig
+        ? `<span class="sig-ok">✔ Firmado</span><button class="sig-btn" onclick="abrirFirma(${i})">Refirmar</button>`
+        : `<button class="sig-btn" onclick="abrirFirma(${i})">✍️ Firmar</button>`}
+      ${c._creator?'':`<button class="crew-x" onclick="delCrew(${i})">✕</button>`}`;
+    wrap.appendChild(div);
+  });
+}
+async function addCrew(){
+  const inp = document.getElementById('crew-nomina');
+  const errEl = document.getElementById('crew-err');
+  const manual = document.getElementById('crew-manual');
+  errEl.classList.remove('show'); manual.style.display='none';
+  const nomina = (inp.value||'').trim();
+  if(!/^\d{3,10}$/.test(nomina)){ errEl.textContent='Escribe un número de nómina válido.'; errEl.classList.add('show'); return; }
+  if(D.crew.some(c=>c.payroll_no===nomina)){ errEl.textContent='Esa persona ya está en la lista.'; errEl.classList.add('show'); return; }
+  try{
+    const emp = await validarEmpleado(nomina);
+    if(!emp){ errEl.textContent='Empleado no encontrado. Revisa la nómina.'; errEl.classList.add('show'); return; }
+    D.crew.push({payroll_no:emp.nomina, employee_name:emp.nombre, sig:null});
+    inp.value=''; renderCrew(); guardarBorrador();
+  }catch(_e){
+    // Sin conexión: intentar caché; si no, permitir nombre manual
+    const cached = await idbGet('employees',nomina);
+    if(cached){
+      D.crew.push({payroll_no:cached.nomina, employee_name:cached.nombre, sig:null});
+      inp.value=''; renderCrew(); guardarBorrador();
+    }else{
+      manual.style.display='block';
+    }
+  }
+}
+function addCrewManual(){
+  const nomina = (document.getElementById('crew-nomina').value||'').trim();
+  const nombre = (document.getElementById('crew-nombre-manual').value||'').trim();
+  const errEl = document.getElementById('crew-err');
+  if(nombre.length<5){ errEl.textContent='Escribe el nombre completo.'; errEl.classList.add('show'); return; }
+  D.crew.push({payroll_no:nomina, employee_name:nombre, sig:null, _manual:true});
+  document.getElementById('crew-nomina').value='';
+  document.getElementById('crew-nombre-manual').value='';
+  document.getElementById('crew-manual').style.display='none';
+  errEl.classList.remove('show');
+  renderCrew(); guardarBorrador();
+}
+function delCrew(i){
+  D.crew.splice(i,1);
+  renderCrew(); guardarBorrador();
+}
+
+// ── Firma (canvas) ──
+let _sigIdx = null, _sigDirty = false, _sigCtx = null;
+function abrirFirma(i){
+  _sigIdx = i; _sigDirty = false;
+  const c = D.crew[i];
+  document.getElementById('sig-title').textContent = 'Firma · '+c.employee_name.split(' ').slice(0,2).join(' ');
+  document.getElementById('sig-sub').textContent = 'Firma con el dedo dentro del recuadro.';
+  document.getElementById('sig-modal').classList.add('show');
+  const cv = document.getElementById('sig-canvas');
+  const dpr = window.devicePixelRatio||1;
+  const rect = cv.getBoundingClientRect();
+  cv.width = rect.width*dpr; cv.height = rect.height*dpr;
+  _sigCtx = cv.getContext('2d');
+  _sigCtx.scale(dpr,dpr);
+  _sigCtx.fillStyle = '#fff'; _sigCtx.fillRect(0,0,rect.width,rect.height);
+  _sigCtx.strokeStyle = '#0a1540'; _sigCtx.lineWidth = 2.2; _sigCtx.lineCap = 'round'; _sigCtx.lineJoin = 'round';
+}
+function sigPos(ev){
+  const cv = document.getElementById('sig-canvas');
+  const r = cv.getBoundingClientRect();
+  return {x:ev.clientX-r.left, y:ev.clientY-r.top};
+}
+(function(){
+  document.addEventListener('DOMContentLoaded',()=>{
+    const cv = document.getElementById('sig-canvas');
+    let drawing = false;
+    cv.addEventListener('pointerdown',ev=>{
+      drawing = true; _sigDirty = true;
+      cv.setPointerCapture(ev.pointerId);
+      const p = sigPos(ev);
+      _sigCtx.beginPath(); _sigCtx.moveTo(p.x,p.y); _sigCtx.lineTo(p.x+.1,p.y+.1); _sigCtx.stroke();
+    });
+    cv.addEventListener('pointermove',ev=>{
+      if(!drawing) return;
+      const p = sigPos(ev);
+      _sigCtx.lineTo(p.x,p.y); _sigCtx.stroke();
+    });
+    ['pointerup','pointercancel'].forEach(e=>cv.addEventListener(e,()=>{drawing=false}));
+  });
+})();
+function sigClear(){
+  const cv = document.getElementById('sig-canvas');
+  const r = cv.getBoundingClientRect();
+  _sigCtx.fillStyle='#fff'; _sigCtx.fillRect(0,0,r.width,r.height);
+  _sigDirty = false;
+}
+function sigCancel(){
+  document.getElementById('sig-modal').classList.remove('show');
+  _sigIdx = null;
+}
+function sigSave(){
+  if(!_sigDirty){ toast('⚠️ Firma dentro del recuadro antes de guardar.'); return; }
+  const cv = document.getElementById('sig-canvas');
+  const png = cv.toDataURL('image/png');
+  document.getElementById('sig-modal').classList.remove('show');
+  if(_sigIdx==='sup'){   // firma de aprobación del supervisor
+    _sigIdx = null;
+    enviarDecision('aprobado', png);
+    return;
+  }
+  D.crew[_sigIdx].sig = png;
+  _sigIdx = null;
+  renderCrew(); guardarBorrador();
+}
+
+// ── Paso 7: resumen y envío ──
+function renderResumen(){
+  const r = document.getElementById('resumen');
+  const riesgosTxt = Object.entries(D.risks).filter(([_,v])=>v.length)
+    .map(([cat,v])=>`<b>${cat}:</b> ${v.map(x=>x==='Otro'?('Otro: '+(D.risk_other[cat]||'')):x).join(', ')}`).join('<br/>');
+  const eppTxt = D.epp.map(e=>e==='Otro'?('Otro: '+D.epp_other):e).join(', ');
+  const actsTxt = D.activities.filter(a=>a.task).map((a,i)=>`${i+1}. ${a.task}`).join('<br/>');
+  const crewTxt = D.crew.map(c=>`${c.employee_name} (${c.payroll_no||'—'}) ${c.sig?'✔':'✖'}`).join('<br/>');
+  const drTxt = D.distinct_risks==='SI'?('Sí — '+D.distinct_risks_detail):(D.distinct_risks==='NO'?'No':'No aplica');
+  r.innerHTML = `
+    <div class="sum"><div class="sl">Sitio</div><div class="sv">${D.site_name||'—'}</div></div>
+    <div class="sum"><div class="sl">Fecha y hora</div><div class="sv">${D.work_date} · ${D.work_time}</div></div>
+    <div class="sum"><div class="sl">Trabajo por realizar</div><div class="sv">${D.work_description}</div></div>
+    ${D.project?`<div class="sum"><div class="sl">Proyecto / Instalación</div><div class="sv">${D.project}</div></div>`:''}
+    ${D.work_area?`<div class="sum"><div class="sl">Área</div><div class="sv">${D.work_area}</div></div>`:''}
+    ${D.work_permit?`<div class="sum"><div class="sl">Permiso de trabajo</div><div class="sv">${D.work_permit}</div></div>`:''}
+    <div class="sum"><div class="sl">Riesgos</div><div class="sv">${riesgosTxt||'—'}</div></div>
+    ${D.extra_risk?`<div class="sum"><div class="sl">Riesgo extra</div><div class="sv">${D.extra_risk}</div></div>`:''}
+    <div class="sum"><div class="sl">Condiciones del área</div><div class="sv">${D.area_conditions}</div></div>
+    <div class="sum"><div class="sl">Riesgos distintos a jornada anterior</div><div class="sv">${drTxt}</div></div>
+    <div class="sum"><div class="sl">Barreras de protección</div><div class="sv">${eppTxt}</div></div>
+    <div class="sum"><div class="sl">Actividades</div><div class="sv">${actsTxt}</div></div>
+    <div class="sum"><div class="sl">Personal (${D.crew.length})</div><div class="sv">${crewTxt}</div></div>
+  `;
+}
+
+function buildPayload(){
+  const risks = [];
+  Object.entries(D.risks).forEach(([cat,arr])=>{
+    arr.forEach(rk=>risks.push({category:cat, risk:rk, other_text: rk==='Otro'?(D.risk_other[cat]||null):null}));
+  });
+  const epp = D.epp.map(e=>({epp:e, other_text: e==='Otro'?(D.epp_other||null):null}));
+  const activities = [];
+  D.activities.filter(a=>a.task).forEach((a,i)=>activities.push({position:i+1, task:a.task, risk:a.risk, control:a.control, during_execution:false}));
+  D.exec_activities.filter(a=>a.task).forEach((a,i)=>activities.push({position:i+1, task:a.task, risk:a.risk, control:a.control, during_execution:true}));
+  return {
+    jsa:{
+      id: D.id,
+      created_by_payroll_no: D._nomina,
+      site_id: D.site_id,
+      work_date: D.work_date,
+      work_time: D.work_time,
+      work_permit: D.work_permit||null,
+      work_description: D.work_description,
+      project: D.project||null,
+      work_area: D.work_area||null,
+      area_conditions: D.area_conditions,
+      distinct_risks: D.distinct_risks,
+      distinct_risks_detail: D.distinct_risks==='SI'?D.distinct_risks_detail:null,
+      extra_risk: D.extra_risk||null,
+      crew_declaration_accepted: D.crew_declaration_accepted,
+    },
+    risks, epp, activities,
+    crew: D.crew.map(c=>({payroll_no:c.payroll_no||null, employee_name:c.employee_name, signature_png:c.sig})),
+    creator_name: SESSION.nombre,
+  };
+}
+
+async function enviarJSA(){
+  const btn = document.getElementById('btn-next');
+  btn.disabled = true; btn.textContent = 'Enviando…';
+  const payload = buildPayload();
+  try{
+    const d = await api('submit', payload);
+    await idbDel('drafts',D.id);
+    document.getElementById('ok-title').textContent = 'JSA enviado';
+    document.getElementById('ok-folio').textContent = d.folio||'';
+    document.getElementById('ok-msg').textContent = 'Se notificó al supervisor del sitio para su aprobación.';
+    gotoStep('ok');
+  }catch(e){
+    // Sin conexión o error de red: guardar en outbox para reintento automático
+    await idbPut('outbox',{id:D.id, payload, ts:Date.now()});
+    await idbDel('drafts',D.id);
+    document.getElementById('ok-title').textContent = 'JSA guardado';
+    document.getElementById('ok-folio').textContent = '';
+    document.getElementById('ok-msg').textContent = navigator.onLine
+      ? ('No se pudo enviar ('+e.message+'). Quedó guardado y se reintentará automáticamente.')
+      : 'Estás sin conexión. Quedó guardado y se enviará automáticamente al recuperar la señal.';
+    gotoStep('ok');
+  }finally{
+    btn.disabled = false; btn.textContent = '📤 Enviar JSA';
+    refreshBadges();
+  }
+}
+
+// ── Sincronización del outbox ──
+let _syncing = false;
+async function syncOutbox(){
+  if(_syncing || !navigator.onLine) return;
+  _syncing = true;
+  try{
+    const items = await idbAll('outbox');
+    let enviados = 0;
+    for(const it of items){
+      try{
+        await api('submit', it.payload);
+        await idbDel('outbox',it.id);
+        enviados++;
+      }catch(e){
+        // 'duplicado' = ya se había insertado en un intento anterior
+        if(String(e.message).includes('duplicado')){ await idbDel('outbox',it.id); enviados++; }
+      }
+    }
+    if(enviados>0){ toast('📤 '+enviados+' JSA pendiente(s) enviado(s).'); refreshBadges(); }
+  }finally{ _syncing = false; }
+}
+window.addEventListener('online',()=>{ showOffline(); syncOutbox(); });
+
+// ════════════════════════════════════════════
+// MIS JSA
+// ════════════════════════════════════════════
+async function verMisJSA(){
+  showView('v-misjsa');
+  const wrap = document.getElementById('misjsa-wrap');
+  wrap.innerHTML = '<div class="jsa-item"><div class="desc">Cargando…</div></div>';
+  const outbox = (await idbAll('outbox')).filter(o=>o.payload?.jsa?.created_by_payroll_no===SESSION.nomina);
+  let lista = null;
+  try{
+    const d = await api('my-jsas',{payroll_no:SESSION.nomina});
+    lista = d.jsas||[];
+    await idbPut('meta',{k:'myjsas-'+SESSION.nomina, v:lista});
+  }catch(_e){
+    const m = await idbGet('meta','myjsas-'+SESSION.nomina);
+    lista = m?m.v:[];
+  }
+  wrap.innerHTML = '';
+  if(outbox.length===0 && lista.length===0){
+    wrap.innerHTML = '<div class="jsa-item"><div class="desc">Aún no tienes JSA. Crea el primero desde “Nuevo JSA”.</div></div>';
+    return;
+  }
+  outbox.forEach(o=>{
+    const j = o.payload.jsa;
+    wrap.appendChild(jsaItem({folio:'(pendiente de enviar)', work_date:j.work_date, work_description:j.work_description, status:'pendiente', site:''}));
+  });
+  lista.forEach(j=>wrap.appendChild(jsaItem(j)));
+}
+function jsaItem(j){
+  const div = document.createElement('div');
+  div.className = 'jsa-item';
+  const est = j.status||'enviado';
+  div.innerHTML = `
+    <div class="fr">
+      <span class="folio">${j.folio||'—'}</span>
+      <span class="est ${est}">${est.charAt(0).toUpperCase()+est.slice(1)}</span>
+    </div>
+    <div class="desc">${j.work_description||''}</div>
+    <div class="meta">${[j.work_date, j.site].filter(Boolean).join(' · ')}</div>`;
+  return div;
+}
+
+// ════════════════════════════════════════════
+// APROBACIONES (supervisor)
+// ════════════════════════════════════════════
+async function verAprobaciones(){
+  showView('v-aprob');
+  const wrap = document.getElementById('aprob-wrap');
+  wrap.innerHTML = '<div class="jsa-item"><div class="desc">Cargando…</div></div>';
+  try{
+    const d = await api('pending-approvals',{payroll_no:SESSION.nomina});
+    const lista = d.jsas||[];
+    document.getElementById('aprob-sub').textContent = lista.length ? (lista.length+' por revisar') : '';
+    wrap.innerHTML = '';
+    if(!lista.length){ wrap.innerHTML = '<div class="jsa-item"><div class="desc">No tienes JSA pendientes de aprobar. 🎉</div></div>'; return; }
+    lista.forEach(j=>{
+      const div = document.createElement('button');
+      div.className = 'jsa-item'; div.style.cursor='pointer';
+      div.onclick = ()=>abrirDetalle(j.id,true);
+      div.innerHTML = `
+        <div class="fr"><span class="folio">${j.folio||'—'}</span><span class="est enviado">Por aprobar</span></div>
+        <div class="desc">${j.work_description||''}</div>
+        <div class="meta">${[j.site, j.work_date, 'Nómina '+j.created_by].filter(Boolean).join(' · ')}</div>`;
+      wrap.appendChild(div);
+    });
+  }catch(e){
+    wrap.innerHTML = '<div class="jsa-item"><div class="desc">No se pudo cargar ('+e.message+'). Revisa tu conexión.</div></div>';
+  }
+}
+
+let _detId = null, _detPuedeAprobar = false;
+async function abrirDetalle(id, puedeAprobar){
+  _detId = id; _detPuedeAprobar = puedeAprobar;
+  showView('v-detalle');
+  document.getElementById('det-back').onclick = ()=>showView(puedeAprobar?'v-aprob':'v-misjsa');
+  const body = document.getElementById('det-body');
+  body.innerHTML = '<div class="sub">Cargando…</div>';
+  document.getElementById('det-actions').style.display='none';
+  try{
+    const d = await api('jsa-detail',{id});
+    const h = d.head;
+    document.getElementById('det-folio').textContent = h.folio || 'JSA';
+    document.getElementById('det-site').textContent = h.jsa_sites?.site || '';
+    const risksByCat = {};
+    (d.risks||[]).forEach(r=>{ (risksByCat[r.category]=risksByCat[r.category]||[]).push(r.risk==='Otro'?('Otro: '+(r.other_text||'')):r.risk); });
+    const risksHtml = Object.entries(risksByCat).map(([c,v])=>`<div class="det-kv"><b>${c}:</b> ${v.join(', ')}</div>`).join('') || '<div class="det-kv">—</div>';
+    const eppHtml = (d.epp||[]).map(e=>`<span class="det-chip">${e.epp==='Otro'?('Otro: '+(e.other_text||'')):e.epp}</span>`).join('') || '—';
+    const actsN = (d.activities||[]).filter(a=>!a.during_execution);
+    const actsE = (d.activities||[]).filter(a=>a.during_execution);
+    const actHtml = arr=>arr.map(a=>`<div class="det-act"><span class="an">${a.during_execution?'E':''}${a.position}.</span> ${a.task}<br/><b>Riesgos:</b> ${a.risk||'—'}<br/><b>Control:</b> ${a.control||'—'}</div>`).join('');
+    const crewHtml = (d.crew||[]).map(c=>`
+      <div class="det-crew">
+        ${c.signature_url?`<img src="${c.signature_url}" alt="firma"/>`:'<div class="dp" style="width:70px;text-align:center">sin<br/>firma</div>'}
+        <div><div class="dn">${c.employee_name}</div><div class="dp">Nómina ${c.payroll_no||'—'}</div></div>
+      </div>`).join('');
+    const drTxt = h.distinct_risks==='SI'?('Sí — '+(h.distinct_risks_detail||'')):(h.distinct_risks==='NO'?'No':'No aplica');
+    body.innerHTML = `
+      <div class="det-sec">
+        <h3>Datos generales</h3>
+        <div class="det-kv"><b>Trabajo:</b> ${h.work_description||'—'}</div>
+        <div class="det-kv"><b>Fecha/hora:</b> ${h.work_date||''} ${h.work_time||''}</div>
+        ${h.project?`<div class="det-kv"><b>Proyecto:</b> ${h.project}</div>`:''}
+        ${h.work_area?`<div class="det-kv"><b>Área:</b> ${h.work_area}</div>`:''}
+        ${h.work_permit?`<div class="det-kv"><b>Permiso:</b> ${h.work_permit}</div>`:''}
+        <div class="det-kv"><b>Creado por:</b> Nómina ${h.created_by_payroll_no}</div>
+      </div>
+      <div class="det-sec"><h3>1. Riesgos generales</h3>${risksHtml}${h.extra_risk?`<div class="det-kv"><b>Extra:</b> ${h.extra_risk}</div>`:''}</div>
+      <div class="det-sec"><h3>2. Zona de trabajo</h3><div class="det-kv">${h.area_conditions||'—'}</div>
+        <div class="det-kv"><b>3. Riesgos distintos a jornada anterior:</b> ${drTxt}</div></div>
+      <div class="det-sec"><h3>4. Barreras de protección</h3>${eppHtml}</div>
+      <div class="det-sec"><h3>5. Actividades</h3>${actHtml(actsN)||'—'}
+        ${actsE.length?`<div class="det-kv" style="margin-top:8px"><b>Durante la ejecución:</b></div>${actHtml(actsE)}`:''}</div>
+      <div class="det-sec"><h3>6. Personal involucrado (${(d.crew||[]).length})</h3>${crewHtml||'—'}
+        <div class="det-kv" style="margin-top:6px;font-style:italic;color:var(--text2)">Declaración del equipo: ${h.crew_declaration_accepted?'aceptada ✔':'no aceptada'}</div></div>
+      ${(d.approvals||[]).length?`<div class="det-sec"><h3>7. Aprobación</h3>${d.approvals.map(a=>`<div class="det-kv"><b>${a.result==='aprobado'?'✔ Aprobado':'✖ Rechazado'}</b> por ${a.approver_name||'—'} ${a.comment?('· '+a.comment):''}</div>`).join('')}</div>`:''}
+    `;
+    // Mostrar acciones solo si es supervisor y sigue pendiente
+    const puede = _detPuedeAprobar && h.status==='enviado';
+    document.getElementById('det-actions').style.display = puede?'block':'none';
+    if(puede){
+      document.getElementById('det-authcheck').checked=false;
+      document.getElementById('det-comment').value='';
+      document.getElementById('det-err').classList.remove('show');
+    }
+  }catch(e){
+    body.innerHTML = '<div class="err show">No se pudo cargar el JSA: '+e.message+'</div>';
+  }
+}
+
+// Decisión del supervisor: 'aprobado' abre firma; 'rechazado' pide motivo y no requiere firma
+let _decision = null;
+function decidir(result){
+  const errEl = document.getElementById('det-err');
+  errEl.classList.remove('show');
+  if(result==='aprobado'){
+    if(!document.getElementById('det-authcheck').checked){
+      errEl.textContent='Debes marcar la casilla de autorización antes de aprobar.'; errEl.classList.add('show'); return;
+    }
+    _decision='aprobado';
+    abrirFirmaSupervisor();
+  }else{
+    const c = document.getElementById('det-comment').value.trim();
+    if(!c){ errEl.textContent='Escribe el motivo del rechazo en el comentario.'; errEl.classList.add('show'); return; }
+    if(!confirm('¿Rechazar este JSA? Se notificará al trabajador.')) return;
+    enviarDecision('rechazado', null);
+  }
+}
+
+function abrirFirmaSupervisor(){
+  _sigIdx = 'sup'; _sigDirty=false;
+  document.getElementById('sig-title').textContent = 'Firma de aprobación';
+  document.getElementById('sig-sub').textContent = 'Firma para autorizar este JSA.';
+  document.getElementById('sig-modal').classList.add('show');
+  const cv = document.getElementById('sig-canvas');
+  const dpr = window.devicePixelRatio||1;
+  const rect = cv.getBoundingClientRect();
+  cv.width = rect.width*dpr; cv.height = rect.height*dpr;
+  _sigCtx = cv.getContext('2d'); _sigCtx.scale(dpr,dpr);
+  _sigCtx.fillStyle='#fff'; _sigCtx.fillRect(0,0,rect.width,rect.height);
+  _sigCtx.strokeStyle='#0a1540'; _sigCtx.lineWidth=2.2; _sigCtx.lineCap='round'; _sigCtx.lineJoin='round';
+}
+
+async function enviarDecision(result, signaturePng){
+  const errEl = document.getElementById('det-err');
+  try{
+    await api('approve',{
+      jsa_id:_detId,
+      supervisor_payroll_no:SESSION.nomina,
+      result,
+      comment: document.getElementById('det-comment').value.trim()||null,
+      signature_png: signaturePng,
+      approver_name: SESSION.nombre,
+      approver_role: 'Supervisor',
+    });
+    toast(result==='aprobado'?'✅ JSA aprobado':'JSA rechazado');
+    await refreshMe();
+    verAprobaciones();
+  }catch(e){
+    errEl.textContent = 'No se pudo enviar: '+e.message; errEl.classList.add('show');
+    showView('v-detalle');
+  }
+}
+
+// ════════════════════════════════════════════
+// NOTIFICACIONES IN-APP
+// ════════════════════════════════════════════
+async function verNotifs(){
+  showView('v-notifs');
+  const wrap = document.getElementById('notifs-wrap');
+  wrap.innerHTML = '<div class="notif-item">Cargando…</div>';
+  try{
+    const d = await api('notifications',{payroll_no:SESSION.nomina});
+    const lista = d.notifications||[];
+    wrap.innerHTML = '';
+    if(!lista.length){ wrap.innerHTML = '<div class="notif-item">Sin notificaciones por ahora.</div>'; }
+    lista.forEach(n=>{
+      const div = document.createElement('div');
+      div.className = 'notif-item'+(n.is_read?'':' unread');
+      div.innerHTML = `${n.message||n.type}<div class="nt">${fmtFecha(n.created_at)}</div>`;
+      if(n.jsa_id){ div.style.cursor='pointer'; div.onclick=()=>abrirDetalle(n.jsa_id, esMiSitio(n)); }
+      wrap.appendChild(div);
+    });
+    // Marcar como leídas
+    api('mark-read',{payroll_no:SESSION.nomina}).then(()=>{ document.getElementById('bell-dot').classList.remove('show'); ME.unread_notifications=0; }).catch(()=>{});
+  }catch(e){
+    wrap.innerHTML = '<div class="notif-item">No se pudieron cargar ('+e.message+').</div>';
+  }
+}
+function esMiSitio(_n){ return ME.is_supervisor; }
+function fmtFecha(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+
+// ════════════════════════════════════════════
+// PUSH (Web Push con VAPID)
+// ════════════════════════════════════════════
+function urlB64ToUint8Array(base64){
+  const pad = '='.repeat((4 - base64.length % 4) % 4);
+  const b64 = (base64 + pad).replace(/-/g,'+').replace(/_/g,'/');
+  const raw = atob(b64);
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+async function ofrecerPush(){
+  const btn = document.getElementById('push-btn');
+  if(!VAPID_PUBLIC_KEY || !('serviceWorker' in navigator) || !('PushManager' in window)){ btn.style.display='none'; return; }
+  const reg = await navigator.serviceWorker.ready.catch(()=>null);
+  if(!reg){ btn.style.display='none'; return; }
+  const sub = await reg.pushManager.getSubscription();
+  if(sub){ btn.style.display='none'; registrarDispositivo(sub); }  // ya suscrito: refrescar registro
+  else if(Notification.permission!=='denied'){ btn.style.display='block'; }
+  else btn.style.display='none';
+}
+async function activarPush(){
+  try{
+    const perm = await Notification.requestPermission();
+    if(perm!=='granted'){ toast('Avisos no permitidos. Puedes activarlos en ajustes del navegador.'); return; }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly:true,
+      applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+    await registrarDispositivo(sub);
+    document.getElementById('push-btn').style.display='none';
+    toast('🔔 Avisos activados en este celular.');
+  }catch(e){ toast('No se pudo activar: '+e.message); }
+}
+async function registrarDispositivo(sub){
+  try{
+    await api('register-device',{
+      payroll_no:SESSION.nomina,
+      subscription: sub.toJSON ? sub.toJSON() : sub,
+      platform: navigator.userAgent.slice(0,120),
+    });
+  }catch(_e){/* no crítico */}
+}
+
+// ════════════════════════════════════════════
+// ESTADO DE CONEXIÓN
+// ════════════════════════════════════════════
+function showOffline(){
+  const off = !navigator.onLine;
+  document.getElementById('off-home').classList.toggle('show',off);
+  document.getElementById('off-list').classList.toggle('show',off);
+  const oa = document.getElementById('off-aprob'); if(oa) oa.classList.toggle('show',off);
+}
+window.addEventListener('offline',showOffline);
+showOffline();
+</script>
+</body>
+</html>

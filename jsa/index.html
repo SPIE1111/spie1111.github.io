@@ -283,6 +283,27 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
     <div class="foot">SPIE · HSE · v0.2</div>
   </div>
 
+  <!-- ════════ VISTA: PIN SUPERVISOR ════════ -->
+  <div id="v-pin" class="view">
+    <div class="card" style="margin-top:8vh">
+      <div class="brand">
+        <img src="../spie-logo.png" alt="SPIE"/>
+        <div>
+          <div class="t">JSA</div>
+          <div class="s">Acceso de supervisor</div>
+        </div>
+      </div>
+      <h1>PIN de supervisor</h1>
+      <div class="sub" id="pin-sub">Hola <span id="pin-nombre"></span>. Ingresa tu PIN de 4 dígitos para aprobar JSA.</div>
+      <label for="l-pin">PIN</label>
+      <input id="l-pin" type="tel" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" style="letter-spacing:10px;font-size:22px;text-align:center" oninput="pinInput()"/>
+      <div id="pin-err" class="err"></div>
+      <button class="btn" id="pin-btn" onclick="verificarPIN()" disabled>Entrar</button>
+      <button class="btn ghost" onclick="doSalir()">Cancelar</button>
+    </div>
+    <div class="foot">SPIE · HSE</div>
+  </div>
+
   <!-- ════════ VISTA: HOME ════════ -->
   <div id="v-home" class="view">
     <div class="home-head">
@@ -733,24 +754,38 @@ function pintarVerificado(emp,offline){
 }
 
 let ME = {is_supervisor:false, sites:[], pending_approvals:0, unread_notifications:0};
+let SUP_TOKEN = null;   // token de sesión de supervisor (tras validar el PIN)
 
 async function doEntrar(){
   if(!_empValidado) return;
   SESSION = _empValidado;
+  // ¿es supervisor? Se resuelve antes de entrar para exigir PIN si aplica.
+  try{ ME = await api('me',{payroll_no:SESSION.nomina}); }
+  catch(_e){ ME = {is_supervisor:false, sites:[], pending_approvals:0, unread_notifications:0}; }
+  if(ME.is_supervisor && !SUP_TOKEN){
+    document.getElementById('pin-nombre').textContent = SESSION.nombre.split(' ')[0];
+    document.getElementById('l-pin').value = '';
+    document.getElementById('pin-btn').disabled = true;
+    document.getElementById('pin-err').classList.remove('show');
+    showView('v-pin');
+    setTimeout(()=>document.getElementById('l-pin').focus(), 150);
+    return;
+  }
+  entrarHome();
+}
+
+function entrarHome(){
   document.getElementById('h-nombre').textContent = 'Hola, ' + SESSION.nombre.split(' ')[0];
   document.getElementById('h-detalle').textContent = [('Nómina '+SESSION.nomina),SESSION.parque].filter(Boolean).join(' · ');
   showView('v-home');
+  aplicarME();
   refreshBadges();
   cargarSitios().catch(()=>{});   // precargar catálogo para uso offline
   syncOutbox();                    // reintentar envíos pendientes
-  refreshMe();                     // supervisor / notificaciones
   ofrecerPush();
 }
 
-async function refreshMe(){
-  try{
-    ME = await api('me',{payroll_no:SESSION.nomina});
-  }catch(_e){ return; }
+function aplicarME(){
   const mb = document.getElementById('mb-aprob');
   mb.style.display = ME.is_supervisor ? 'flex' : 'none';
   const ba = document.getElementById('badge-aprob');
@@ -759,9 +794,42 @@ async function refreshMe(){
   document.getElementById('bell-dot').classList.toggle('show', (ME.unread_notifications||0)>0);
 }
 
+async function refreshMe(){
+  try{ ME = await api('me',{payroll_no:SESSION.nomina}); }catch(_e){ return; }
+  aplicarME();
+}
+
+// ── PIN de supervisor ──
+function pinInput(){
+  const v = (document.getElementById('l-pin').value||'').replace(/\D/g,'').slice(0,4);
+  document.getElementById('l-pin').value = v;
+  document.getElementById('pin-btn').disabled = v.length!==4;
+  document.getElementById('pin-err').classList.remove('show');
+}
+async function verificarPIN(){
+  const pin = (document.getElementById('l-pin').value||'').trim();
+  const errEl = document.getElementById('pin-err');
+  const btn = document.getElementById('pin-btn');
+  if(!/^\d{4}$/.test(pin)) return;
+  btn.disabled = true; btn.textContent = 'Verificando…';
+  try{
+    const d = await api('verify-pin',{payroll_no:SESSION.nomina, pin});
+    SUP_TOKEN = d.token;
+    entrarHome();
+  }catch(e){
+    errEl.textContent = e.message || 'PIN incorrecto.';
+    errEl.classList.add('show');
+    document.getElementById('l-pin').value='';
+  }finally{
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+}
+
 function doSalir(){
   SESSION = null;
   _empValidado = null;
+  SUP_TOKEN = null;
+  ME = {is_supervisor:false, sites:[], pending_approvals:0, unread_notifications:0};
   document.getElementById('l-nomina').value = '';
   document.getElementById('l-verif').classList.remove('show');
   document.getElementById('l-btn').disabled = true;
@@ -1537,11 +1605,21 @@ async function enviarDecision(result, signaturePng){
       signature_png: signaturePng,
       approver_name: SESSION.nombre,
       approver_role: 'Supervisor',
+      token: SUP_TOKEN,
     });
     toast(result==='aprobado'?'✅ JSA aprobado':'JSA rechazado');
     await refreshMe();
     verAprobaciones();
   }catch(e){
+    if(/pin|sesión|sesion/i.test(e.message)){
+      // token vencido o inválido: volver a pedir el PIN
+      SUP_TOKEN = null;
+      toast('Vuelve a ingresar tu PIN.');
+      document.getElementById('l-pin').value=''; document.getElementById('pin-btn').disabled=true;
+      document.getElementById('pin-nombre').textContent = SESSION.nombre.split(' ')[0];
+      showView('v-pin');
+      return;
+    }
     errEl.textContent = 'No se pudo enviar: '+e.message; errEl.classList.add('show');
     showView('v-detalle');
   }

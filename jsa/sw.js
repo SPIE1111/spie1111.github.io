@@ -5,7 +5,7 @@
 //  - Otros recursos (íconos, fuentes): CACHE-FIRST
 // Sube la versión para forzar actualización total.
 // ════════════════════════════════════════════
-const CACHE = 'jsa-spie-v12';
+const CACHE = 'jsa-spie-v13';
 const CORE = [
   './',
   './index.html',
@@ -16,7 +16,6 @@ const CORE = [
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-512.png',
-  '../spie-logo.png',
 ];
 
 self.addEventListener('install', (e) => {

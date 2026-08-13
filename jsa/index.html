@@ -214,6 +214,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
 .est.enviado{background:#fff4dd;color:#a06b00}
 .est.aprobado{background:#e5f7ea;color:#1c7a34}
 .est.rechazado{background:#fdeaea;color:var(--red)}
+.rechazo-motivo{margin-top:8px;background:#fdeaea;border:1px solid #f2b8b8;color:#a12b2b;border-radius:8px;padding:7px 10px;font-size:12.5px;line-height:1.45}
 .est.pendiente{background:#eef2fa;color:var(--text2)}
 
 /* ── TOAST ── */
@@ -968,6 +969,7 @@ function initWizardUI(){
   document.getElementById('crew-manual').style.display = 'none';
   // Navegación
   document.getElementById('send-err').classList.remove('show');
+  document.querySelector('#v-jsa .wt').textContent = D._resubmit ? 'Corregir y reenviar' : 'Nuevo JSA';
   gotoStep(wizStep);
 }
 
@@ -981,7 +983,7 @@ function gotoStep(n){
   document.getElementById('wiz-sub').textContent = `Paso ${n} de ${TOTAL_STEPS}`;
   document.getElementById('wiz-bar').style.width = Math.round(n/TOTAL_STEPS*100)+'%';
   document.getElementById('btn-prev').style.visibility = n===1?'hidden':'visible';
-  document.getElementById('btn-next').textContent = n===TOTAL_STEPS ? '📤 Enviar JSA' : 'Siguiente';
+  document.getElementById('btn-next').textContent = n===TOTAL_STEPS ? (D&&D._resubmit?'📤 Reenviar JSA':'📤 Enviar JSA') : 'Siguiente';
   if(n===7) renderResumen();
   window.scrollTo(0,0);
 }
@@ -1372,17 +1374,25 @@ function buildPayload(){
 
 async function enviarJSA(){
   const btn = document.getElementById('btn-next');
-  btn.disabled = true; btn.textContent = 'Enviando…';
+  const esReenvio = !!D._resubmit;
+  btn.disabled = true; btn.textContent = esReenvio?'Reenviando…':'Enviando…';
   const payload = buildPayload();
   try{
-    const d = await api('submit', payload);
+    const d = await api(esReenvio?'resubmit':'submit', payload);
     await idbDel('drafts',D.id);
-    document.getElementById('ok-title').textContent = 'JSA enviado';
+    document.getElementById('ok-title').textContent = esReenvio?'JSA reenviado':'JSA enviado';
     document.getElementById('ok-folio').textContent = d.folio||'';
     document.getElementById('ok-msg').textContent = 'Se notificó al supervisor del sitio para su aprobación.';
     gotoStep('ok');
   }catch(e){
-    // Sin conexión o error de red: guardar en outbox para reintento automático
+    if(esReenvio){
+      // El reenvío requiere conexión (no va al outbox): mostrar error y quedarse en el paso.
+      const se = document.getElementById('send-err');
+      se.textContent = navigator.onLine ? ('No se pudo reenviar: '+e.message) : 'Necesitas conexión para reenviar. Intenta de nuevo con señal.';
+      se.classList.add('show');
+      btn.disabled=false; btn.textContent='📤 Reenviar JSA'; refreshBadges(); return;
+    }
+    // Envío nuevo: sin conexión o error → outbox para reintento automático
     await idbPut('outbox',{id:D.id, payload, ts:Date.now()});
     await idbDel('drafts',D.id);
     document.getElementById('ok-title').textContent = 'JSA guardado';
@@ -1392,7 +1402,7 @@ async function enviarJSA(){
       : 'Estás sin conexión. Quedó guardado y se enviará automáticamente al recuperar la señal.';
     gotoStep('ok');
   }finally{
-    btn.disabled = false; btn.textContent = '📤 Enviar JSA';
+    btn.disabled = false; btn.textContent = D&&D._resubmit ? '📤 Reenviar JSA' : '📤 Enviar JSA';
     refreshBadges();
   }
 }
@@ -1419,6 +1429,57 @@ async function syncOutbox(){
   }finally{ _syncing = false; }
 }
 window.addEventListener('online',()=>{ showOffline(); syncOutbox(); });
+
+// ════════════════════════════════════════════
+// CORREGIR Y REENVIAR (JSA rechazado)
+// ════════════════════════════════════════════
+async function _urlToDataURL(url){
+  if(!url) return null;
+  try{ const r=await fetch(url); const b=await r.blob(); return await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=()=>res(null);fr.readAsDataURL(b);}); }catch(_e){ return null; }
+}
+async function detailToDraft(d){
+  const h = d.head||{};
+  const risks = {}, risk_other = {};
+  (d.risks||[]).forEach(r=>{ (risks[r.category]=risks[r.category]||[]).push(r.risk); if(r.risk==='Otro'&&r.other_text) risk_other[r.category]=r.other_text; });
+  const epp = (d.epp||[]).map(e=>e.epp);
+  const eppOtro = (d.epp||[]).find(e=>e.epp==='Otro');
+  const acts = (d.activities||[]).filter(a=>!a.during_execution).sort((a,b)=>a.position-b.position).map(a=>({task:a.task||'',risk:a.risk||'',control:a.control||''}));
+  const execActs = (d.activities||[]).filter(a=>a.during_execution).sort((a,b)=>a.position-b.position).map(a=>({task:a.task||'',risk:a.risk||'',control:a.control||''}));
+  const crew = [];
+  for(const c of (d.crew||[])){
+    crew.push({payroll_no:c.payroll_no||'', employee_name:c.employee_name, sig: await _urlToDataURL(c.signature_url), _creator: String(c.payroll_no)===String(h.created_by_payroll_no)});
+  }
+  if(!crew.length) crew.push({payroll_no:SESSION.nomina, employee_name:SESSION.nombre, sig:null, _creator:true});
+  return {
+    id: h.id, _nomina: h.created_by_payroll_no || SESSION.nomina, _resubmit: true,
+    site_id: h.site_id||'', site_name: (h.jsa_sites&&h.jsa_sites.site)||'',
+    work_date: h.work_date||'', work_time: (h.work_time||'').slice(0,5),
+    work_permit: h.work_permit||'', work_description: h.work_description||'',
+    project: h.project||'', work_area: h.work_area||'',
+    risks, risk_other, extra_risk: h.extra_risk||'',
+    area_conditions: h.area_conditions||'',
+    distinct_risks: h.distinct_risks||'', distinct_risks_detail: h.distinct_risks_detail||'',
+    epp, epp_other: (eppOtro&&eppOtro.other_text)||'',
+    activities: acts.length?acts:[{task:'',risk:'',control:''}],
+    exec_activities: execActs,
+    crew, crew_declaration_accepted: !!h.crew_declaration_accepted,
+  };
+}
+async function corregirJSA(id, btn){
+  if(btn){ btn.disabled=true; btn.textContent='Cargando…'; }
+  try{
+    const d = await api('jsa-detail',{id});
+    D = await detailToDraft(d);
+    wizStep = 1;
+    initWizardUI();
+    showView('v-jsa');
+    const sites = await cargarSitios();
+    pintarSitios(sites);
+    const sel=document.getElementById('f-site'); if(sel && D.site_id) sel.value = D.site_id;
+    toast('Corrige lo necesario y reenvía. La firma se conserva; puedes re-firmar si cambió algo.');
+  }catch(e){ toast('No se pudo abrir para corregir: '+e.message); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='✏️ Corregir y reenviar'; } }
+}
 
 // ════════════════════════════════════════════
 // MIS JSA
@@ -1458,10 +1519,11 @@ function jsaItem(j, pendiente){
       <span class="est ${est}">${est.charAt(0).toUpperCase()+est.slice(1)}</span>
     </div>
     <div class="desc">${j.work_description||''}</div>
-    <div class="meta">${[j.work_date, j.site].filter(Boolean).join(' · ')}</div>`;
+    <div class="meta">${[j.work_date, j.site].filter(Boolean).join(' · ')}</div>
+    ${j.status==='rechazado'&&j.reject_reason?`<div class="rechazo-motivo">✋ <b>Motivo del rechazo:</b> ${j.reject_reason}</div>`:''}`;
   if(!pendiente && j.id){
     const bar = document.createElement('div');
-    bar.style = 'display:flex;gap:8px;margin-top:10px';
+    bar.style = 'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap';
     const ver = document.createElement('button');
     ver.className='sig-btn'; ver.textContent='Ver detalle';
     ver.onclick=(e)=>{e.stopPropagation(); abrirDetalle(j.id,false);};
@@ -1469,6 +1531,13 @@ function jsaItem(j, pendiente){
     pdf.className='sig-btn'; pdf.textContent='📄 PDF';
     pdf.onclick=(e)=>{e.stopPropagation(); descargarPDF(j.id, pdf);};
     bar.appendChild(ver); bar.appendChild(pdf);
+    if(j.status==='rechazado' && j.mine){
+      const fix = document.createElement('button');
+      fix.className='sig-btn'; fix.style='border-color:var(--amber);color:#a06b00';
+      fix.textContent='✏️ Corregir y reenviar';
+      fix.onclick=(e)=>{e.stopPropagation(); corregirJSA(j.id, fix);};
+      bar.appendChild(fix);
+    }
     div.appendChild(bar);
   }
   return div;

@@ -5,7 +5,7 @@
 //  - Otros recursos (íconos, fuentes): CACHE-FIRST
 // Sube la versión para forzar actualización total.
 // ════════════════════════════════════════════
-const CACHE = 'jsa-spie-v10';
+const CACHE = 'jsa-spie-v11';
 const CORE = [
   './',
   './index.html',
@@ -73,9 +73,10 @@ self.addEventListener('push', (e) => {
   e.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: './icon-192.png',
-      badge: './icon-192.png',
-      data: { url: './' },
+      icon: '/jsa/icon-192.png',
+      badge: '/jsa/icon-192.png',
+      tag: 'jsa',
+      data: { url: '/jsa/' },
       vibrate: [80, 40, 80],
     })
   );
@@ -84,7 +85,7 @@ self.addEventListener('push', (e) => {
 // Al tocar la notificación, abrir/enfocar la app
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const url = (e.notification.data && e.notification.data.url) || './';
+  const url = (e.notification.data && e.notification.data.url) || '/jsa/';
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
       for (const c of cs) { if (c.url.includes('/jsa/') && 'focus' in c) return c.focus(); }

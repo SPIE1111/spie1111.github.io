@@ -613,7 +613,7 @@ const RIESGOS = {
   'Locativo':['Derrumbe / Hundimiento','Interferencia con otra tarea','Atropello'],
   'Flora y Fauna':['Alergias / intoxicación por contacto con plantas','Lesiones por contacto con plantas','Caída de ramas o árboles','Picaduras de fauna nociva y ponzoñosa','Ramas o arbustos que obstruyan la zona de trabajo','Área con mucha vegetación','Terreno irregular (huecos, piedras, desniveles)'],
 };
-const EPP = ['Casco','Gafas de seguridad','Protección auditiva','Equipo de protección respiratoria','Calzado de seguridad','Guantes','Ropa de protección','Equipo LOTO','Bandejas para contención de derrames','Arnés / Cabos con absorbedor de energía','Botiquín PA','Extintores','Puntos fijos / De anclaje','Señalización móvil','Uso de polainas'];
+const EPP = ['Casco','Gafas de seguridad','Protección auditiva','Equipo de protección respiratoria','Calzado de seguridad','Guantes','Ropa de protección','Equipo LOTO','Bandejas para contención de derrames','Arnés / Cabos con absorbedor de energía','Botiquín PA','Extintores','Puntos fijos / De anclaje','Señalización móvil','Uso de polainas','Descensor de emergencia'];
 const MAX_ACTS = 20;
 
 // ════════════════════════════════════════════
@@ -1700,10 +1700,22 @@ function urlB64ToUint8Array(base64){
   const raw = atob(b64);
   return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
 }
+// Devuelve el service worker PROPIO de JSA (scope /jsa/), no el de Hazard (scope /).
+// Sin esto, la suscripción de push se crea bajo el SW de Hazard y los avisos
+// aparecen/abren esa app en vez de JSA.
+async function jsaSWReg(){
+  try{ await navigator.serviceWorker.register('sw.js'); }catch(_e){}
+  let reg = await navigator.serviceWorker.getRegistration('./').catch(()=>null);
+  for(let i=0;i<20 && (!reg || !reg.active);i++){
+    await new Promise(r=>setTimeout(r,150));
+    reg = await navigator.serviceWorker.getRegistration('./').catch(()=>null);
+  }
+  return reg || await navigator.serviceWorker.ready;
+}
 async function ofrecerPush(){
   const btn = document.getElementById('push-btn');
   if(!VAPID_PUBLIC_KEY || !('serviceWorker' in navigator) || !('PushManager' in window)){ btn.style.display='none'; return; }
-  const reg = await navigator.serviceWorker.ready.catch(()=>null);
+  const reg = await jsaSWReg().catch(()=>null);
   if(!reg){ btn.style.display='none'; return; }
   const sub = await reg.pushManager.getSubscription();
   if(sub){ btn.style.display='none'; registrarDispositivo(sub); }  // ya suscrito: refrescar registro
@@ -1714,7 +1726,7 @@ async function activarPush(){
   try{
     const perm = await Notification.requestPermission();
     if(perm!=='granted'){ toast('Avisos no permitidos. Puedes activarlos en ajustes del navegador.'); return; }
-    const reg = await navigator.serviceWorker.ready;
+    const reg = await jsaSWReg();
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly:true,
       applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY),

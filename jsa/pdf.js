@@ -49,7 +49,7 @@
     ['Casco', 'Gafas de seguridad', 'Protección auditiva', 'Equipo de protección respiratoria', 'Calzado de seguridad'],
     ['Guantes', 'Ropa de protección', 'Equipo LOTO', 'Bandejas para contención de derrames', 'Arnés / Cabos con Absorbedor de energía'],
     ['Botiquín PA', 'Extintores', 'Puntos fijos / De anclaje', 'Señalización móvil', 'Otro'],
-    ['Uso de polainas', '', '', '', ''],
+    ['Uso de polainas', 'Descensor de emergencia', '', '', ''],
   ];
   const DECL = '"Entiendo y cumpliré los pasos, peligros y controles descritos en este AST.  Entiendo que realizar un trabajo que no sea como se describe o fuera de secuencia puede representar una amenaza significativa y, por lo tanto, realizar el trabajo de esta manera no está autorizado. Me pondré en contacto con mi supervisor antes de continuar con el trabajo, si el alcance del trabajo cambia o se introducen nuevos peligros.  Entiendo que tengo la autoridad y la obligación de detener el trabajo que considero inseguro".';
   const AUTOR = 'He revisado la actividad y los pasos de trabajo, y los riesgos y controles descritos en este JSA con todos los trabajadores mencionados anteriormente y los autorizo a realizar el trabajo.  Los trabajadores son competentes (capacitados, conocedores y con experiencia) y aptos para el trabajo (física, mental y socialmente) para realizar esta actividad.';

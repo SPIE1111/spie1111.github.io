@@ -92,9 +92,9 @@
   @media(max-width:640px){.kv{grid-template-columns:1fr}.hide-sm{display:none}}
 </style>
 <script src="xlsx.min.js"></script>
-<script src="jsa/jspdf.umd.min.js?v=6"></script>
-<script src="jsa/pdf-assets.js?v=6"></script>
-<script src="jsa/pdf.js?v=6"></script>
+<script src="jsa/jspdf.umd.min.js?v=7"></script>
+<script src="jsa/pdf-assets.js?v=7"></script>
+<script src="jsa/pdf.js?v=7"></script>
 </head>
 <body>
 
@@ -413,7 +413,7 @@ function renderJSA(){
   const tagCls = {enviado:'abierto', aprobado:'cerrado', rechazado:'baja', borrador:'proceso'};
   tb.innerHTML = list.map(j=>`
     <tr class="main" onclick="openJSADetail('${j.id}')">
-      <td class="catcode">${escapeHtml(j.folio||'—')}</td>
+      <td class="catcode">${escapeHtml(j.folio||'—')}${j.jsa_type==='cliente'?' <span title="JSA Cliente (fotos)">📸</span>':''}</td>
       <td>${escapeHtml(j.work_date||'')} <span class="seg">${escapeHtml((j.work_time||'').slice(0,5))}</span></td>
       <td class="hide-sm">${escapeHtml(j.site||'')}<div class="seg">${escapeHtml(j.country||'')}</div></td>
       <td class="hide-sm">${escapeHtml(j.created_by||'')}</td>
@@ -441,7 +441,23 @@ async function openJSADetail(id){
     const actHtml = acts.map(a=>`<div class="cmt"><b>${a.position}. ${escapeHtml(a.task||'')}</b><div class="meta">Riesgos: ${escapeHtml(a.risk||'—')} · Control: ${escapeHtml(a.control||'—')}</div></div>`).join('')||'<span class="muted">—</span>';
     const crewHtml = (d.crew||[]).map(c=>`<div class="row" style="gap:8px;margin-bottom:4px"><span>${escapeHtml(c.employee_name||'')} <span class="muted">(${escapeHtml(c.payroll_no||'—')})</span></span>${c.signature_url?`<img src="${c.signature_url}" style="height:26px;border:1px solid var(--line);border-radius:4px">`:'<span class="muted" style="font-size:12px">sin firma</span>'}</div>`).join('')||'—';
     const ap = (d.approvals||[])[0];
+    const apHtml = ap?`<h3>Aprobación</h3><div class="cmt"><b style="color:${ap.result==='aprobado'?'var(--green)':'var(--red)'}">${escapeHtml((ap.result||'').toUpperCase())}</b> por ${escapeHtml(ap.approver_name||'')} ${ap.approver_role?('· '+escapeHtml(ap.approver_role)):''}${ap.comment?`<div class="meta">${escapeHtml(ap.comment)}</div>`:''}${ap.signature_url?`<div style="margin-top:6px"><img src="${ap.signature_url}" style="height:34px;border:1px solid var(--line);border-radius:4px"></div>`:''}</div>`:'';
     document.getElementById('m-code').textContent = h.folio||'JSA';
+    if(h.jsa_type==='cliente'){
+      const fotos = (d.photos||[]).map((p,i)=>`<a href="${p.image_url}" target="_blank" rel="noopener" style="display:inline-block;margin:4px"><img src="${p.image_url}" style="height:130px;border:1px solid var(--line);border-radius:6px"></a>`).join('')||'<span class="muted">Sin fotos</span>';
+      document.getElementById('m-body').innerHTML = `
+        <div class="kv">
+          <div class="k">Tipo</div><div class="v">📸 JSA Cliente (fotos)</div>
+          <div class="k">Estatus</div><div class="v">${escapeHtml(h.status||'')}</div>
+          <div class="k">Sitio</div><div class="v">${escapeHtml((h.jsa_sites&&h.jsa_sites.site)||'')} · ${escapeHtml((h.jsa_sites&&h.jsa_sites.country)||'')}</div>
+          <div class="k">Fecha / hora</div><div class="v">${escapeHtml(h.work_date||'')} ${escapeHtml((h.work_time||'').slice(0,5))}</div>
+          <div class="k">Creado por</div><div class="v">Nómina ${escapeHtml(h.created_by_payroll_no||'')}</div>
+        </div>
+        <h3>Fotos del JSA del cliente (${(d.photos||[]).length})</h3><div>${fotos}</div>
+        ${apHtml}
+        <div class="row" style="margin-top:18px"><button class="btn sm" onclick="genJSAPDF('${h.id}',this)">📄 Descargar PDF (fotos)</button></div>`;
+      return;
+    }
     document.getElementById('m-body').innerHTML = `
       <div class="kv">
         <div class="k">Estatus</div><div class="v">${escapeHtml(h.status||'')}</div>
@@ -476,8 +492,14 @@ async function genJSAPDF(id, btn){
   const t = btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='Generando…'; }
   try{
     const d = await jsaApi('jsa-detail', { id });
-    await precargarFirmasJSA(d);
-    const doc = generarJSAPDF(d);
+    let doc;
+    if((d.head&&d.head.jsa_type)==='cliente'){
+      await precargarFotosJSA(d);
+      doc = generarClientePDF(d);
+    } else {
+      await precargarFirmasJSA(d);
+      doc = generarJSAPDF(d);
+    }
     doc.save((d.head&&d.head.folio?d.head.folio:'JSA')+'.pdf');
   }catch(e){ alert('No se pudo generar el PDF: '+e.message); }
   finally{ if(btn){ btn.disabled=false; btn.textContent=t; } }

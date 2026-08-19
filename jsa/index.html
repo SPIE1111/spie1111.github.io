@@ -122,6 +122,19 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
 .badge{margin-left:auto;background:var(--amber);color:#fff;font-size:12px;font-weight:700;border-radius:20px;padding:2px 9px;display:none;white-space:nowrap}
 .badge.show{display:inline-block}
 
+/* ── ELEGIR TIPO / FOTOS CLIENTE ── */
+.opt-card{display:flex;align-items:flex-start;gap:14px;background:var(--card);border:none;border-radius:var(--r);box-shadow:var(--shadow);padding:20px;cursor:pointer;font-family:var(--font);text-align:left;transition:transform .1s;width:100%}
+.opt-card:active{transform:scale(.985)}
+.opt-card .oc-ic{font-size:30px;flex:none}
+.opt-card .oc-t{display:block;font-size:17px;font-weight:800;color:var(--text)}
+.opt-card .oc-d{display:block;font-size:13px;color:var(--text2);line-height:1.4;margin-top:3px}
+.modo-fotos{display:flex;gap:16px;margin:4px 0 2px;flex-wrap:wrap}
+.fotos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.foto-item{position:relative;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);aspect-ratio:3/4;background:#f2f6fc}
+.foto-item img{width:100%;height:100%;object-fit:cover;display:block}
+.foto-item .fx{position:absolute;top:5px;right:5px;background:rgba(10,15,40,.7);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center}
+.foto-item .fn{position:absolute;bottom:0;left:0;right:0;background:rgba(10,15,40,.6);color:#fff;font-size:11px;text-align:center;padding:2px 0}
+
 /* ── INDICADOR OFFLINE ── */
 .offline-bar{
   display:none;width:100%;max-width:520px;margin-bottom:12px;
@@ -215,6 +228,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
 .est.aprobado{background:#e5f7ea;color:#1c7a34}
 .est.rechazado{background:#fdeaea;color:var(--red)}
 .rechazo-motivo{margin-top:8px;background:#fdeaea;border:1px solid #f2b8b8;color:#a12b2b;border-radius:8px;padding:7px 10px;font-size:12.5px;line-height:1.45}
+.tipo-tag{font-size:11px;font-weight:700;background:#eaf4fb;color:var(--cyan2);border-radius:6px;padding:1px 7px;vertical-align:middle}
 .est.pendiente{background:#eef2fa;color:var(--text2)}
 
 /* ── TOAST ── */
@@ -329,11 +343,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
         </span>
         <span class="badge" id="badge-aprob"></span>
       </button>
-      <button class="menu-btn" onclick="nuevoJSA()">
+      <button class="menu-btn" onclick="elegirTipoJSA()">
         <span class="ic">📝</span>
         <span>
           <span class="tt">Nuevo JSA</span><br/>
-          <span class="dd">Llenar el análisis de seguridad del trabajo de hoy con tu equipo.</span>
+          <span class="dd">Inicia un nuevo análisis de seguridad del trabajo.</span>
         </span>
         <span class="badge" id="badge-draft">borrador</span>
       </button>
@@ -349,6 +363,80 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
     <button class="btn ghost" id="push-btn" style="max-width:520px;display:none;margin-top:14px" onclick="activarPush()">🔔 Activar avisos en este celular</button>
 
     <div class="foot">SPIE · HSE · v0.2</div>
+  </div>
+
+  <!-- ════════ VISTA: ELEGIR TIPO DE JSA ════════ -->
+  <div id="v-tipo" class="view">
+    <div class="wiz-head">
+      <button class="back" onclick="showView('v-home')">‹</button>
+      <div><div class="wt">Nuevo JSA</div><div class="ws">¿Qué tipo?</div></div>
+    </div>
+    <div style="width:100%;max-width:520px;display:flex;flex-direction:column;gap:14px">
+      <button class="opt-card" onclick="nuevoJSACliente()">
+        <span class="oc-ic">📸</span>
+        <span><span class="oc-t">JSA CLIENTE</span><span class="oc-d">Selecciona esta opción en caso de que el cliente le haya otorgado un JSA. Solo tomarás fotos del documento.</span></span>
+      </button>
+      <button class="opt-card" onclick="nuevoJSASpie()">
+        <span class="oc-ic">📝</span>
+        <span><span class="oc-t">JSA SPIE</span><span class="oc-d">Selecciona esta opción si el cliente NO le otorgó un JSA. Llenarás el formato completo de SPIE.</span></span>
+      </button>
+    </div>
+    <div class="foot">SPIE · HSE</div>
+  </div>
+
+  <!-- ════════ VISTA: JSA CLIENTE (fotos) ════════ -->
+  <div id="v-cliente" class="view">
+    <div class="wiz-head">
+      <button class="back" onclick="salirCliente()">‹</button>
+      <div><div class="wt" id="cl-titulo">JSA Cliente</div><div class="ws" id="cl-sub">Fotos del JSA del cliente</div></div>
+    </div>
+    <div class="card">
+
+      <!-- Captura -->
+      <div id="cl-captura">
+        <label class="req">Sitio / Parque</label>
+        <select id="cl-site" onchange="CL.site_id=this.value;CL.site_name=this.options[this.selectedIndex]?.text||''"></select>
+        <div id="cl-site-err" class="err">No se pudo cargar el catálogo de sitios. Conéctate una vez para descargarlo.</div>
+
+        <label style="margin-top:16px">Fotos del JSA del cliente</label>
+        <div class="sub mt0">Toma fotos claras del documento. Se mejoran y comprimen automáticamente.</div>
+        <div class="modo-fotos">
+          <label class="chk" style="padding:4px 0"><input type="radio" name="cl-modo" value="color" checked onchange="CL.modo='color'"/> Color</label>
+          <label class="chk" style="padding:4px 0"><input type="radio" name="cl-modo" value="doc" onchange="CL.modo='doc'"/> Documento (B/N)</label>
+        </div>
+        <div id="cl-fotos" class="fotos-grid"></div>
+        <label class="btn ghost" style="cursor:pointer">
+          📷 Tomar / agregar foto
+          <input type="file" accept="image/*" capture="environment" style="display:none" onchange="agregarFoto(this)"/>
+        </label>
+        <div id="cl-captura-err" class="err"></div>
+        <button class="btn" onclick="clContinuar()">Continuar</button>
+      </div>
+
+      <!-- Resumen -->
+      <div id="cl-resumen" style="display:none">
+        <h2>Revisión y envío</h2>
+        <div class="sub mt0">Verifica las fotos antes de enviar a aprobación.</div>
+        <div class="sum"><div class="sl">Sitio</div><div class="sv" id="cl-r-site"></div></div>
+        <div class="sum"><div class="sl">Fotos</div><div class="sv" id="cl-r-count"></div></div>
+        <div id="cl-r-fotos" class="fotos-grid" style="margin-top:10px"></div>
+        <div id="cl-send-err" class="err"></div>
+        <div class="wiz-nav">
+          <button class="btn ghost" onclick="clVolver()">Atrás</button>
+          <button class="btn" id="cl-enviar" onclick="enviarCliente()">📤 Enviar JSA</button>
+        </div>
+      </div>
+
+      <!-- Éxito -->
+      <div id="cl-ok" style="display:none">
+        <div class="ok-big">✅</div>
+        <h2 style="text-align:center" id="cl-ok-title">JSA enviado</h2>
+        <div class="folio-big" id="cl-ok-folio"></div>
+        <div class="sub" style="text-align:center;margin-top:8px" id="cl-ok-msg"></div>
+        <button class="btn" onclick="salirClienteOk()">Volver al inicio</button>
+      </div>
+    </div>
+    <div class="foot">SPIE · HSE</div>
   </div>
 
   <!-- ════════ VISTA: WIZARD JSA ════════ -->
@@ -572,6 +660,17 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
       <button class="btn danger" style="width:auto;padding:13px 16px" onclick="sigCancel()">Cancelar</button>
       <button class="btn" onclick="sigSave()">Guardar</button>
     </div>
+  </div>
+</div>
+
+<!-- ════════ MODAL: BORRADOR SIN TERMINAR ════════ -->
+<div class="modal" id="draft-modal">
+  <div class="card" style="max-width:420px;text-align:center">
+    <div style="font-size:44px;margin:4px 0">📝</div>
+    <h2>Tienes un JSA sin terminar</h2>
+    <div class="sub" style="margin-bottom:6px">¿Quieres continuar donde lo dejaste o empezar uno nuevo?</div>
+    <button class="btn" onclick="draftDecision(true)">Continuar el anterior</button>
+    <button class="btn ghost" onclick="draftDecision(false)">Empezar uno nuevo</button>
   </div>
 </div>
 
@@ -923,24 +1022,169 @@ function draftNuevo(){
   };
 }
 
-async function nuevoJSA(){
+// Al tocar "Nuevo JSA" se elige el tipo (CLIENTE / SPIE)
+function elegirTipoJSA(){ showView('v-tipo'); }
+
+// ── JSA SPIE (formato completo) ──
+let _pendingDraft = null;
+async function nuevoJSASpie(){
   const drafts = (await idbAll('drafts')).filter(d=>d._nomina===SESSION.nomina);
   if(drafts.length){
-    if(confirm('Tienes un JSA sin terminar. ¿Quieres continuarlo?\n(Aceptar = continuar · Cancelar = empezar uno nuevo)')){
-      D = drafts.sort((a,b)=>(b._ts||0)-(a._ts||0))[0];
-    }else{
-      for(const d of drafts) await idbDel('drafts',d.id);
-      D = draftNuevo();
-    }
-  }else{
+    _pendingDraft = drafts.sort((a,b)=>(b._ts||0)-(a._ts||0))[0];
+    document.getElementById('draft-modal').classList.add('show');
+    return;
+  }
+  D = draftNuevo();
+  await arrancarWizard();
+}
+function draftDecision(continuar){
+  document.getElementById('draft-modal').classList.remove('show');
+  if(continuar && _pendingDraft){ D = _pendingDraft; }
+  else {
+    idbAll('drafts').then(all=>all.filter(d=>d._nomina===SESSION.nomina).forEach(d=>idbDel('drafts',d.id)));
     D = draftNuevo();
   }
+  _pendingDraft = null;
+  arrancarWizard();
+}
+async function arrancarWizard(){
   wizStep = 1;
   initWizardUI();
   showView('v-jsa');
   const sites = await cargarSitios();
   pintarSitios(sites);
 }
+
+// ════════════════════════════════════════════
+// JSA CLIENTE (solo fotos, con mejora automática)
+// ════════════════════════════════════════════
+let CL = null;
+
+async function nuevoJSACliente(){
+  CL = { id:uuid(), _nomina:SESSION.nomina, jsa_type:'cliente', site_id:'', site_name:'', modo:'color', photos:[] };
+  document.getElementById('cl-titulo').textContent = 'JSA Cliente';
+  document.getElementById('cl-captura').style.display = 'block';
+  document.getElementById('cl-resumen').style.display = 'none';
+  document.getElementById('cl-ok').style.display = 'none';
+  document.querySelectorAll('input[name=cl-modo]').forEach(r=>r.checked=(r.value==='color'));
+  document.getElementById('cl-captura-err').classList.remove('show');
+  document.getElementById('cl-send-err').classList.remove('show');
+  renderFotosCliente();
+  showView('v-cliente');
+  const sites = await cargarSitios();
+  pintarSitiosCliente(sites);
+}
+
+function pintarSitiosCliente(sites){
+  const sel = document.getElementById('cl-site');
+  const errEl = document.getElementById('cl-site-err');
+  sel.innerHTML = '<option value="">— Selecciona el sitio —</option>';
+  if(!sites || !sites.length){ errEl.classList.add('show'); return; }
+  errEl.classList.remove('show');
+  const pais = (SESSION?.pais||'').toUpperCase();
+  const orden = [...sites].sort((a,b)=>{
+    const am=(a.country||'').toUpperCase()===pais?0:1, bm=(b.country||'').toUpperCase()===pais?0:1;
+    return am-bm || (a.country||'').localeCompare(b.country||'') || (a.site||'').localeCompare(b.site||'');
+  });
+  let lastC=null, og=null;
+  orden.forEach(s=>{
+    if(s.country!==lastC){ og=document.createElement('optgroup'); og.label=s.country; sel.appendChild(og); lastC=s.country; }
+    const o=document.createElement('option'); o.value=s.id; o.textContent=s.site; og.appendChild(o);
+  });
+  if(CL.site_id) sel.value = CL.site_id;
+}
+
+// Mejora la foto: reescala, aplica contraste/nitidez (o B/N documento) y comprime a JPEG.
+function enhanceFoto(file, modo){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      const maxDim = 1600;
+      let w = img.width, h = img.height;
+      const scale = Math.min(1, maxDim/Math.max(w,h));
+      w = Math.round(w*scale); h = Math.round(h*scale);
+      const cv = document.createElement('canvas'); cv.width=w; cv.height=h;
+      const ctx = cv.getContext('2d');
+      try{ ctx.filter = modo==='doc' ? 'grayscale(1) contrast(1.55) brightness(1.12)' : 'contrast(1.18) saturate(1.12) brightness(1.04)'; }catch(_e){}
+      ctx.drawImage(img, 0,0, w,h);
+      resolve(cv.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen')); };
+    img.src = url;
+  });
+}
+
+async function agregarFoto(input){
+  const file = input.files && input.files[0];
+  input.value = '';
+  if(!file) return;
+  const err = document.getElementById('cl-captura-err'); err.classList.remove('show');
+  if(CL.photos.length >= 15){ toast('Máximo 15 fotos.'); return; }
+  toast('Procesando foto…', 1200);
+  try{
+    CL.photos.push(await enhanceFoto(file, CL.modo));
+    renderFotosCliente();
+  }catch(_e){ err.textContent='No se pudo procesar la foto, reintenta.'; err.classList.add('show'); }
+}
+
+function renderFotosCliente(){
+  document.getElementById('cl-fotos').innerHTML = CL.photos.map((p,i)=>
+    `<div class="foto-item"><img src="${p}"/><button class="fx" onclick="quitarFoto(${i})">✕</button><div class="fn">${i+1}</div></div>`).join('');
+}
+function quitarFoto(i){ CL.photos.splice(i,1); renderFotosCliente(); }
+
+function clContinuar(){
+  const err = document.getElementById('cl-captura-err');
+  CL.site_id = document.getElementById('cl-site').value;
+  if(!CL.site_id){ err.textContent='Selecciona el sitio.'; err.classList.add('show'); return; }
+  if(!CL.photos.length){ err.textContent='Toma al menos una foto del JSA del cliente.'; err.classList.add('show'); return; }
+  err.classList.remove('show');
+  document.getElementById('cl-r-site').textContent = CL.site_name || '—';
+  document.getElementById('cl-r-count').textContent = CL.photos.length + ' foto(s)';
+  document.getElementById('cl-r-fotos').innerHTML = CL.photos.map((p,i)=>`<div class="foto-item"><img src="${p}"/><div class="fn">${i+1}</div></div>`).join('');
+  document.getElementById('cl-captura').style.display='none';
+  document.getElementById('cl-resumen').style.display='block';
+  window.scrollTo(0,0);
+}
+function clVolver(){
+  document.getElementById('cl-resumen').style.display='none';
+  document.getElementById('cl-captura').style.display='block';
+}
+
+async function enviarCliente(){
+  const btn = document.getElementById('cl-enviar');
+  const esReenvio = !!CL._resubmit;
+  btn.disabled=true; btn.textContent = esReenvio?'Reenviando…':'Enviando…';
+  const now = new Date();
+  const payload = {
+    jsa:{ id:CL.id, created_by_payroll_no:CL._nomina, site_id:CL.site_id, jsa_type:'cliente',
+      work_date: now.toISOString().slice(0,10), work_time: now.toTimeString().slice(0,5),
+      work_description:'JSA otorgado por el cliente (fotos).', distinct_risks:'NA', crew_declaration_accepted:false },
+    risks:[], epp:[], activities:[], crew:[], photos:CL.photos, creator_name:SESSION.nombre,
+  };
+  try{
+    const d = await api(esReenvio?'resubmit':'submit', payload);
+    document.getElementById('cl-ok-title').textContent = esReenvio?'JSA reenviado':'JSA enviado';
+    document.getElementById('cl-ok-folio').textContent = d.folio||'';
+    document.getElementById('cl-ok-msg').textContent = 'Se notificó al supervisor del sitio para su aprobación.';
+    document.getElementById('cl-resumen').style.display='none';
+    document.getElementById('cl-ok').style.display='block';
+    refreshBadges();
+  }catch(e){
+    const se = document.getElementById('cl-send-err');
+    se.textContent = navigator.onLine ? ('No se pudo enviar: '+e.message) : 'Necesitas conexión para enviar las fotos.';
+    se.classList.add('show');
+  }finally{ btn.disabled=false; btn.textContent='📤 Enviar JSA'; }
+}
+
+function salirCliente(){
+  const enExito = document.getElementById('cl-ok').style.display==='block';
+  if(!enExito && CL && CL.photos && CL.photos.length && !confirm('¿Salir sin enviar? Se perderán las fotos tomadas.')) return;
+  showView('v-home');
+}
+function salirClienteOk(){ showView('v-home'); refreshBadges(); }
 
 function initWizardUI(){
   // Paso 1
@@ -1469,14 +1713,31 @@ async function corregirJSA(id, btn){
   if(btn){ btn.disabled=true; btn.textContent='Cargando…'; }
   try{
     const d = await api('jsa-detail',{id});
-    D = await detailToDraft(d);
-    wizStep = 1;
-    initWizardUI();
-    showView('v-jsa');
-    const sites = await cargarSitios();
-    pintarSitios(sites);
-    const sel=document.getElementById('f-site'); if(sel && D.site_id) sel.value = D.site_id;
-    toast('Corrige lo necesario y reenvía. La firma se conserva; puedes re-firmar si cambió algo.');
+    if((d.head&&d.head.jsa_type)==='cliente'){
+      // Reabrir el flujo de fotos con las fotos existentes cargadas
+      CL = { id:d.head.id, _nomina:d.head.created_by_payroll_no||SESSION.nomina, jsa_type:'cliente', _resubmit:true,
+        site_id:d.head.site_id||'', site_name:(d.head.jsa_sites&&d.head.jsa_sites.site)||'', modo:'color', photos:[] };
+      for(const p of (d.photos||[])){ const du = await _urlToDataURL(p.image_url); if(du) CL.photos.push(du); }
+      document.getElementById('cl-titulo').textContent='Corregir JSA Cliente';
+      document.getElementById('cl-captura').style.display='block';
+      document.getElementById('cl-resumen').style.display='none';
+      document.getElementById('cl-ok').style.display='none';
+      document.getElementById('cl-captura-err').classList.remove('show');
+      document.getElementById('cl-send-err').classList.remove('show');
+      renderFotosCliente();
+      showView('v-cliente');
+      const sites = await cargarSitios(); pintarSitiosCliente(sites);
+      toast('Modifica lo que corresponda: quita o vuelve a tomar fotos, y reenvía.');
+    } else {
+      D = await detailToDraft(d);
+      wizStep = 1;
+      initWizardUI();
+      showView('v-jsa');
+      const sites = await cargarSitios();
+      pintarSitios(sites);
+      const sel=document.getElementById('f-site'); if(sel && D.site_id) sel.value = D.site_id;
+      toast('Corrige lo necesario y reenvía. La firma se conserva; puedes re-firmar si cambió algo.');
+    }
   }catch(e){ toast('No se pudo abrir para corregir: '+e.message); }
   finally{ if(btn){ btn.disabled=false; btn.textContent='✏️ Corregir y reenviar'; } }
 }
@@ -1515,7 +1776,7 @@ function jsaItem(j, pendiente){
   const est = j.status||'enviado';
   div.innerHTML = `
     <div class="fr">
-      <span class="folio">${j.folio||'—'}</span>
+      <span class="folio">${j.folio||'—'}${j.jsa_type==='cliente'?' <span class="tipo-tag">📸 Cliente</span>':''}</span>
       <span class="est ${est}">${est.charAt(0).toUpperCase()+est.slice(1)}</span>
     </div>
     <div class="desc">${j.work_description||''}</div>
@@ -1561,7 +1822,7 @@ async function verAprobaciones(){
       div.className = 'jsa-item'; div.style.cursor='pointer';
       div.onclick = ()=>abrirDetalle(j.id,true);
       div.innerHTML = `
-        <div class="fr"><span class="folio">${j.folio||'—'}</span><span class="est enviado">Por aprobar</span></div>
+        <div class="fr"><span class="folio">${j.folio||'—'}${j.jsa_type==='cliente'?' <span class="tipo-tag">📸 Cliente</span>':''}</span><span class="est enviado">Por aprobar</span></div>
         <div class="desc">${j.work_description||''}</div>
         <div class="meta">${[j.site, j.work_date, 'Nómina '+j.created_by].filter(Boolean).join(' · ')}</div>`;
       wrap.appendChild(div);
@@ -1597,6 +1858,20 @@ async function abrirDetalle(id, puedeAprobar){
         <div><div class="dn">${c.employee_name}</div><div class="dp">Nómina ${c.payroll_no||'—'}</div></div>
       </div>`).join('');
     const drTxt = h.distinct_risks==='SI'?('Sí — '+(h.distinct_risks_detail||'')):(h.distinct_risks==='NO'?'No':'No aplica');
+    if(h.jsa_type==='cliente'){
+      const fotosHtml = (d.photos||[]).map((p,i)=>`<a href="${p.image_url}" target="_blank" rel="noopener" class="foto-item" style="display:block"><img src="${p.image_url}"/><div class="fn">${i+1}</div></a>`).join('') || '<div class="det-kv">Sin fotos</div>';
+      body.innerHTML = `
+        <div class="det-sec">
+          <h3>JSA otorgado por el cliente 📸</h3>
+          <div class="det-kv"><b>Sitio:</b> ${h.jsa_sites?.site||'—'}</div>
+          <div class="det-kv"><b>Fecha/hora:</b> ${h.work_date||''} ${h.work_time||''}</div>
+          <div class="det-kv"><b>Creado por:</b> Nómina ${h.created_by_payroll_no}</div>
+        </div>
+        <div class="det-sec"><h3>Fotos del JSA (${(d.photos||[]).length})</h3><div class="fotos-grid">${fotosHtml}</div>
+          <div class="det-kv" style="font-size:12.5px;color:var(--text2);margin-top:6px">Toca una foto para verla en grande.</div></div>
+        ${(d.approvals||[]).length?`<div class="det-sec"><h3>Aprobación</h3>${d.approvals.map(a=>`<div class="det-kv"><b>${a.result==='aprobado'?'✔ Aprobado':'✖ Rechazado'}</b> por ${a.approver_name||'—'} ${a.comment?('· '+a.comment):''}</div>`).join('')}</div>`:''}
+      `;
+    } else {
     body.innerHTML = `
       <div class="det-sec">
         <h3>Datos generales</h3>
@@ -1617,6 +1892,7 @@ async function abrirDetalle(id, puedeAprobar){
         <div class="det-kv" style="margin-top:6px;font-style:italic;color:var(--text2)">Declaración del equipo: ${h.crew_declaration_accepted?'aceptada ✔':'no aceptada'}</div></div>
       ${(d.approvals||[]).length?`<div class="det-sec"><h3>7. Aprobación</h3>${d.approvals.map(a=>`<div class="det-kv"><b>${a.result==='aprobado'?'✔ Aprobado':'✖ Rechazado'}</b> por ${a.approver_name||'—'} ${a.comment?('· '+a.comment):''}</div>`).join('')}</div>`:''}
     `;
+    }
     // Mostrar acciones solo si es supervisor y sigue pendiente
     const puede = _detPuedeAprobar && h.status==='enviado';
     document.getElementById('det-actions').style.display = puede?'block':'none';
@@ -1730,13 +2006,22 @@ function fmtFecha(iso){
 // ════════════════════════════════════════════
 // PDF del JSA (idéntico al formato oficial)
 // ════════════════════════════════════════════
+// Genera el jsPDF del JSA según su tipo (SPIE = formato; CLIENTE = fotos).
+async function generarDocDeDetalle(d){
+  if((d.head&&d.head.jsa_type)==='cliente'){
+    await precargarFotosJSA(d);
+    return generarClientePDF(d);
+  }
+  await precargarFirmasJSA(d);
+  return generarJSAPDF(d);
+}
+
 // Genera el PDF final y lo archiva en el bucket (report_url). Best-effort.
 async function archivarReporte(id){
   try{
     if(typeof generarJSAPDF!=='function') return;
     const d = await api('jsa-detail',{id});
-    await precargarFirmasJSA(d);
-    const doc = generarJSAPDF(d);
+    const doc = await generarDocDeDetalle(d);
     const b64 = doc.output('datauristring').split(',').pop();
     await api('store-report',{ jsa_id:id, pdf_base64:b64, token:SUP_TOKEN, supervisor_payroll_no:SESSION.nomina });
   }catch(_e){ /* si falla, el panel podrá regenerarlo luego */ }
@@ -1748,8 +2033,7 @@ async function descargarPDF(id, btn){
   if(btn){ btn.disabled=true; btn.textContent='Generando…'; }
   try{
     const d = await api('jsa-detail',{id});
-    await precargarFirmasJSA(d);        // URLs de firma → dataURL
-    const doc = generarJSAPDF(d);
+    const doc = await generarDocDeDetalle(d);
     const folio = (d.head && d.head.folio) ? d.head.folio : 'JSA';
     doc.save(folio + '.pdf');
     toast('📄 PDF generado');

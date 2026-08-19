@@ -378,8 +378,72 @@
     return detail;
   }
 
+  // ── PDF de un JSA CLIENTE: combina las fotos en un solo documento ──
+  function generarClientePDF(detail) {
+    const jsPDF = getJsPDF();
+    const A = assets();
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+    const PW = 210, PH = 297, M = 8;
+    const h = detail.head || {};
+    const site = (h.jsa_sites && h.jsa_sites.site) || '';
+    const ap = (detail.approvals || [])[0];
+    const photos = (detail.photos || []).filter((p) => p.image_dataurl);
+
+    function header() {
+      doc.setFillColor(NAVY[0], NAVY[1], NAVY[2]); doc.rect(M, M, PW - 2 * M, 14, 'F');
+      if (A.spie) { try { doc.addImage(A.spie, 'JPEG', PW - M - 24, M + 2, 24, 10); } catch (_e) {} }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(255, 255, 255);
+      doc.text('JSA otorgado por el cliente', M + 3, M + 6);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+      doc.text([h.folio || '', site].filter(Boolean).join('   ·   '), M + 3, M + 11);
+    }
+    function footer(i, total) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(90, 90, 90);
+      doc.text('SPIE · HSE · Documento generado desde la app JSA', M, PH - 5);
+      doc.text('Foto ' + i + ' de ' + total, PW - M, PH - 5, { align: 'right' });
+      if (ap && ap.result) {
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(ap.result === 'aprobado' ? 30 : 200, ap.result === 'aprobado' ? 122 : 40, ap.result === 'aprobado' ? 52 : 40);
+        doc.text((ap.result === 'aprobado' ? 'APROBADO' : 'RECHAZADO') + (ap.approver_name ? (' · ' + ap.approver_name) : ''), PW / 2, PH - 5, { align: 'center' });
+      }
+    }
+    if (!photos.length) {
+      header(); doc.setFontSize(11); doc.setTextColor(20, 20, 20); doc.text('Sin fotos.', M + 3, 40);
+      return doc;
+    }
+    photos.forEach((p, i) => {
+      if (i > 0) doc.addPage();
+      header();
+      const top = M + 14 + 4, bottom = PH - 10;
+      const availW = PW - 2 * M, availH = bottom - top;
+      let w = availW, hh = availH;
+      try {
+        const props = doc.getImageProperties(p.image_dataurl);
+        const ratio = props.width / props.height;
+        w = availW; hh = w / ratio;
+        if (hh > availH) { hh = availH; w = hh * ratio; }
+      } catch (_e) {}
+      const x = M + (availW - w) / 2, y = top + (availH - hh) / 2;
+      try { doc.addImage(p.image_dataurl, 'JPEG', x, y, w, hh); } catch (_e) {}
+      footer(i + 1, photos.length);
+    });
+    return doc;
+  }
+
+  async function precargarFotos(detail) {
+    async function toDataURL(url) {
+      if (!url) return null;
+      if (String(url).startsWith('data:image')) return url;
+      try { const r = await fetch(url); const b = await r.blob(); return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(b); }); } catch (_e) { return null; }
+    }
+    for (const p of (detail.photos || [])) p.image_dataurl = await toDataURL(p.image_url);
+    return detail;
+  }
+
   root.generarJSAPDF = generarJSAPDF;
+  root.generarClientePDF = generarClientePDF;
   root.precargarFirmasJSA = precargarFirmas;
-  if (typeof module !== 'undefined' && module.exports) module.exports = { generarJSAPDF, precargarFirmas };
+  root.precargarFotosJSA = precargarFotos;
+  if (typeof module !== 'undefined' && module.exports) module.exports = { generarJSAPDF, generarClientePDF, precargarFirmas, precargarFotos };
 
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -5,14 +5,14 @@
 //  - Otros recursos (íconos, fuentes): CACHE-FIRST
 // Sube la versión para forzar actualización total.
 // ════════════════════════════════════════════
-const CACHE = 'jsa-spie-v13';
+const CACHE = 'jsa-spie-v14';
 const CORE = [
   './',
   './index.html',
   './manifest.json',
-  './jspdf.umd.min.js?v=6',
-  './pdf-assets.js?v=6',
-  './pdf.js?v=6',
+  './jspdf.umd.min.js',
+  './pdf-assets.js',
+  './pdf.js',
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-512.png',

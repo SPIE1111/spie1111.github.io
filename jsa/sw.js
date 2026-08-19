@@ -5,7 +5,7 @@
 //  - Otros recursos (íconos, fuentes): CACHE-FIRST
 // Sube la versión para forzar actualización total.
 // ════════════════════════════════════════════
-const CACHE = 'jsa-spie-v16';
+const CACHE = 'jsa-spie-v17';
 const CORE = [
   './',
   './index.html',
@@ -69,16 +69,18 @@ self.addEventListener('fetch', (e) => {
 self.addEventListener('push', (e) => {
   let data = { title: 'JSA SPIE', body: 'Tienes una novedad.' };
   try { if (e.data) data = { ...data, ...e.data.json() }; } catch (_e) {}
-  e.waitUntil(
-    self.registration.showNotification(data.title, {
+  e.waitUntil((async () => {
+    await self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/jsa/icon-192.png',
       badge: '/jsa/icon-192.png',
       tag: 'jsa',
       data: { url: '/jsa/' },
       vibrate: [80, 40, 80],
-    })
-  );
+    });
+    // No dejar contador "+1" en el ícono de la app: solo el aviso en la bandeja.
+    try { if (self.navigator && self.navigator.clearAppBadge) await self.navigator.clearAppBadge(); } catch (_e) {}
+  })());
 });
 
 // Al tocar la notificación, abrir/enfocar la app

@@ -2218,6 +2218,12 @@ function showOffline(){
 }
 window.addEventListener('offline',showOffline);
 showOffline();
+
+// Quita el contador "+1" del ícono de la app (solo queremos el aviso en la bandeja).
+function limpiarBadge(){ try{ if(navigator.clearAppBadge) navigator.clearAppBadge().catch(()=>{}); }catch(_e){} }
+limpiarBadge();
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) limpiarBadge(); });
+window.addEventListener('focus', limpiarBadge);
 </script>
 </body>
 </html>

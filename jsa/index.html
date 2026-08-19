@@ -229,6 +229,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
 .est.rechazado{background:#fdeaea;color:var(--red)}
 .rechazo-motivo{margin-top:8px;background:#fdeaea;border:1px solid #f2b8b8;color:#a12b2b;border-radius:8px;padding:7px 10px;font-size:12.5px;line-height:1.45}
 .tipo-tag{font-size:11px;font-weight:700;background:#eaf4fb;color:var(--cyan2);border-radius:6px;padding:1px 7px;vertical-align:middle}
+.foto-close{position:absolute;top:8px;right:8px;background:rgba(10,15,40,.75);color:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.foto-item img{cursor:zoom-in}
+#crop-box .ch{position:absolute;width:28px;height:28px;background:var(--cyan);border:2px solid #fff;border-radius:50%;touch-action:none}
+#crop-box .ch[data-h=nw]{left:-15px;top:-15px}
+#crop-box .ch[data-h=ne]{right:-15px;top:-15px}
+#crop-box .ch[data-h=sw]{left:-15px;bottom:-15px}
+#crop-box .ch[data-h=se]{right:-15px;bottom:-15px}
 .est.pendiente{background:#eef2fa;color:var(--text2)}
 
 /* ── TOAST ── */
@@ -670,6 +677,33 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
   </div>
 </div>
 
+<!-- ════════ RECORTE DE FOTO ════════ -->
+<div class="modal" id="crop-modal">
+  <div class="card" style="max-width:96vw;padding:14px">
+    <h2 style="text-align:center;margin-bottom:4px">Ajusta el recorte</h2>
+    <div class="sub mt0" style="text-align:center">Arrastra las esquinas o el recuadro. O usa la foto completa.</div>
+    <div id="crop-stage" style="position:relative;touch-action:none;user-select:none;margin:8px auto;background:#111;line-height:0">
+      <img id="crop-img" alt="recorte" style="display:block;max-width:100%;max-height:60vh"/>
+      <div id="crop-box" style="position:absolute;border:2px solid var(--cyan);box-shadow:0 0 0 9999px rgba(0,0,0,.5);box-sizing:border-box">
+        <span class="ch" data-h="nw"></span><span class="ch" data-h="ne"></span><span class="ch" data-h="sw"></span><span class="ch" data-h="se"></span>
+      </div>
+    </div>
+    <div class="wiz-nav">
+      <button class="btn ghost" onclick="cropCancel()">Cancelar</button>
+      <button class="btn ghost" onclick="cropUsarTodo()">Usar completa</button>
+      <button class="btn" onclick="cropAplicar()">Recortar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ VISOR DE FOTO (lightbox) ════════ -->
+<div class="modal" id="foto-modal" onclick="document.getElementById('foto-modal').classList.remove('show')">
+  <div style="position:relative" onclick="event.stopPropagation()">
+    <img id="foto-modal-img" alt="foto" style="max-width:94vw;max-height:86vh;border-radius:8px;display:block;background:#fff"/>
+    <button class="foto-close" onclick="document.getElementById('foto-modal').classList.remove('show')">✕</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1089,27 +1123,91 @@ function pintarSitiosCliente(sites){
   if(CL.site_id) sel.value = CL.site_id;
 }
 
-// Mejora la foto: reescala, aplica contraste/nitidez (o B/N documento) y comprime a JPEG.
-function enhanceFoto(file, modo){
-  return new Promise((resolve,reject)=>{
-    const img = new Image();
+// Procesa una región de la imagen: reescala (máx 1600px), realza color y comprime a JPEG.
+function _procesarRegion(img, sx, sy, sw, sh){
+  const maxDim = 1600;
+  const scale = Math.min(1, maxDim/Math.max(sw,sh));
+  const w = Math.round(sw*scale), h = Math.round(sh*scale);
+  const cv = document.createElement('canvas'); cv.width=w; cv.height=h;
+  const ctx = cv.getContext('2d');
+  try{ ctx.filter = 'contrast(1.18) saturate(1.12) brightness(1.04)'; }catch(_e){}
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+  return cv.toDataURL('image/jpeg', 0.82);
+}
+
+// ── Recorte de foto ──
+let _crop = null;
+function abrirCrop(file){
+  return new Promise((resolve)=>{
+    const img = document.getElementById('crop-img');
+    const modal = document.getElementById('crop-modal');
+    modal.classList.add('show');
     const url = URL.createObjectURL(file);
     img.onload = ()=>{
       URL.revokeObjectURL(url);
-      const maxDim = 1600;
-      let w = img.width, h = img.height;
-      const scale = Math.min(1, maxDim/Math.max(w,h));
-      w = Math.round(w*scale); h = Math.round(h*scale);
-      const cv = document.createElement('canvas'); cv.width=w; cv.height=h;
-      const ctx = cv.getContext('2d');
-      try{ ctx.filter = modo==='doc' ? 'grayscale(1) contrast(1.55) brightness(1.12)' : 'contrast(1.18) saturate(1.12) brightness(1.04)'; }catch(_e){}
-      ctx.drawImage(img, 0,0, w,h);
-      resolve(cv.toDataURL('image/jpeg', 0.82));
+      requestAnimationFrame(()=>{
+        const dispW = img.clientWidth || img.width, dispH = img.clientHeight || img.height;
+        const stage = document.getElementById('crop-stage');
+        stage.style.width = dispW+'px'; stage.style.height = dispH+'px';
+        const bw = Math.round(dispW*0.92), bh = Math.round(dispH*0.92);
+        _crop = { file, img, natW:img.naturalWidth, natH:img.naturalHeight, dispW, dispH,
+          box:{ x:Math.round((dispW-bw)/2), y:Math.round((dispH-bh)/2), w:bw, h:bh }, resolve, drag:null };
+        aplicarBox();
+      });
     };
-    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen')); };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); modal.classList.remove('show'); resolve(null); };
     img.src = url;
   });
 }
+function aplicarBox(){
+  const b=_crop.box, el=document.getElementById('crop-box');
+  el.style.left=b.x+'px'; el.style.top=b.y+'px'; el.style.width=b.w+'px'; el.style.height=b.h+'px';
+}
+function cerrarCrop(){ document.getElementById('crop-modal').classList.remove('show'); _crop=null; }
+function cropAplicar(){
+  const c=_crop; if(!c) return;
+  const rx=c.natW/c.dispW, ry=c.natH/c.dispH;
+  const url=_procesarRegion(c.img, c.box.x*rx, c.box.y*ry, c.box.w*rx, c.box.h*ry);
+  const res=c.resolve; cerrarCrop(); res(url);
+}
+function cropUsarTodo(){
+  const c=_crop; if(!c) return;
+  const url=_procesarRegion(c.img, 0, 0, c.natW, c.natH);
+  const res=c.resolve; cerrarCrop(); res(url);
+}
+function cropCancel(){ const c=_crop; const res=c&&c.resolve; cerrarCrop(); if(res) res(null); }
+
+(function(){
+  document.addEventListener('DOMContentLoaded',()=>{
+    const stage=document.getElementById('crop-stage');
+    if(!stage) return;
+    function pt(ev){ const r=document.getElementById('crop-img').getBoundingClientRect(); return { x:ev.clientX-r.left, y:ev.clientY-r.top }; }
+    function down(ev){
+      if(!_crop) return;
+      const handle = (ev.target.classList && ev.target.classList.contains('ch')) ? ev.target.dataset.h : null;
+      _crop.drag = { p:pt(ev), box:{..._crop.box}, handle };
+      try{ stage.setPointerCapture(ev.pointerId); }catch(_e){}
+      ev.preventDefault();
+    }
+    function move(ev){
+      if(!_crop || !_crop.drag) return;
+      const p=pt(ev), d=_crop.drag, dx=p.x-d.p.x, dy=p.y-d.p.y;
+      let {x,y,w,h}=d.box; const DW=_crop.dispW, DH=_crop.dispH, MIN=40;
+      if(!d.handle){ x=Math.min(Math.max(0,x+dx), DW-w); y=Math.min(Math.max(0,y+dy), DH-h); }
+      else{
+        if(d.handle.includes('w')){ const nx=Math.min(Math.max(0,x+dx), x+w-MIN); w=w+(x-nx); x=nx; }
+        if(d.handle.includes('e')){ w=Math.min(Math.max(MIN,w+dx), DW-x); }
+        if(d.handle.includes('n')){ const ny=Math.min(Math.max(0,y+dy), y+h-MIN); h=h+(y-ny); y=ny; }
+        if(d.handle.includes('s')){ h=Math.min(Math.max(MIN,h+dy), DH-y); }
+      }
+      _crop.box={x,y,w,h}; aplicarBox(); ev.preventDefault();
+    }
+    function up(){ if(_crop) _crop.drag=null; }
+    stage.addEventListener('pointerdown',down);
+    stage.addEventListener('pointermove',move);
+    ['pointerup','pointercancel'].forEach(e=>stage.addEventListener(e,up));
+  });
+})();
 
 async function agregarFoto(input){
   const file = input.files && input.files[0];
@@ -1117,18 +1215,26 @@ async function agregarFoto(input){
   if(!file) return;
   const err = document.getElementById('cl-captura-err'); err.classList.remove('show');
   if(CL.photos.length >= 15){ toast('Máximo 15 fotos.'); return; }
-  toast('Procesando foto…', 1200);
   try{
-    CL.photos.push(await enhanceFoto(file, 'color'));
+    const dataUrl = await abrirCrop(file);   // recorte + mejora; null si cancela
+    if(!dataUrl) return;
+    CL.photos.push(dataUrl);
     renderFotosCliente();
   }catch(_e){ err.textContent='No se pudo procesar la foto, reintenta.'; err.classList.add('show'); }
 }
 
 function renderFotosCliente(){
   document.getElementById('cl-fotos').innerHTML = CL.photos.map((p,i)=>
-    `<div class="foto-item"><img src="${p}"/><button class="fx" onclick="quitarFoto(${i})">✕</button><div class="fn">${i+1}</div></div>`).join('');
+    `<div class="foto-item"><img src="${p}" onclick="verFoto(CL.photos[${i}])"/><button class="fx" onclick="quitarFoto(${i})">✕</button><div class="fn">${i+1}</div></div>`).join('');
 }
 function quitarFoto(i){ CL.photos.splice(i,1); renderFotosCliente(); }
+
+// Visor de foto a pantalla completa (técnico y supervisor)
+function verFoto(src){
+  if(!src) return;
+  document.getElementById('foto-modal-img').src = src;
+  document.getElementById('foto-modal').classList.add('show');
+}
 
 function clContinuar(){
   const err = document.getElementById('cl-captura-err');
@@ -1138,7 +1244,7 @@ function clContinuar(){
   err.classList.remove('show');
   document.getElementById('cl-r-site').textContent = CL.site_name || '—';
   document.getElementById('cl-r-count').textContent = CL.photos.length + ' foto(s)';
-  document.getElementById('cl-r-fotos').innerHTML = CL.photos.map((p,i)=>`<div class="foto-item"><img src="${p}"/><div class="fn">${i+1}</div></div>`).join('');
+  document.getElementById('cl-r-fotos').innerHTML = CL.photos.map((p,i)=>`<div class="foto-item"><img src="${p}" onclick="verFoto(CL.photos[${i}])"/><div class="fn">${i+1}</div></div>`).join('');
   document.getElementById('cl-captura').style.display='none';
   document.getElementById('cl-resumen').style.display='block';
   window.scrollTo(0,0);
@@ -1783,10 +1889,13 @@ function jsaItem(j, pendiente){
     const ver = document.createElement('button');
     ver.className='sig-btn'; ver.textContent='Ver detalle';
     ver.onclick=(e)=>{e.stopPropagation(); abrirDetalle(j.id,false);};
-    const pdf = document.createElement('button');
-    pdf.className='sig-btn'; pdf.textContent='📄 PDF';
-    pdf.onclick=(e)=>{e.stopPropagation(); descargarPDF(j.id, pdf);};
-    bar.appendChild(ver); bar.appendChild(pdf);
+    bar.appendChild(ver);
+    if(est==='aprobado'){   // el PDF solo está disponible cuando el JSA fue aprobado
+      const pdf = document.createElement('button');
+      pdf.className='sig-btn'; pdf.textContent='📄 PDF';
+      pdf.onclick=(e)=>{e.stopPropagation(); descargarPDF(j.id, pdf);};
+      bar.appendChild(pdf);
+    }
     if(j.status==='rechazado' && j.mine){
       const fix = document.createElement('button');
       fix.className='sig-btn'; fix.style='border-color:var(--amber);color:#a06b00';
@@ -1854,7 +1963,7 @@ async function abrirDetalle(id, puedeAprobar){
       </div>`).join('');
     const drTxt = h.distinct_risks==='SI'?('Sí — '+(h.distinct_risks_detail||'')):(h.distinct_risks==='NO'?'No':'No aplica');
     if(h.jsa_type==='cliente'){
-      const fotosHtml = (d.photos||[]).map((p,i)=>`<a href="${p.image_url}" target="_blank" rel="noopener" class="foto-item" style="display:block"><img src="${p.image_url}"/><div class="fn">${i+1}</div></a>`).join('') || '<div class="det-kv">Sin fotos</div>';
+      const fotosHtml = (d.photos||[]).map((p,i)=>`<div class="foto-item" style="display:block"><img src="${p.image_url}" onclick="verFoto('${p.image_url}')"/><div class="fn">${i+1}</div></div>`).join('') || '<div class="det-kv">Sin fotos</div>';
       body.innerHTML = `
         <div class="det-sec">
           <h3>JSA otorgado por el cliente 📸</h3>
@@ -2053,12 +2162,16 @@ function urlB64ToUint8Array(base64){
 // aparecen/abren esa app en vez de JSA.
 async function jsaSWReg(){
   try{ await navigator.serviceWorker.register('sw.js'); }catch(_e){}
-  let reg = await navigator.serviceWorker.getRegistration('./').catch(()=>null);
-  for(let i=0;i<20 && (!reg || !reg.active);i++){
+  const esJSA = r => r && r.scope.replace(/\/+$/,'').endsWith('/jsa');
+  // Elegir EXPLÍCITAMENTE el registro con scope /jsa/ (no el de Hazard, scope /)
+  for(let i=0;i<25;i++){
+    const regs = await navigator.serviceWorker.getRegistrations().catch(()=>[]);
+    const jsa = regs.find(esJSA);
+    if(jsa && jsa.active) return jsa;
     await new Promise(r=>setTimeout(r,150));
-    reg = await navigator.serviceWorker.getRegistration('./').catch(()=>null);
   }
-  return reg || await navigator.serviceWorker.ready;
+  const regs = await navigator.serviceWorker.getRegistrations().catch(()=>[]);
+  return regs.find(esJSA) || await navigator.serviceWorker.ready;
 }
 async function ofrecerPush(){
   const btn = document.getElementById('push-btn');

@@ -392,10 +392,10 @@
     function header() {
       doc.setFillColor(NAVY[0], NAVY[1], NAVY[2]); doc.rect(M, M, PW - 2 * M, 14, 'F');
       if (A.spie) { try { doc.addImage(A.spie, 'JPEG', PW - M - 24, M + 2, 24, 10); } catch (_e) {} }
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(255, 255, 255);
-      doc.text('JSA otorgado por el cliente', M + 3, M + 6);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
-      doc.text([h.folio || '', site].filter(Boolean).join('   ·   '), M + 3, M + 11);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(255, 255, 255);
+      doc.text('JSA CLIENTE', M + 3, M + 6.5);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      doc.text(h.folio || '', M + 3, M + 11.5);
     }
     function footer(i, total) {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(90, 90, 90);

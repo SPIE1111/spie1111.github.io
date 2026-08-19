@@ -399,11 +399,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
         <div id="cl-site-err" class="err">No se pudo cargar el catálogo de sitios. Conéctate una vez para descargarlo.</div>
 
         <label style="margin-top:16px">Fotos del JSA del cliente</label>
-        <div class="sub mt0">Toma fotos claras del documento. Se mejoran y comprimen automáticamente.</div>
-        <div class="modo-fotos">
-          <label class="chk" style="padding:4px 0"><input type="radio" name="cl-modo" value="color" checked onchange="CL.modo='color'"/> Color</label>
-          <label class="chk" style="padding:4px 0"><input type="radio" name="cl-modo" value="doc" onchange="CL.modo='doc'"/> Documento (B/N)</label>
-        </div>
+        <div class="sub mt0">Toma fotos claras del documento. Se mejoran (color) y comprimen automáticamente.</div>
         <div id="cl-fotos" class="fotos-grid"></div>
         <label class="btn ghost" style="cursor:pointer">
           📷 Tomar / agregar foto
@@ -1066,7 +1062,6 @@ async function nuevoJSACliente(){
   document.getElementById('cl-captura').style.display = 'block';
   document.getElementById('cl-resumen').style.display = 'none';
   document.getElementById('cl-ok').style.display = 'none';
-  document.querySelectorAll('input[name=cl-modo]').forEach(r=>r.checked=(r.value==='color'));
   document.getElementById('cl-captura-err').classList.remove('show');
   document.getElementById('cl-send-err').classList.remove('show');
   renderFotosCliente();
@@ -1124,7 +1119,7 @@ async function agregarFoto(input){
   if(CL.photos.length >= 15){ toast('Máximo 15 fotos.'); return; }
   toast('Procesando foto…', 1200);
   try{
-    CL.photos.push(await enhanceFoto(file, CL.modo));
+    CL.photos.push(await enhanceFoto(file, 'color'));
     renderFotosCliente();
   }catch(_e){ err.textContent='No se pudo procesar la foto, reintenta.'; err.classList.add('show'); }
 }

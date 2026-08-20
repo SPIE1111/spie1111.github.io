@@ -5,7 +5,7 @@
 //  - Otros recursos (íconos, fuentes): CACHE-FIRST
 // Sube la versión para forzar actualización total.
 // ════════════════════════════════════════════
-const CACHE = 'jsa-spie-v18';
+const CACHE = 'jsa-spie-v19';
 const CORE = [
   './',
   './index.html',
@@ -41,8 +41,9 @@ self.addEventListener('fetch', (e) => {
     url.pathname.endsWith('/jsa/index.html');
 
   if (esDocumento) {
+    // NETWORK-FIRST sin caché HTTP intermedio: siempre trae la versión más nueva.
     e.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-store' })
         .then((resp) => {
           const copia = resp.clone();
           caches.open(CACHE).then((c) => c.put(req, copia)).catch(() => {});

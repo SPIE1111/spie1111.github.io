@@ -677,6 +677,17 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
   </div>
 </div>
 
+<!-- ════════ CONFIRMACIÓN (estilo app) ════════ -->
+<div class="modal" id="confirm-modal">
+  <div class="card" style="max-width:420px;text-align:center">
+    <div id="cf-ic" style="font-size:44px;margin:4px 0">⚠️</div>
+    <h2 id="cf-titulo">Confirmar</h2>
+    <div class="sub" id="cf-msg" style="margin-bottom:6px"></div>
+    <button class="btn" id="cf-ok">Aceptar</button>
+    <button class="btn ghost" id="cf-cancel">Cancelar</button>
+  </div>
+</div>
+
 <!-- ════════ RECORTE DE FOTO ════════ -->
 <div class="modal" id="crop-modal">
   <div class="card" style="max-width:96vw;padding:14px">
@@ -690,8 +701,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
     </div>
     <div class="wiz-nav">
       <button class="btn ghost" onclick="cropCancel()">Cancelar</button>
-      <button class="btn ghost" onclick="cropUsarTodo()">Usar completa</button>
-      <button class="btn" onclick="cropAplicar()">Recortar</button>
+      <button class="btn ghost" onclick="cropUsarTodo()">Foto completa</button>
+      <button class="btn" onclick="cropAplicar()">✓ Aceptar</button>
     </div>
   </div>
 </div>
@@ -809,6 +820,25 @@ function toast(msg,ms=2600){
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   clearTimeout(t._tm); t._tm = setTimeout(()=>t.classList.remove('show'),ms);
+}
+
+// Diálogo de confirmación con el estilo de la app (reemplaza confirm() nativo).
+function confirmar(opts){
+  opts = opts||{};
+  return new Promise(resolve=>{
+    const m = document.getElementById('confirm-modal');
+    document.getElementById('cf-ic').textContent = opts.icon || '⚠️';
+    document.getElementById('cf-titulo').textContent = opts.titulo || 'Confirmar';
+    document.getElementById('cf-msg').textContent = opts.mensaje || '';
+    const ok = document.getElementById('cf-ok'), ca = document.getElementById('cf-cancel');
+    ok.textContent = opts.ok || 'Aceptar';
+    ca.textContent = opts.cancel || 'Cancelar';
+    ok.className = 'btn' + (opts.danger ? ' danger' : '');
+    function cerrar(v){ m.classList.remove('show'); ok.onclick=null; ca.onclick=null; resolve(v); }
+    ok.onclick = ()=>cerrar(true);
+    ca.onclick = ()=>cerrar(false);
+    m.classList.add('show');
+  });
 }
 
 // ════════════════════════════════════════════
@@ -1135,35 +1165,44 @@ function _procesarRegion(img, sx, sy, sw, sh){
   return cv.toDataURL('image/jpeg', 0.82);
 }
 
-// ── Recorte de foto ──
+// ── Recorte de foto (siempre visible; tamaño determinístico, sin depender del layout) ──
 let _crop = null;
 function abrirCrop(file){
   return new Promise((resolve)=>{
-    const img = document.getElementById('crop-img');
+    const visible = document.getElementById('crop-img');
     const modal = document.getElementById('crop-modal');
-    modal.classList.add('show');
     const url = URL.createObjectURL(file);
-    img.onload = ()=>{
-      URL.revokeObjectURL(url);
-      requestAnimationFrame(()=>{
-        const dispW = img.clientWidth || img.width, dispH = img.clientHeight || img.height;
-        const stage = document.getElementById('crop-stage');
-        stage.style.width = dispW+'px'; stage.style.height = dispH+'px';
-        const bw = Math.round(dispW*0.92), bh = Math.round(dispH*0.92);
-        _crop = { file, img, natW:img.naturalWidth, natH:img.naturalHeight, dispW, dispH,
-          box:{ x:Math.round((dispW-bw)/2), y:Math.round((dispH-bh)/2), w:bw, h:bh }, resolve, drag:null };
-        aplicarBox();
-      });
+    const image = new Image();   // se carga aparte para tener dimensiones reales sí o sí
+    image.onload = ()=>{
+      const natW = image.naturalWidth || 1000, natH = image.naturalHeight || 1000;
+      const maxW = Math.min(window.innerWidth*0.86, 520);
+      const maxH = Math.max(220, window.innerHeight*0.55);
+      const scale = Math.min(maxW/natW, maxH/natH, 1);
+      const dispW = Math.max(80, Math.round(natW*scale)), dispH = Math.max(80, Math.round(natH*scale));
+      visible.src = url;
+      visible.style.width = dispW+'px'; visible.style.height = dispH+'px';
+      const stage = document.getElementById('crop-stage');
+      stage.style.width = dispW+'px'; stage.style.height = dispH+'px';
+      const bw = Math.round(dispW*0.92), bh = Math.round(dispH*0.92);
+      _crop = { img:image, url, natW, natH, dispW, dispH,
+        box:{ x:Math.round((dispW-bw)/2), y:Math.round((dispH-bh)/2), w:bw, h:bh }, resolve, drag:null };
+      aplicarBox();
+      modal.classList.add('show');
     };
-    img.onerror = ()=>{ URL.revokeObjectURL(url); modal.classList.remove('show'); resolve(null); };
-    img.src = url;
+    image.onerror = ()=>{ try{URL.revokeObjectURL(url);}catch(_e){} resolve(null); };
+    image.src = url;
   });
 }
 function aplicarBox(){
+  if(!_crop) return;
   const b=_crop.box, el=document.getElementById('crop-box');
   el.style.left=b.x+'px'; el.style.top=b.y+'px'; el.style.width=b.w+'px'; el.style.height=b.h+'px';
 }
-function cerrarCrop(){ document.getElementById('crop-modal').classList.remove('show'); _crop=null; }
+function cerrarCrop(){
+  document.getElementById('crop-modal').classList.remove('show');
+  if(_crop && _crop.url){ try{ URL.revokeObjectURL(_crop.url); }catch(_e){} }
+  _crop=null;
+}
 function cropAplicar(){
   const c=_crop; if(!c) return;
   const rx=c.natW/c.dispW, ry=c.natH/c.dispH;
@@ -1225,7 +1264,7 @@ async function agregarFoto(input){
 
 function renderFotosCliente(){
   document.getElementById('cl-fotos').innerHTML = CL.photos.map((p,i)=>
-    `<div class="foto-item"><img src="${p}" onclick="verFoto(CL.photos[${i}])"/><button class="fx" onclick="quitarFoto(${i})">✕</button><div class="fn">${i+1}</div></div>`).join('');
+    `<div class="foto-item" onclick="verFoto(CL.photos[${i}])"><img src="${p}"/><button class="fx" onclick="event.stopPropagation();quitarFoto(${i})">✕</button><div class="fn">${i+1}</div></div>`).join('');
 }
 function quitarFoto(i){ CL.photos.splice(i,1); renderFotosCliente(); }
 
@@ -1244,7 +1283,7 @@ function clContinuar(){
   err.classList.remove('show');
   document.getElementById('cl-r-site').textContent = CL.site_name || '—';
   document.getElementById('cl-r-count').textContent = CL.photos.length + ' foto(s)';
-  document.getElementById('cl-r-fotos').innerHTML = CL.photos.map((p,i)=>`<div class="foto-item"><img src="${p}" onclick="verFoto(CL.photos[${i}])"/><div class="fn">${i+1}</div></div>`).join('');
+  document.getElementById('cl-r-fotos').innerHTML = CL.photos.map((p,i)=>`<div class="foto-item" onclick="verFoto(CL.photos[${i}])"><img src="${p}"/><div class="fn">${i+1}</div></div>`).join('');
   document.getElementById('cl-captura').style.display='none';
   document.getElementById('cl-resumen').style.display='block';
   window.scrollTo(0,0);
@@ -1280,9 +1319,12 @@ async function enviarCliente(){
   }finally{ btn.disabled=false; btn.textContent='📤 Enviar JSA'; }
 }
 
-function salirCliente(){
+async function salirCliente(){
   const enExito = document.getElementById('cl-ok').style.display==='block';
-  if(!enExito && CL && CL.photos && CL.photos.length && !confirm('¿Salir sin enviar? Se perderán las fotos tomadas.')) return;
+  if(!enExito && CL && CL.photos && CL.photos.length){
+    const ok = await confirmar({ icon:'📸', titulo:'¿Salir sin enviar?', mensaje:'Se perderán las fotos que tomaste.', ok:'Salir', cancel:'Seguir aquí', danger:true });
+    if(!ok) return;
+  }
   showView('v-home');
 }
 function salirClienteOk(){ showView('v-home'); refreshBadges(); }
@@ -1963,7 +2005,7 @@ async function abrirDetalle(id, puedeAprobar){
       </div>`).join('');
     const drTxt = h.distinct_risks==='SI'?('Sí — '+(h.distinct_risks_detail||'')):(h.distinct_risks==='NO'?'No':'No aplica');
     if(h.jsa_type==='cliente'){
-      const fotosHtml = (d.photos||[]).map((p,i)=>`<div class="foto-item" style="display:block"><img src="${p.image_url}" onclick="verFoto('${p.image_url}')"/><div class="fn">${i+1}</div></div>`).join('') || '<div class="det-kv">Sin fotos</div>';
+      const fotosHtml = (d.photos||[]).map((p,i)=>`<div class="foto-item" style="display:block" onclick="verFoto('${p.image_url}')"><img src="${p.image_url}"/><div class="fn">${i+1}</div></div>`).join('') || '<div class="det-kv">Sin fotos</div>';
       body.innerHTML = `
         <div class="det-sec">
           <h3>JSA otorgado por el cliente 📸</h3>
@@ -2024,8 +2066,8 @@ function decidir(result){
   }else{
     const c = document.getElementById('det-comment').value.trim();
     if(!c){ errEl.textContent='Escribe el motivo del rechazo en el comentario.'; errEl.classList.add('show'); return; }
-    if(!confirm('¿Rechazar este JSA? Se notificará al trabajador.')) return;
-    enviarDecision('rechazado', null);
+    confirmar({ icon:'✋', titulo:'¿Rechazar este JSA?', mensaje:'Se notificará al trabajador para que lo corrija y reenvíe.', ok:'Rechazar', cancel:'Cancelar', danger:true })
+      .then(ok=>{ if(ok) enviarDecision('rechazado', null); });
   }
 }
 

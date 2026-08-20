@@ -5,7 +5,7 @@
 //  - Otros recursos (íconos, fuentes): CACHE-FIRST
 // Sube la versión para forzar actualización total.
 // ════════════════════════════════════════════
-const CACHE = 'jsa-spie-v17';
+const CACHE = 'jsa-spie-v18';
 const CORE = [
   './',
   './index.html',

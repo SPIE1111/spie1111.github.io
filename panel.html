@@ -208,26 +208,62 @@
   <div class="wrap hide" id="view-jsa">
     <div class="stat" id="jsa-stats"></div>
     <div class="toolbar">
-      <input id="jsa-q" placeholder="Buscar por folio, sitio, nómina, descripción..." oninput="renderJSA()"/>
-      <select id="jsa-estatus" onchange="loadJSA()">
-        <option value="">Todos los estatus</option>
-        <option value="enviado">Enviado (por aprobar)</option>
-        <option value="aprobado">Aprobado</option>
-        <option value="rechazado">Rechazado</option>
+      <button class="btn sm" id="jsa-mode-list" onclick="setJsaMode('list')">📋 Lista</button>
+      <button class="btn sm ghost" id="jsa-mode-person" onclick="setJsaMode('person')">👤 Por persona</button>
+      <select id="jsa-rango" onchange="onRangoChange()">
+        <option value="all" selected>Todo el tiempo</option>
+        <option value="week">Esta semana</option>
+        <option value="month">Este mes</option>
+        <option value="prevmonth">Mes pasado</option>
+        <option value="custom">Rango personalizado…</option>
       </select>
-      <select id="jsa-pais" class="hide" onchange="renderJSA()">
-        <option value="">Todos los países</option>
-      </select>
-      <button class="btn sm ghost" onclick="loadJSA()">↻ Actualizar</button>
+      <input type="date" id="jsa-from" class="hide" onchange="onRangoCustom()"/>
+      <input type="date" id="jsa-to" class="hide" onchange="onRangoCustom()"/>
     </div>
-    <table>
-      <thead><tr>
-        <th>Folio</th><th>Fecha</th><th class="hide-sm">Sitio</th>
-        <th class="hide-sm">Creó</th><th>Trabajo</th><th>Estatus</th><th>Reporte</th>
-      </tr></thead>
-      <tbody id="jsa-rows"></tbody>
-    </table>
-    <p class="muted" id="jsa-empty" style="text-align:center;padding:30px;display:none">No hay JSA que coincidan.</p>
+
+    <!-- Modo LISTA -->
+    <div id="jsa-list-view">
+      <div class="toolbar">
+        <input id="jsa-q" placeholder="Buscar por folio, sitio, nómina, descripción..." oninput="renderJSA()"/>
+        <select id="jsa-estatus" onchange="loadJSA()">
+          <option value="">Todos los estatus</option>
+          <option value="enviado">Enviado (por aprobar)</option>
+          <option value="aprobado">Aprobado</option>
+          <option value="rechazado">Rechazado</option>
+        </select>
+        <select id="jsa-pais" class="hide" onchange="renderJSA()">
+          <option value="">Todos los países</option>
+        </select>
+        <button class="btn sm ghost" onclick="loadJSA()">↻ Actualizar</button>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Folio</th><th>Fecha</th><th class="hide-sm">Sitio</th>
+          <th class="hide-sm">Creó</th><th>Trabajo</th><th>Estatus</th><th>Reporte</th>
+        </tr></thead>
+        <tbody id="jsa-rows"></tbody>
+      </table>
+      <p class="muted" id="jsa-empty" style="text-align:center;padding:30px;display:none">No hay JSA que coincidan.</p>
+    </div>
+
+    <!-- Modo POR PERSONA -->
+    <div id="jsa-person-view" class="hide">
+      <div class="toolbar">
+        <input id="jsa-person-q" placeholder="Buscar técnico por nombre o nómina..." oninput="renderPersonStats()"/>
+        <button class="btn sm ghost" onclick="loadPersonStats()">↻ Actualizar</button>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Técnico</th><th>Nómina</th>
+          <th style="text-align:center">Total JSA</th>
+          <th style="text-align:center">Aprobados</th>
+          <th style="text-align:center">Rechazados</th>
+          <th style="text-align:center" class="hide-sm">Pendientes</th>
+        </tr></thead>
+        <tbody id="jsa-person-rows"></tbody>
+      </table>
+      <p class="muted" id="jsa-person-empty" style="text-align:center;padding:30px;display:none">Sin datos en este periodo.</p>
+    </div>
   </div>
 </div>
 
@@ -249,6 +285,8 @@ let COMMENTS_BY_CODE = {};
 let EMPLEADOS = [], EMP_CAT = null; // catálogos: paises, hse, oficinas
 let CUMPL = null; // datos de cumplimiento {resumen, empleados, desde, hasta}
 let JSA_LIST = null, JSA_COUNTRIES = []; // JSA para el panel HSE
+let JSA_MODE = 'list', JSA_PEOPLE = null; // vista por persona (indicadores)
+let JSA_PERSON_FILTER = ''; // nómina seleccionada para filtrar la lista
 
 // Llama a la Edge Function jsa-api (la app de JSA)
 async function jsaApi(action, extra){
@@ -398,13 +436,19 @@ function renderJSA(){
   if(!JSA_LIST) return;
   const q = (document.getElementById('jsa-q').value||'').toLowerCase().trim();
   const pais = document.getElementById('jsa-pais').value;
-  let list = JSA_LIST.slice();
-  if(pais) list = list.filter(j=>j.country===pais);
-  if(q) list = list.filter(j=>[j.folio,j.work_description,j.site,j.created_by,j.supervisor].join(' ').toLowerCase().includes(q));
-  // stats
-  const cnt = s=>JSA_LIST.filter(j=>j.status===s).length;
-  document.getElementById('jsa-stats').innerHTML =
-    `<span class="pill">Total <b>${JSA_LIST.length}</b></span>`+
+  const rg = currentRange();
+  // "scoped" = filtrado por fecha y país (base de las estadísticas); "list" además por texto.
+  let scoped = JSA_LIST.slice();
+  if(rg.from) scoped = scoped.filter(j=>(j.work_date||'')>=rg.from);
+  if(rg.to) scoped = scoped.filter(j=>(j.work_date||'')<=rg.to);
+  if(pais) scoped = scoped.filter(j=>j.country===pais);
+  if(JSA_PERSON_FILTER) scoped = scoped.filter(j=>j.created_by===JSA_PERSON_FILTER || (j.participants||[]).includes(JSA_PERSON_FILTER));
+  let list = q ? scoped.filter(j=>[j.folio,j.work_description,j.site,j.created_by,j.supervisor,(j.participants||[]).join(' '),(j.participant_names||[]).join(' ')].join(' ').toLowerCase().includes(q)) : scoped;
+  // stats (del periodo/país seleccionado)
+  const cnt = s=>scoped.filter(j=>j.status===s).length;
+  const chip = JSA_PERSON_FILTER ? `<span class="pill" style="background:#fde68a;cursor:pointer" onclick="clearPersonFilter()">👤 Nómina ${escapeHtml(JSA_PERSON_FILTER)} ✕</span>` : '';
+  document.getElementById('jsa-stats').innerHTML = chip +
+    `<span class="pill">Total <b>${scoped.length}</b></span>`+
     `<span class="pill">Por aprobar <b>${cnt('enviado')}</b></span>`+
     `<span class="pill">Aprobados <b>${cnt('aprobado')}</b></span>`+
     `<span class="pill">Rechazados <b>${cnt('rechazado')}</b></span>`;
@@ -426,6 +470,77 @@ function renderJSA(){
           : `<button class="mini" onclick="genJSAPDF('${j.id}',this)">Generar PDF</button>`)}</td>
     </tr>`).join('');
 }
+
+// ══════════ Etapa B: rango de fechas + indicadores por persona ══════════
+function _pad2(n){ return String(n).padStart(2,'0'); }
+function _ymd(d){ return d.getFullYear()+'-'+_pad2(d.getMonth()+1)+'-'+_pad2(d.getDate()); }
+function currentRange(){
+  const el = document.getElementById('jsa-rango');
+  const kind = el ? el.value : 'all';
+  const now = new Date();
+  if(kind==='custom') return { from: document.getElementById('jsa-from').value||'', to: document.getElementById('jsa-to').value||'' };
+  if(kind==='week'){ const d=new Date(now); const dow=(d.getDay()+6)%7; d.setDate(d.getDate()-dow); return {from:_ymd(d), to:_ymd(now)}; }
+  if(kind==='month') return { from:_ymd(new Date(now.getFullYear(), now.getMonth(), 1)), to:_ymd(now) };
+  if(kind==='prevmonth') return { from:_ymd(new Date(now.getFullYear(), now.getMonth()-1, 1)), to:_ymd(new Date(now.getFullYear(), now.getMonth(), 0)) };
+  return { from:'', to:'' }; // all
+}
+function onRangoChange(){
+  const custom = document.getElementById('jsa-rango').value==='custom';
+  document.getElementById('jsa-from').classList.toggle('hide', !custom);
+  document.getElementById('jsa-to').classList.toggle('hide', !custom);
+  if(custom) return; // esperar a que elija ambas fechas
+  if(JSA_MODE==='person') loadPersonStats(); else renderJSA();
+}
+function onRangoCustom(){ if(JSA_MODE==='person') loadPersonStats(); else renderJSA(); }
+
+function setJsaMode(mode){
+  JSA_MODE = mode;
+  const isP = mode==='person';
+  document.getElementById('jsa-list-view').classList.toggle('hide', isP);
+  document.getElementById('jsa-person-view').classList.toggle('hide', !isP);
+  document.getElementById('jsa-mode-list').classList.toggle('ghost', isP);
+  document.getElementById('jsa-mode-person').classList.toggle('ghost', !isP);
+  if(isP && !JSA_PEOPLE) loadPersonStats();
+}
+
+async function loadPersonStats(){
+  const tb = document.getElementById('jsa-person-rows');
+  tb.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Cargando…</td></tr>';
+  const esAdmin = SESSION.role==='admin';
+  const paisFiltro = esAdmin ? '' : (JSA_PAIS_NOMBRE[SESSION.country_code]||'');
+  const rg = currentRange();
+  try{
+    const d = await jsaApi('panel-person-stats', { country: paisFiltro, from: rg.from, to: rg.to });
+    JSA_PEOPLE = d.people||[];
+    renderPersonStats();
+  }catch(e){
+    tb.innerHTML = `<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">No se pudo cargar (${escapeHtml(e.message)})</td></tr>`;
+  }
+}
+function renderPersonStats(){
+  if(!JSA_PEOPLE) return;
+  const q = (document.getElementById('jsa-person-q').value||'').toLowerCase().trim();
+  let list = JSA_PEOPLE.slice();
+  if(q) list = list.filter(p=>((p.name||'')+' '+(p.payroll||'')).toLowerCase().includes(q));
+  const tb = document.getElementById('jsa-person-rows');
+  document.getElementById('jsa-person-empty').style.display = list.length?'none':'block';
+  tb.innerHTML = list.map(p=>`
+    <tr class="main" onclick="verPersonaJSAs('${escapeHtml(p.payroll)}')" title="Ver los JSA de esta persona">
+      <td>${escapeHtml(p.name||'')}</td>
+      <td>${escapeHtml(p.payroll||'')}</td>
+      <td style="text-align:center"><b>${p.total}</b></td>
+      <td style="text-align:center"><span class="tag cerrado">${p.aprobado}</span></td>
+      <td style="text-align:center">${p.rechazado?`<span class="tag baja">${p.rechazado}</span>`:'0'}</td>
+      <td style="text-align:center" class="hide-sm">${p.pendiente}</td>
+    </tr>`).join('');
+}
+function verPersonaJSAs(payroll){
+  JSA_PERSON_FILTER = payroll;
+  document.getElementById('jsa-q').value = '';
+  setJsaMode('list');
+  renderJSA();
+}
+function clearPersonFilter(){ JSA_PERSON_FILTER=''; renderJSA(); }
 
 async function openJSADetail(id){
   const modal = document.getElementById('modal');

@@ -419,9 +419,11 @@ function renderJSA(){
       <td class="hide-sm">${escapeHtml(j.created_by||'')}</td>
       <td>${escapeHtml((j.work_description||'').slice(0,60))}${(j.work_description||'').length>60?'…':''}</td>
       <td><span class="tag ${tagCls[j.status]||'proceso'}">${escapeHtml((j.status||'').charAt(0).toUpperCase()+(j.status||'').slice(1))}</span></td>
-      <td onclick="event.stopPropagation()">${j.report_signed
-        ? `<a class="mini green" href="${j.report_signed}" target="_blank" rel="noopener">📄 PDF</a>`
-        : `<button class="mini" onclick="genJSAPDF('${j.id}',this)">Generar PDF</button>`}</td>
+      <td onclick="event.stopPropagation()">${j.status!=='aprobado'
+        ? '<span class="muted">—</span>'
+        : (j.report_signed
+          ? `<a class="mini green" href="${j.report_signed}" target="_blank" rel="noopener">📄 PDF</a>`
+          : `<button class="mini" onclick="genJSAPDF('${j.id}',this)">Generar PDF</button>`)}</td>
     </tr>`).join('');
 }
 
@@ -455,7 +457,7 @@ async function openJSADetail(id){
         </div>
         <h3>Fotos del JSA del cliente (${(d.photos||[]).length})</h3><div>${fotos}</div>
         ${apHtml}
-        <div class="row" style="margin-top:18px"><button class="btn sm" onclick="genJSAPDF('${h.id}',this)">📄 Descargar PDF (fotos)</button></div>`;
+        ${h.status==='aprobado'?`<div class="row" style="margin-top:18px"><button class="btn sm" onclick="genJSAPDF('${h.id}',this)">📄 Descargar PDF (fotos)</button></div>`:''}`;
       return;
     }
     document.getElementById('m-body').innerHTML = `
@@ -475,10 +477,10 @@ async function openJSADetail(id){
       <h3>Barreras de protección (EPP)</h3><div style="font-size:13.5px">${eppHtml}</div>
       <h3>Actividades</h3>${actHtml}
       <h3>Personal involucrado (${(d.crew||[]).length})</h3>${crewHtml}
-      ${ap?`<h3>Aprobación</h3><div class="cmt"><b style="color:${ap.result==='aprobado'?'var(--green)':'var(--red)'}">${escapeHtml((ap.result||'').toUpperCase())}</b> por ${escapeHtml(ap.approver_name||'')} ${ap.approver_role?('· '+escapeHtml(ap.approver_role)):''}${ap.comment?`<div class="meta">${escapeHtml(ap.comment)}</div>`:''}${ap.signature_url?`<div style="margin-top:6px"><img src="${ap.signature_url}" style="height:34px;border:1px solid var(--line);border-radius:4px"></div>`:''}</div>`:''}
-      <div class="row" style="margin-top:18px">
+      ${apHtml}
+      ${h.status==='aprobado'?`<div class="row" style="margin-top:18px">
         <button class="btn sm" onclick="genJSAPDF('${h.id}',this)">📄 Descargar PDF (formato oficial)</button>
-      </div>`;
+      </div>`:''}`;
   }catch(e){
     document.getElementById('m-body').innerHTML = `<p class="err show">No se pudo cargar: ${escapeHtml(e.message)}</p>`;
   }

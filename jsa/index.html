@@ -612,7 +612,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
     <div class="wiz-head">
       <button class="back" id="det-back" onclick="showView('v-aprob')">‹</button>
       <div style="flex:1"><div class="wt" id="det-folio">JSA</div><div class="ws" id="det-site"></div></div>
-      <button class="sig-btn" style="border-color:#9fd8ff;color:#fff;background:rgba(255,255,255,.12)" onclick="descargarPDF(_detId, this)">📄 PDF</button>
+      <button class="sig-btn" id="det-pdf-btn" style="border-color:#9fd8ff;color:#fff;background:rgba(255,255,255,.12);display:none" onclick="descargarPDF(_detId, this)">📄 PDF</button>
     </div>
     <div class="card" style="max-width:560px">
       <div id="det-body"></div>
@@ -2074,6 +2074,8 @@ async function abrirDetalle(id, puedeAprobar){
     const h = d.head;
     document.getElementById('det-folio').textContent = h.folio || 'JSA';
     document.getElementById('det-site').textContent = h.jsa_sites?.site || '';
+    // El PDF SOLO está disponible cuando el JSA fue aprobado.
+    document.getElementById('det-pdf-btn').style.display = (h.status==='aprobado') ? 'inline-block' : 'none';
     const risksByCat = {};
     (d.risks||[]).forEach(r=>{ (risksByCat[r.category]=risksByCat[r.category]||[]).push(r.risk==='Otro'?('Otro: '+(r.other_text||'')):r.risk); });
     const risksHtml = Object.entries(risksByCat).map(([c,v])=>`<div class="det-kv"><b>${c}:</b> ${v.join(', ')}</div>`).join('') || '<div class="det-kv">—</div>';

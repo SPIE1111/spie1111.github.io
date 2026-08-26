@@ -21,7 +21,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <script src="jspdf.umd.min.js?v=6"></script>
 <script src="pdf-assets.js?v=6"></script>
-<script src="pdf.js?v=9"></script>
+<script src="pdf.js?v=10"></script>
 <style>
 /* ── RESET ── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -421,13 +421,37 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
         <button class="btn" onclick="clContinuar()">Continuar</button>
       </div>
 
+      <!-- Participantes -->
+      <div id="cl-crew" style="display:none">
+        <h2>Personal involucrado</h2>
+        <div class="sub mt0">Agrega por número de nómina a los técnicos del JSA. Cada integrante debe firmar.</div>
+        <div id="cl-crew-wrap"></div>
+        <div class="addrow">
+          <input id="cl-crew-nomina" type="tel" inputmode="numeric" placeholder="Nómina del compañero" autocomplete="off"/>
+          <button class="btn" onclick="clAddCrew()">Agregar</button>
+        </div>
+        <div id="cl-crew-err" class="err"></div>
+        <div id="cl-crew-manual" style="display:none">
+          <label>No se encontró en línea. Escribe el nombre completo para agregarlo manualmente:</label>
+          <div class="addrow">
+            <input id="cl-crew-nombre-manual" type="text" placeholder="Nombre completo"/>
+            <button class="btn" onclick="clAddCrewManual()">OK</button>
+          </div>
+        </div>
+        <div class="wiz-nav">
+          <button class="btn ghost" onclick="clCrewVolver()">Atrás</button>
+          <button class="btn" onclick="clCrewContinuar()">Continuar</button>
+        </div>
+      </div>
+
       <!-- Resumen -->
       <div id="cl-resumen" style="display:none">
         <h2>Revisión y envío</h2>
-        <div class="sub mt0">Verifica las fotos antes de enviar a aprobación.</div>
+        <div class="sub mt0">Verifica las fotos y el personal antes de enviar a aprobación.</div>
         <div class="sum"><div class="sl">Sitio</div><div class="sv" id="cl-r-site"></div></div>
         <div class="sum"><div class="sl">Fotos</div><div class="sv" id="cl-r-count"></div></div>
         <div id="cl-r-fotos" class="fotos-grid" style="margin-top:10px"></div>
+        <div class="sum" style="margin-top:10px"><div class="sl">Personal</div><div class="sv" id="cl-r-crew"></div></div>
         <div id="cl-send-err" class="err"></div>
         <div class="wiz-nav">
           <button class="btn ghost" onclick="clVolver()">Atrás</button>
@@ -1125,9 +1149,11 @@ async function arrancarWizard(){
 let CL = null;
 
 async function nuevoJSACliente(){
-  CL = { id:uuid(), _nomina:SESSION.nomina, jsa_type:'cliente', site_id:'', site_name:'', modo:'color', photos:[] };
+  CL = { id:uuid(), _nomina:SESSION.nomina, jsa_type:'cliente', site_id:'', site_name:'', modo:'color', photos:[],
+    crew:[{payroll_no:SESSION.nomina, employee_name:SESSION.nombre, sig:null, _creator:true}] };
   document.getElementById('cl-titulo').textContent = 'JSA Cliente';
   document.getElementById('cl-captura').style.display = 'block';
+  document.getElementById('cl-crew').style.display = 'none';
   document.getElementById('cl-resumen').style.display = 'none';
   document.getElementById('cl-ok').style.display = 'none';
   document.getElementById('cl-captura-err').classList.remove('show');
@@ -1364,17 +1390,85 @@ function clContinuar(){
   if(!CL.site_id){ err.textContent='Selecciona el sitio.'; err.classList.add('show'); return; }
   if(!CL.photos.length){ err.textContent='Toma al menos una foto del JSA del cliente.'; err.classList.add('show'); return; }
   err.classList.remove('show');
+  document.getElementById('cl-captura').style.display='none';
+  document.getElementById('cl-crew').style.display='block';
+  clRenderCrew();
+  window.scrollTo(0,0);
+}
+function clCrewVolver(){
+  document.getElementById('cl-crew').style.display='none';
+  document.getElementById('cl-captura').style.display='block';
+}
+function clCrewContinuar(){
+  const err = document.getElementById('cl-crew-err');
+  if(!CL.crew || !CL.crew.length){ err.textContent='Agrega al menos una persona.'; err.classList.add('show'); return; }
+  const sinFirma = CL.crew.filter(c=>!c.sig);
+  if(sinFirma.length){ err.textContent='Falta la firma de: '+sinFirma.map(c=>c.employee_name.split(' ')[0]).join(', ')+'.'; err.classList.add('show'); return; }
+  err.classList.remove('show');
   document.getElementById('cl-r-site').textContent = CL.site_name || '—';
   document.getElementById('cl-r-count').textContent = CL.photos.length + ' foto(s)';
   document.getElementById('cl-r-fotos').innerHTML = CL.photos.map((p,i)=>`<div class="foto-item" onclick="verFoto(CL.photos[${i}])"><img src="${p}"/><div class="fn">${i+1}</div></div>`).join('');
-  document.getElementById('cl-captura').style.display='none';
+  document.getElementById('cl-r-crew').innerHTML = CL.crew.map(c=>`${c.employee_name} (${c.payroll_no||'—'}) ${c.sig?'✔':'✖'}`).join('<br/>');
+  document.getElementById('cl-crew').style.display='none';
   document.getElementById('cl-resumen').style.display='block';
   window.scrollTo(0,0);
 }
 function clVolver(){
   document.getElementById('cl-resumen').style.display='none';
-  document.getElementById('cl-captura').style.display='block';
+  document.getElementById('cl-crew').style.display='block';
 }
+
+// ── Cuadrilla del JSA CLIENTE (nómina + firma; reusa el modal de firma) ──
+function clRenderCrew(){
+  const wrap = document.getElementById('cl-crew-wrap');
+  wrap.innerHTML='';
+  (CL.crew||[]).forEach((c,i)=>{
+    const div = document.createElement('div');
+    div.className='crew-row';
+    div.innerHTML = `
+      <div class="ci">
+        <div class="cn">${c.employee_name} ${c._creator?'<span class="tag">tú</span>':''}</div>
+        <div class="cd">Nómina ${c.payroll_no||'—'}</div>
+      </div>
+      ${c.sig
+        ? `<span class="sig-ok">✔ Firmado</span><button class="sig-btn" onclick="clFirma(${i})">Refirmar</button>`
+        : `<button class="sig-btn" onclick="clFirma(${i})">✍️ Firmar</button>`}
+      ${c._creator?'':`<button class="crew-x" onclick="clDelCrew(${i})">✕</button>`}`;
+    wrap.appendChild(div);
+  });
+}
+async function clAddCrew(){
+  const inp = document.getElementById('cl-crew-nomina');
+  const errEl = document.getElementById('cl-crew-err');
+  const manual = document.getElementById('cl-crew-manual');
+  errEl.classList.remove('show'); manual.style.display='none';
+  const nomina = (inp.value||'').trim();
+  if(!/^\d{3,10}$/.test(nomina)){ errEl.textContent='Escribe un número de nómina válido.'; errEl.classList.add('show'); return; }
+  if(CL.crew.some(c=>c.payroll_no===nomina)){ errEl.textContent='Esa persona ya está en la lista.'; errEl.classList.add('show'); return; }
+  try{
+    const emp = await validarEmpleado(nomina);
+    if(!emp){ errEl.textContent='Empleado no encontrado. Revisa la nómina.'; errEl.classList.add('show'); return; }
+    CL.crew.push({payroll_no:emp.nomina, employee_name:emp.nombre, sig:null});
+    inp.value=''; clRenderCrew();
+  }catch(_e){
+    const cached = await idbGet('employees',nomina);
+    if(cached){ CL.crew.push({payroll_no:cached.nomina, employee_name:cached.nombre, sig:null}); inp.value=''; clRenderCrew(); }
+    else { manual.style.display='block'; }
+  }
+}
+function clAddCrewManual(){
+  const nomina = (document.getElementById('cl-crew-nomina').value||'').trim();
+  const nombre = (document.getElementById('cl-crew-nombre-manual').value||'').trim();
+  const errEl = document.getElementById('cl-crew-err');
+  if(nombre.length<5){ errEl.textContent='Escribe el nombre completo.'; errEl.classList.add('show'); return; }
+  CL.crew.push({payroll_no:nomina, employee_name:nombre, sig:null, _manual:true});
+  document.getElementById('cl-crew-nomina').value='';
+  document.getElementById('cl-crew-nombre-manual').value='';
+  document.getElementById('cl-crew-manual').style.display='none';
+  errEl.classList.remove('show'); clRenderCrew();
+}
+function clDelCrew(i){ CL.crew.splice(i,1); clRenderCrew(); }
+function clFirma(i){ _sigIdx=i; _sigOwner='CL'; _sigDirty=false; _firmaCanvas(CL.crew[i].employee_name); }
 
 async function enviarCliente(){
   const btn = document.getElementById('cl-enviar');
@@ -1385,7 +1479,9 @@ async function enviarCliente(){
     jsa:{ id:CL.id, created_by_payroll_no:CL._nomina, site_id:CL.site_id, jsa_type:'cliente',
       work_date: now.toISOString().slice(0,10), work_time: now.toTimeString().slice(0,5),
       work_description:'JSA otorgado por el cliente (fotos).', distinct_risks:'NA', crew_declaration_accepted:false },
-    risks:[], epp:[], activities:[], crew:[], photos:CL.photos, creator_name:SESSION.nombre,
+    risks:[], epp:[], activities:[],
+    crew:(CL.crew||[]).map(c=>({payroll_no:c.payroll_no||null, employee_name:c.employee_name, signature_png:c.sig})),
+    photos:CL.photos, creator_name:SESSION.nombre,
   };
   try{
     const d = await api(esReenvio?'resubmit':'submit', payload);
@@ -1396,9 +1492,23 @@ async function enviarCliente(){
     document.getElementById('cl-ok').style.display='block';
     refreshBadges();
   }catch(e){
-    const se = document.getElementById('cl-send-err');
-    se.textContent = navigator.onLine ? ('No se pudo enviar: '+e.message) : 'Necesitas conexión para enviar las fotos.';
-    se.classList.add('show');
+    if(esReenvio){
+      // El reenvío de un rechazado requiere conexión (no va al outbox).
+      const se = document.getElementById('cl-send-err');
+      se.textContent = navigator.onLine ? ('No se pudo reenviar: '+e.message) : 'Necesitas conexión para reenviar. Intenta de nuevo con señal.';
+      se.classList.add('show');
+      btn.disabled=false; btn.textContent='📤 Enviar JSA'; return;
+    }
+    // Envío nuevo sin señal (o error de red): a la cola para reintento automático.
+    await idbPut('outbox',{id:CL.id, payload, ts:Date.now()});
+    document.getElementById('cl-ok-title').textContent = 'JSA guardado';
+    document.getElementById('cl-ok-folio').textContent = '';
+    document.getElementById('cl-ok-msg').textContent = navigator.onLine
+      ? ('No se pudo enviar ('+e.message+'). Quedó guardado y se enviará automáticamente.')
+      : 'Estás sin conexión. Quedó guardado y se enviará solo al recuperar la señal.';
+    document.getElementById('cl-resumen').style.display='none';
+    document.getElementById('cl-ok').style.display='block';
+    refreshBadges();
   }finally{ btn.disabled=false; btn.textContent='📤 Enviar JSA'; }
 }
 
@@ -1720,11 +1830,9 @@ function delCrew(i){
 }
 
 // ── Firma (canvas) ──
-let _sigIdx = null, _sigDirty = false, _sigCtx = null;
-function abrirFirma(i){
-  _sigIdx = i; _sigDirty = false;
-  const c = D.crew[i];
-  document.getElementById('sig-title').textContent = 'Firma · '+c.employee_name.split(' ').slice(0,2).join(' ');
+let _sigIdx = null, _sigDirty = false, _sigCtx = null, _sigOwner = 'D';
+function _firmaCanvas(nombre){
+  document.getElementById('sig-title').textContent = 'Firma · '+String(nombre||'').split(' ').slice(0,2).join(' ');
   document.getElementById('sig-sub').textContent = 'Firma con el dedo dentro del recuadro.';
   document.getElementById('sig-modal').classList.add('show');
   const cv = document.getElementById('sig-canvas');
@@ -1736,6 +1844,7 @@ function abrirFirma(i){
   _sigCtx.fillStyle = '#fff'; _sigCtx.fillRect(0,0,rect.width,rect.height);
   _sigCtx.strokeStyle = '#0a1540'; _sigCtx.lineWidth = 2.2; _sigCtx.lineCap = 'round'; _sigCtx.lineJoin = 'round';
 }
+function abrirFirma(i){ _sigIdx = i; _sigOwner = 'D'; _sigDirty = false; _firmaCanvas(D.crew[i].employee_name); }
 function sigPos(ev){
   const cv = document.getElementById('sig-canvas');
   const r = cv.getBoundingClientRect();
@@ -1774,9 +1883,15 @@ function sigSave(){
   const cv = document.getElementById('sig-canvas');
   const png = cv.toDataURL('image/png');
   document.getElementById('sig-modal').classList.remove('show');
-  if(_sigIdx==='sup'){   // firma de aprobación del supervisor
-    _sigIdx = null;
+  if(_sigOwner==='sup' || _sigIdx==='sup'){   // firma de aprobación del supervisor
+    _sigIdx = null; _sigOwner = 'D';
     enviarDecision('aprobado', png);
+    return;
+  }
+  if(_sigOwner==='CL'){   // firma de un integrante del JSA CLIENTE
+    CL.crew[_sigIdx].sig = png;
+    _sigIdx = null; _sigOwner = 'D';
+    clRenderCrew();
     return;
   }
   D.crew[_sigIdx].sig = png;
@@ -1942,10 +2057,13 @@ async function corregirJSA(id, btn){
     if((d.head&&d.head.jsa_type)==='cliente'){
       // Reabrir el flujo de fotos con las fotos existentes cargadas
       CL = { id:d.head.id, _nomina:d.head.created_by_payroll_no||SESSION.nomina, jsa_type:'cliente', _resubmit:true,
-        site_id:d.head.site_id||'', site_name:(d.head.jsa_sites&&d.head.jsa_sites.site)||'', modo:'color', photos:[] };
+        site_id:d.head.site_id||'', site_name:(d.head.jsa_sites&&d.head.jsa_sites.site)||'', modo:'color', photos:[], crew:[] };
       for(const p of (d.photos||[])){ const du = await _urlToDataURL(p.image_url); if(du) CL.photos.push(du); }
+      for(const c of (d.crew||[])){ CL.crew.push({payroll_no:c.payroll_no||null, employee_name:c.employee_name, sig: await _urlToDataURL(c.signature_url), _creator: String(c.payroll_no)===String(d.head.created_by_payroll_no)}); }
+      if(!CL.crew.length) CL.crew.push({payroll_no:SESSION.nomina, employee_name:SESSION.nombre, sig:null, _creator:true});
       document.getElementById('cl-titulo').textContent='Corregir JSA Cliente';
       document.getElementById('cl-captura').style.display='block';
+      document.getElementById('cl-crew').style.display='none';
       document.getElementById('cl-resumen').style.display='none';
       document.getElementById('cl-ok').style.display='none';
       document.getElementById('cl-captura-err').classList.remove('show');
@@ -2100,6 +2218,7 @@ async function abrirDetalle(id, puedeAprobar){
         </div>
         <div class="det-sec"><h3>Fotos del JSA (${(d.photos||[]).length})</h3><div class="fotos-grid">${fotosHtml}</div>
           <div class="det-kv" style="font-size:12.5px;color:var(--text2);margin-top:6px">Toca una foto para verla en grande.</div></div>
+        <div class="det-sec"><h3>Personal involucrado (${(d.crew||[]).length})</h3>${crewHtml||'<div class="det-kv">—</div>'}</div>
         ${(d.approvals||[]).length?`<div class="det-sec"><h3>Aprobación</h3>${d.approvals.map(a=>`<div class="det-kv"><b>${a.result==='aprobado'?'✔ Aprobado':'✖ Rechazado'}</b> por ${a.approver_name||'—'} ${a.comment?('· '+a.comment):''}</div>`).join('')}</div>`:''}
       `;
     } else {
@@ -2157,7 +2276,7 @@ function decidir(result){
 }
 
 function abrirFirmaSupervisor(){
-  _sigIdx = 'sup'; _sigDirty=false;
+  _sigIdx = 'sup'; _sigOwner = 'sup'; _sigDirty=false;
   document.getElementById('sig-title').textContent = 'Firma de aprobación';
   document.getElementById('sig-sub').textContent = 'Firma para autorizar este JSA.';
   document.getElementById('sig-modal').classList.add('show');

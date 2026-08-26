@@ -427,6 +427,46 @@
       try { doc.addImage(p.image_dataurl, 'JPEG', x, y, w, hh); } catch (_e) {}
       footer(i + 1, photos.length);
     });
+
+    // ── Página de personal involucrado (nómina + firma de cada técnico) ──
+    const crew = (detail.crew || []).filter((c) => c && c.employee_name);
+    if (crew.length) {
+      doc.addPage();
+      header();
+      let y = M + 14 + 8;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(20, 20, 20);
+      doc.text('Personal involucrado', M + 3, y);
+      y += 6;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(90, 90, 90);
+      doc.text('Nombre, nomina y firma de cada integrante del JSA.', M + 3, y);
+      y += 6;
+      const colW = (PW - 2 * M) / 2, rowH = 27;
+      crew.forEach((c, i) => {
+        const col = i % 2, row = Math.floor(i / 2);
+        const x = M + col * colW, cy = y + row * rowH;
+        if (cy + rowH - 3 > PH - 12) return; // resguardo: cuadrillas muy grandes
+        doc.setDrawColor(210, 214, 224); doc.setLineWidth(0.3);
+        doc.rect(x + 1, cy, colW - 2, rowH - 3);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(20, 20, 20);
+        doc.text(String(c.employee_name || '').slice(0, 40), x + 3, cy + 5);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(90, 90, 90);
+        doc.text('Nomina ' + (c.payroll_no || '—'), x + 3, cy + 9.5);
+        if (c.signature_url) {
+          try { doc.addImage(c.signature_url, 'PNG', x + 3, cy + 11, 42, 12); } catch (_e) {}
+        } else {
+          doc.setFont('helvetica', 'italic'); doc.setTextColor(180, 60, 60);
+          doc.text('(sin firma)', x + 3, cy + 18);
+        }
+      });
+      // pie con sello de aprobación (sin "Foto x de y")
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(90, 90, 90);
+      doc.text('SPIE · HSE · Documento generado desde la app JSA', M, PH - 5);
+      if (ap && ap.result) {
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(ap.result === 'aprobado' ? 30 : 200, ap.result === 'aprobado' ? 122 : 40, ap.result === 'aprobado' ? 52 : 40);
+        doc.text((ap.result === 'aprobado' ? 'APROBADO' : 'RECHAZADO') + (ap.approver_name ? (' · ' + ap.approver_name) : ''), PW / 2, PH - 5, { align: 'center' });
+      }
+    }
     return doc;
   }
 
@@ -437,6 +477,7 @@
       try { const r = await fetch(url); const b = await r.blob(); return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(b); }); } catch (_e) { return null; }
     }
     for (const p of (detail.photos || [])) p.image_dataurl = await toDataURL(p.image_url);
+    for (const c of (detail.crew || [])) c.signature_url = await toDataURL(c.signature_url);
     return detail;
   }
 

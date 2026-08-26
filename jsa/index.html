@@ -229,8 +229,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
 .est.rechazado{background:#fdeaea;color:var(--red)}
 .rechazo-motivo{margin-top:8px;background:#fdeaea;border:1px solid #f2b8b8;color:#a12b2b;border-radius:8px;padding:7px 10px;font-size:12.5px;line-height:1.45}
 .tipo-tag{font-size:11px;font-weight:700;background:#eaf4fb;color:var(--cyan2);border-radius:6px;padding:1px 7px;vertical-align:middle}
-.foto-close{position:absolute;top:8px;right:8px;background:rgba(10,15,40,.75);color:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .foto-item img{cursor:zoom-in}
+.foto-viewer{display:none;position:fixed;inset:0;z-index:60;background:rgba(5,10,25,.94)}
+.foto-viewer.show{display:block}
+#foto-stage{position:absolute;inset:0;overflow:hidden;touch-action:none}
+#foto-modal-img{position:absolute;left:0;top:0;transform-origin:0 0;-webkit-user-drag:none;user-select:none;will-change:transform}
+.foto-close{position:fixed;top:12px;right:12px;z-index:62;background:rgba(10,15,40,.8);color:#fff;border:none;border-radius:50%;width:42px;height:42px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.foto-hint{position:fixed;left:0;right:0;bottom:22px;text-align:center;color:rgba(255,255,255,.9);font-size:13px;z-index:61;pointer-events:none;transition:opacity .6s;text-shadow:0 1px 4px rgba(0,0,0,.6)}
 #crop-box .ch{position:absolute;width:28px;height:28px;background:var(--cyan);border:2px solid #fff;border-radius:50%;touch-action:none}
 #crop-box .ch[data-h=nw]{left:-15px;top:-15px}
 #crop-box .ch[data-h=ne]{right:-15px;top:-15px}
@@ -707,12 +712,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
   </div>
 </div>
 
-<!-- ════════ VISOR DE FOTO (lightbox) ════════ -->
-<div class="modal" id="foto-modal" onclick="document.getElementById('foto-modal').classList.remove('show')">
-  <div style="position:relative" onclick="event.stopPropagation()">
-    <img id="foto-modal-img" alt="foto" style="max-width:94vw;max-height:86vh;border-radius:8px;display:block;background:#fff"/>
-    <button class="foto-close" onclick="document.getElementById('foto-modal').classList.remove('show')">✕</button>
-  </div>
+<!-- ════════ VISOR DE FOTO (pantalla completa, con zoom) ════════ -->
+<div id="foto-modal" class="foto-viewer">
+  <div id="foto-stage"><img id="foto-modal-img" alt="foto"/></div>
+  <button class="foto-close" onclick="cerrarFotoModal()">✕</button>
+  <div class="foto-hint" id="foto-hint">Pellizca o doble-toca para acercar · arrastra para mover</div>
 </div>
 
 <div id="toast"></div>
@@ -1268,12 +1272,91 @@ function renderFotosCliente(){
 }
 function quitarFoto(i){ CL.photos.splice(i,1); renderFotosCliente(); }
 
-// Visor de foto a pantalla completa (técnico y supervisor)
+// ── Visor de foto a pantalla completa con zoom (técnico y supervisor) ──
+let _zoom = null;
 function verFoto(src){
   if(!src) return;
-  document.getElementById('foto-modal-img').src = src;
-  document.getElementById('foto-modal').classList.add('show');
+  const modal = document.getElementById('foto-modal');
+  const img = document.getElementById('foto-modal-img');
+  modal.classList.add('show');
+  document.getElementById('foto-hint').style.opacity = '1';
+  const im = new Image();
+  im.onload = ()=>{
+    const stage = document.getElementById('foto-stage');
+    const SW = stage.clientWidth || window.innerWidth, SH = stage.clientHeight || window.innerHeight;
+    const fit = Math.min(SW/im.naturalWidth, SH/im.naturalHeight);
+    const wImg = Math.round(im.naturalWidth*fit), hImg = Math.round(im.naturalHeight*fit);
+    img.src = src;
+    img.style.width = wImg+'px'; img.style.height = hImg+'px';
+    _zoom = { s:1, t:{ x:(SW-wImg)/2, y:(SH-hImg)/2 }, wImg, hImg, SW, SH, pointers:new Map(), lastDist:0, lastMid:null, panLast:null, minS:1, maxS:6 };
+    aplicarZoom();
+    clearTimeout(_zoom._h); _zoom._h = setTimeout(()=>{ const h=document.getElementById('foto-hint'); if(h) h.style.opacity='0'; }, 2600);
+  };
+  im.onerror = ()=>{ modal.classList.remove('show'); };
+  im.src = src;
 }
+function aplicarZoom(){
+  if(!_zoom) return;
+  document.getElementById('foto-modal-img').style.transform = `translate(${_zoom.t.x}px,${_zoom.t.y}px) scale(${_zoom.s})`;
+}
+function cerrarFotoModal(){ document.getElementById('foto-modal').classList.remove('show'); _zoom=null; }
+function _zDist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+function _zMid(a,b){ return { x:(a.x+b.x)/2, y:(a.y+b.y)/2 }; }
+function _zoomEn(focal, k){
+  const z=_zoom; const ns=Math.min(Math.max(z.s*k, z.minS), z.maxS); const kk=ns/z.s;
+  z.t.x = focal.x - kk*(focal.x - z.t.x);
+  z.t.y = focal.y - kk*(focal.y - z.t.y);
+  z.s = ns;
+}
+function _zRecenter(){ const z=_zoom; if(!z) return; z.s=1; z.t={ x:(z.SW-z.wImg)/2, y:(z.SH-z.hImg)/2 }; aplicarZoom(); }
+function _zToggle(focal){ const z=_zoom; if(!z) return; if(z.s>1.05){ _zRecenter(); } else { _zoomEn(focal, 3); aplicarZoom(); } }
+(function(){
+  document.addEventListener('DOMContentLoaded',()=>{
+    const stage = document.getElementById('foto-stage'); if(!stage) return;
+    const rel = ev => { const r=stage.getBoundingClientRect(); return { x:ev.clientX-r.left, y:ev.clientY-r.top }; };
+    let lastTap = 0;
+    stage.addEventListener('pointerdown',(ev)=>{
+      if(!_zoom) return;
+      _zoom.pointers.set(ev.pointerId, rel(ev));
+      try{ stage.setPointerCapture(ev.pointerId); }catch(_e){}
+      if(_zoom.pointers.size===1){
+        _zoom.panLast = rel(ev);
+        const now = Date.now();
+        if(now-lastTap < 300){ _zToggle(rel(ev)); lastTap=0; } else lastTap = now;
+      } else if(_zoom.pointers.size===2){
+        const p=[..._zoom.pointers.values()]; _zoom.lastDist=_zDist(p[0],p[1]); _zoom.lastMid=_zMid(p[0],p[1]);
+      }
+      ev.preventDefault();
+    });
+    stage.addEventListener('pointermove',(ev)=>{
+      if(!_zoom || !_zoom.pointers.has(ev.pointerId)) return;
+      _zoom.pointers.set(ev.pointerId, rel(ev));
+      const p=[..._zoom.pointers.values()];
+      if(p.length>=2){
+        const cd=_zDist(p[0],p[1]), cm=_zMid(p[0],p[1]);
+        if(_zoom.lastDist>0){
+          _zoomEn(cm, cd/_zoom.lastDist);
+          if(_zoom.lastMid){ _zoom.t.x += cm.x-_zoom.lastMid.x; _zoom.t.y += cm.y-_zoom.lastMid.y; }
+          aplicarZoom();
+        }
+        _zoom.lastDist=cd; _zoom.lastMid=cm;
+      } else if(p.length===1 && _zoom.s>1.02){
+        const q=p[0];
+        if(_zoom.panLast){ _zoom.t.x += q.x-_zoom.panLast.x; _zoom.t.y += q.y-_zoom.panLast.y; aplicarZoom(); }
+        _zoom.panLast=q;
+      }
+      ev.preventDefault();
+    });
+    const end = (ev)=>{
+      if(!_zoom) return;
+      _zoom.pointers.delete(ev.pointerId); _zoom.lastDist=0; _zoom.lastMid=null;
+      const left=[..._zoom.pointers.values()];
+      _zoom.panLast = left.length===1 ? left[0] : null;
+      if(_zoom.pointers.size===0 && _zoom.s<=1.02) _zRecenter();
+    };
+    ['pointerup','pointercancel'].forEach(e=>stage.addEventListener(e,end));
+  });
+})();
 
 function clContinuar(){
   const err = document.getElementById('cl-captura-err');

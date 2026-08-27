@@ -1166,9 +1166,9 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
       <div class="field">
 
-        <label class="lbl">No. WTG <span style="color:var(--text3);text-transform:none;font-weight:400;font-size:9px">Si no aplica escribir N/A</span></label>
+        <label class="lbl">No. WTG * <span style="color:var(--text3);text-transform:none;font-weight:400;font-size:9px">Obligatorio · si no aplica escribe NA</span></label>
 
-        <input class="inp" id="f-wtg" placeholder="Ej. WTG-14"/>
+        <input class="inp" id="f-wtg" placeholder="Ej. WTG-14 (o NA)"/>
 
       </div>
 
@@ -1406,7 +1406,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
         <label class="lbl">Acciones Correctivas</label>
 
-        <textarea class="ta" id="f-acciones" placeholder="Describe las acciones a implementar, responsable y plazo estimado..."></textarea>
+        <textarea class="ta" id="f-acciones" placeholder="Describe las acciones a implementar, responsable y plazo estimado..." oninput="if(typeof buildSummary==='function')buildSummary()"></textarea>
 
       </div>
 
@@ -1448,7 +1448,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
           <label class="lbl">Fecha de Cierre</label>
 
-          <input class="inp" type="date" id="f-fecha-cierre"/>
+          <input class="inp" type="date" id="f-fecha-cierre" onchange="if(typeof buildSummary==='function')buildSummary()"/>
 
         </div>
 
@@ -1673,45 +1673,25 @@ const PARQUES = {
 };
 
 const CLASIFICACION = [
-
-  {codigo:"A",label:"Transporte",emoji:"🚗",items:["Transporte"]},
-
-  {codigo:"B",label:"Salud / Ergonomía",emoji:"🏥",items:["Bacterias y virus","Enfermedades transmitidas por insectos","Alimentos/agua contaminados","Entrenamiento en primeros auxilios","Gestos y posturas/Trastornos musculoesqueléticos","Ruido","Riesgos psicosociales"]},
-
+  {codigo:"A",label:"Transporte",emoji:"🚗",items:["Fallas mecánicas","Mantenimiento","Traslado"]},
+  {codigo:"B",label:"Salud / Ergonomía",emoji:"🏥",items:["Bacterias y virus","Enfermedades transmitidas por insectos","Alimentos/agua contaminados","Entrenamiento en primeros auxilios","Gestos y posturas/Trastornos musculoesqueléticos","Levantamiento y manejo manual de cargas","Movimientos repetitivos","Diseño inadecuado del puesto de trabajo","Ruido","Riesgos psicosociales"]},
   {codigo:"C",label:"Drogas y Alcohol",emoji:"🚫",items:["Drogas y Alcohol"]},
-
-  {codigo:"D",label:"Riesgo Eléctrico",emoji:"⚡",items:["Generadores, transformadores y fuentes de alimentación","Distribución de líneas eléctricas","Estática","Tablero principal"]},
-
+  {codigo:"D",label:"Riesgo Eléctrico",emoji:"⚡",items:["Contacto directo con cables y líneas vivas","Contacto indirecto","Arco eléctrico y corto circuito","Generadores, transformadores y fuentes de alimentación","Distribución de líneas eléctricas","Estática","Tablero principal"]},
   {codigo:"E",label:"Incendio",emoji:"🔥",items:["Fuego","Materiales inflamables","Fuentes de ignición"]},
-
-  {codigo:"F",label:"Comportamiento Humano",emoji:"🧠",items:["Comportamientos humanos","Actitud intencional/no intencional","Falta de atención"]},
-
-  {codigo:"G",label:"Seguridad / Delincuencia",emoji:"🔒",items:["Asaltos, delincuencia organizada en la zona"]},
-
-  {codigo:"H",label:"Caída Mismo Nivel",emoji:"🦶",items:["Caídas al mismo nivel"]},
-
-  {codigo:"I",label:"Permisos / Normativa",emoji:"📋",items:["Permiso de trabajo","Plan de prevención de salud y seguridad","Evaluación de riesgos"]},
-
-  {codigo:"J",label:"Herramientas / Maquinaria",emoji:"🔧",items:["Herramientas manuales/Equipos mecánicos/eléctricos","Motor y máquina de sitio: elevador mecánico y grúas"]},
-
+  {codigo:"F",label:"Comportamiento Humano",emoji:"🧠",items:["Omisión de procedimientos","Exceso de confianza o prisa por terminar la tarea","Utilización de equipo sin autorización","Comportamientos humanos","Actitud intencional/no intencional","Falta de atención"]},
+  {codigo:"G",label:"Seguridad / Delincuencia",emoji:"🔒",items:["Asaltos, delincuencia organizada en la zona","Vandalismo o daños a la propiedad de la empresa"]},
+  {codigo:"H",label:"Caída",emoji:"🦶",items:["Caídas al mismo nivel","Caídas a distinto nivel"]},
+  {codigo:"I",label:"Permisos / Normativa",emoji:"📋",items:["Permiso de trabajo","Falta de análisis de trabajo seguro (JSA)","Plan de prevención de salud y seguridad","Evaluación de riesgos"]},
+  {codigo:"J",label:"Herramientas / Maquinaria",emoji:"🔧",items:["Atrapamiento por piezas o partes en movimiento","Golpes o cortes por herramientas defectuosas o sin guardas","Proyección de partículas o fragmentos","Uso de herramientas inadecuadas o improvisadas","Herramientas manuales/Equipos mecánicos/eléctricos","Motor y máquina de sitio: elevador mecánico y grúas"]},
   {codigo:"K",label:"Condiciones Climáticas",emoji:"🌩️",items:["Temperaturas atmosféricas altas/bajas","Vientos fuertes","Neblina","Tormenta eléctrica"]},
-
   {codigo:"L",label:"Trabajo en Altura",emoji:"🏗️",items:["Altura","Objeto que cae","Herramientas sin asegurar en altura","Escaleras","Caídas de alturas","Izado"]},
-
-  {codigo:"M",label:"Presión",emoji:"💨",items:["Líquidos presurizados","Gases presurizados","Sistemas de alta presión"]},
-
-  {codigo:"N",label:"Campos Electromagnéticos",emoji:"📡",items:["Campos electromagnéticos"]},
-
-  {codigo:"Ñ",label:"Superficies Térmicas",emoji:"🌡️",items:["Superficies calientes/frías"]},
-
-  {codigo:"O",label:"Productos Peligrosos",emoji:"☣️",items:["Productos químicos tóxicos, corrosivos o peligrosos (para el medio ambiente, las personas o los bienes)"]},
-
-  {codigo:"Q",label:"Equipamiento",emoji:"⚙️",items:["Equipamiento inadecuado o defectuoso"]},
-
-  {codigo:"R",label:"Orden y Limpieza",emoji:"🧹",items:["Orden y limpieza"]},
-
-  {codigo:"S",label:"Medio Ambiente",emoji:"🌿",items:["Impacto al medio ambiente (suelo, aire, agua, flora, fauna, residuos)"]}
-
+  {codigo:"M",label:"Presión",emoji:"💨",items:["Fuga de gases o de líquidos","Líquidos presurizados","Gases presurizados","Sistemas de alta presión"]},
+  {codigo:"N",label:"Campos Electromagnéticos",emoji:"📡",items:["Exposición a líneas de alta tensión","Transformadores o subestaciones eléctricas","Campos electromagnéticos"]},
+  {codigo:"Ñ",label:"Superficies Térmicas",emoji:"🌡️",items:["Exposición a fluidos o vapor a altas temperaturas","Superficies calientes/frías"]},
+  {codigo:"O",label:"Productos Peligrosos",emoji:"☣️",items:["Inhalación de gases, vapores o polvos tóxicos","Salpicaduras de sustancias químicas","Almacenamiento incompatible de sustancias","Derrame o fuga de sustancias","Productos químicos tóxicos, corrosivos o peligrosos (para el medio ambiente, las personas o los bienes)"]},
+  {codigo:"Q",label:"Equipamiento / EPP",emoji:"⚙️",items:["Equipo sin certificar o próximo a vencer","Equipamiento inadecuado o defectuoso"]},
+  {codigo:"R",label:"Orden y Limpieza",emoji:"🧹",items:["Acumulación de desechos en zona de trabajo","Almacenamiento inadecuado de materiales y herramientas","Obstrucción de salidas de emergencia o señalética en mal estado","Orden y limpieza"]},
+  {codigo:"S",label:"Medio Ambiente",emoji:"🌿",items:["Contaminación del suelo por derrames de sustancias","Emisiones descontroladas de humo o gases a la atmósfera","Disposición incorrecta de residuos peligrosos o de manejo especial","Contaminación acústica/ruido excesivo hacia el exterior"]}
 ];
 
 // ════════════════════════════════════════════
@@ -2490,56 +2470,75 @@ function updateStep(){
 
 }
 
+// Marca en rojo el campo faltante y hace scroll hasta él
+function _faltante(id, msg){
+  const el=document.getElementById(id);
+  if(el){
+    try{ el.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_e){}
+    const prev=el.style.borderColor;
+    el.style.borderColor='#e53535';
+    setTimeout(()=>{ el.style.borderColor=prev||''; }, 2500);
+  }
+  alert(msg);
+  return false;
+}
+
+// Devuelve true solo si TODAS las preguntas del paso están contestadas
 function stepOk(){
-
   if(STEP===0){
-
-    // Verify employee is selected in step 0
-
     const s0sel=document.getElementById('f-empleado-s0');
-
-    return !!(s0sel && s0sel.value);
-
+    if(!(s0sel && s0sel.value)) return _faltante('f-empleado-s0','Selecciona el empleado.');
+    return true;
   }
 
   if(STEP===1){
-
-    // En modo campo, exigir país elegido (define el HSE) además de parque y tipo.
-
+    // En modo campo, exigir país elegido (define el HSE)
     const paisCampo=document.getElementById('f-pais-campo');
-
-    const faltaPais=paisCampo && !paisCampo.value;
-
-    if(faltaPais){alert('Selecciona el país donde reportas (define tu HSE).');return false;}
-
-    return !!(document.getElementById('f-parque-val').value && document.getElementById('f-tipo-trabajo').value);
-
+    if(paisCampo && !paisCampo.value) return _faltante('f-pais-campo','Selecciona el país donde reportas (define tu HSE).');
+    if(!document.getElementById('f-parque-val').value) return _faltante('f-parque','Indica el parque u oficina donde estás.');
+    if(!document.getElementById('f-tipo-trabajo').value) return _faltante('f-tipo-trabajo','Selecciona el tipo de trabajo.');
+    // WTG obligatorio: número de aerogenerador o "NA"
+    const wtg=(document.getElementById('f-wtg').value||'').trim();
+    if(!wtg) return _faltante('f-wtg','Escribe el No. de WTG. Si no aplica, escribe NA.');
+    return true;
   }
 
   if(STEP===2){
-
-    const tipo=document.getElementById('f-tipo-riesgo').value;
-
-    const desc=document.getElementById('f-descripcion').value.trim();
-
-    const cod=document.getElementById('f-clas-cod').value;
-
-    const nivel=document.getElementById('f-nivel').value;
-
+    if(!document.getElementById('f-tipo-riesgo').value){
+      alert('Selecciona el tipo de hallazgo (Acto Inseguro, Condición Insegura o Casi Accidente).');
+      return false;
+    }
+    const desc=(document.getElementById('f-descripcion').value||'').trim();
+    if(desc.length<6) return _faltante('f-descripcion','Describe el hallazgo (mínimo 6 caracteres).');
+    if(!document.getElementById('f-clas-cod').value){
+      alert('Elige la clasificación de riesgo (categoría y riesgo específico).');
+      const rl=document.getElementById('risk-list');
+      if(rl){ try{ rl.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_e){} }
+      return false;
+    }
+    if(!document.getElementById('f-nivel').value){ alert('Selecciona el grado de riesgo (Alto, Medio o Bajo).'); return false; }
+    if(!document.getElementById('f-fecha-id').value) return _faltante('f-fecha-id','Indica la fecha de identificación.');
     const viol=document.getElementById('f-violacion').value;
-
-    return!!(tipo&&desc.length>5&&cod&&nivel&&viol);
-
+    if(!viol){ alert('Responde si hubo violación grave a alguna de las 10 reglas que salvan vidas.'); return false; }
+    if(viol==='Si' && !document.getElementById('f-regla').value)
+      return _faltante('f-regla','Selecciona la regla que se infringió.');
+    return true;
   }
 
-  if(STEP===3)return document.getElementById('f-acciones').value.trim().length>5;
-
+  if(STEP===3){
+    const acc=(document.getElementById('f-acciones').value||'').trim();
+    if(acc.length<6) return _faltante('f-acciones','Describe las acciones correctivas (mínimo 6 caracteres).');
+    return true;
+  }
   return false;
-
 }
 
-function stepNext(){if(STEP===3){submitForm();return}if(!stepOk()){alert('Por favor completa todos los campos requeridos.');return}STEP++;updateStep()}
-
+function stepNext(){
+  if(!stepOk()) return;             // valida SIEMPRE, también antes de enviar
+  if(STEP===3){ submitForm(); return; }
+  STEP++;
+  updateStep();
+}
 function stepBack(){if(STEP>0){STEP--;updateStep()}}
 
 // ════════════════════════════════════════════
@@ -2571,6 +2570,10 @@ function selStatus(val){
   document.getElementById('f-estatus').value=val;
 
   document.getElementById('cierre-wrap').style.display=val==='Cerrado'?'block':'none';
+
+
+  // El resumen vive en este mismo paso: repintarlo al cambiar el estatus
+  if(typeof buildSummary==='function') buildSummary();
 
 }
 
@@ -2858,6 +2861,10 @@ function buildSummary(){
 
     ["Parque",parque],
 
+    ["Tipo de trabajo",document.getElementById('f-tipo-trabajo').value||null],
+
+    ["No. WTG",document.getElementById('f-wtg').value||null],
+
     ["Semana",`W${getWeek()}`],
 
     ["Tipo",document.getElementById('f-tipo-riesgo').value],
@@ -2869,6 +2876,8 @@ function buildSummary(){
     ["Violación Regla",document.getElementById('f-violacion').value||null],
 
     ["Estatus",document.getElementById('f-estatus').value],
+
+    ["Fecha de cierre",document.getElementById('f-estatus').value==='Cerrado'?(document.getElementById('f-fecha-cierre').value||'(pendiente)'):null],
 
     ["Notificación",notifEmails]
 

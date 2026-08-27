@@ -762,7 +762,13 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
                autocomplete="off" placeholder="Ej. 1009"
 
-               oninput="loginNominaInput()" />
+               oninput="loginNominaInput()"
+
+               onblur="validarAhora()"
+
+               onkeydown="if(event.key==='Enter'){event.preventDefault();doLogin();}" />
+
+        <div id="l-nomina-estado" style="display:none;font-size:12.5px;margin-top:6px;color:#6b728a"></div>
 
       </div>
 
@@ -1910,227 +1916,238 @@ async function getEmpleadoCacheado(nomina){
 
 }
 
-let _nominaValidada = null; // guarda la nómina que ya se validó con éxito
+let _nominaValidada   = null; // nómina que YA se validó con éxito
+let _validandoPromise = null; // promesa de la validación en curso
+let _validandoNomina  = null; // nómina que se está validando ahora mismo
 
+// ── Helpers de mensajes ──────────────────────────────────────
+function _loginErr(msg){
+  const el=document.getElementById('login-err');
+  if(el){ el.textContent=msg; el.classList.add('show'); }
+}
+function _loginErrClear(){
+  const el=document.getElementById('login-err');
+  if(el) el.classList.remove('show');
+}
+// Estado en vivo debajo del campo de nómina (verificando / verificado / error)
+function _estadoNomina(txt,tipo){
+  const el=document.getElementById('l-nomina-estado');
+  if(!el) return;
+  if(!txt){ el.style.display='none'; el.textContent=''; return; }
+  el.textContent=txt;
+  el.style.color = tipo==='ok' ? '#1a7f37' : (tipo==='err' ? '#cc1417' : '#6b728a');
+  el.style.display='block';
+}
+
+// Oculta las tarjetas de resultado del login
+function _ocultarDatosLogin(){
+  ['l-emp-wrap','l-parque-wrap','l-hse-wrap','l-hse-select-wrap'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display='none';
+  });
+}
+
+// Pinta el selector de HSE (empleados de ESPINAL sin oficina)
+function _pintarSelectorHse(opciones){
+  const selWrap=document.getElementById('l-hse-select-wrap');
+  const selHse =document.getElementById('l-hse-select');
+  const hseFijo=document.getElementById('l-hse-wrap');
+  if(!selWrap||!selHse) return;
+  _empValidado._debeElegirHse=true;
+  _empValidado._hseOpciones=opciones;
+  if(!_empValidado._hse) _empValidado._hse=null;
+  selHse.innerHTML='<option value="">— Elige tu HSE —</option>'+
+    opciones.map(o=>`<option value="${o.email}" data-nombre="${String(o.nombre).replace(/"/g,'&quot;')}">${o.nombre}</option>`).join('');
+  if(_empValidado._hse&&_empValidado._hse.email) selHse.value=_empValidado._hse.email;
+  selHse.onchange=function(){
+    const opt=this.options[this.selectedIndex];
+    if(this.value){
+      _empValidado._hse={nombre:opt.getAttribute('data-nombre'),email:this.value};
+      this.style.borderColor='#1a7f37';
+      _loginErrClear();                 // al elegir HSE se limpia cualquier aviso
+    }else{
+      _empValidado._hse=null;
+      this.style.borderColor='#cc1417';
+    }
+  };
+  if(hseFijo) hseFijo.style.display='none'; // el HSE lo define el selector
+  selWrap.style.display='block';
+}
+
+// ── Se dispara al escribir en el campo de nómina ─────────────
 function loginNominaInput(){
-
   const val=(document.getElementById('l-nomina').value||'').trim();
-
-  const empWrap=document.getElementById('l-emp-wrap');
-
-  const parqWrap=document.getElementById('l-parque-wrap');
-
-  const hseWrap=document.getElementById('l-hse-wrap');
-
-  const errEl=document.getElementById('login-err');
 
   // Si el número no cambió respecto al ya validado, NO reiniciar nada
   // (evita borrar la validación al interactuar con el selector de HSE).
-  if(_empValidado && val === _nominaValidada) return;
+  if(_empValidado && val===_nominaValidada) return;
+  if(_validandoNomina && val===_validandoNomina) return; // ya se está validando
 
-  _empValidado=null;
-
-  _nominaValidada=null;
-
-  if(empWrap)empWrap.style.display='none';
-
-  if(parqWrap)parqWrap.style.display='none';
-
-  if(hseWrap)hseWrap.style.display='none';
-
-  const selWrap=document.getElementById('l-hse-select-wrap');
-
-  if(selWrap)selWrap.style.display='none';
-
-  if(errEl)errEl.classList.remove('show');
-
+  _empValidado=null; _nominaValidada=null;
+  _validandoPromise=null; _validandoNomina=null;
+  _ocultarDatosLogin();
+  _loginErrClear();
   clearTimeout(_nominaTimer);
 
-  if(!/^\d{3,10}$/.test(val))return; // espera a un número plausible
-
-  _nominaTimer=setTimeout(()=>validarNomina(val),400);
-
+  if(!/^\d{3,10}$/.test(val)){
+    _estadoNomina(val?'Escribe tu número de nómina completo…':'','info');
+    return;
+  }
+  _estadoNomina('Verificando nómina…','info');
+  _nominaTimer=setTimeout(()=>validarNomina(val),350);
 }
 
-async function validarNomina(nomina){
+// Valida YA, sin esperar el debounce (blur, Enter o botón Siguiente).
+// Devuelve una promesa que termina cuando la validación acabó.
+function validarAhora(){
+  const val=(document.getElementById('l-nomina').value||'').trim();
+  if(!/^\d{3,10}$/.test(val)) return Promise.resolve();
+  if(_empValidado && val===_nominaValidada) return Promise.resolve();
+  if(_validandoPromise && _validandoNomina===val) return _validandoPromise;
+  clearTimeout(_nominaTimer);
+  return validarNomina(val);
+}
 
-  const errEl=document.getElementById('login-err');
+// Envoltorio: evita validaciones duplicadas de la misma nómina
+function validarNomina(nomina){
+  if(_validandoPromise && _validandoNomina===nomina) return _validandoPromise;
+  _validandoNomina=nomina;
+  _estadoNomina('Verificando nómina…','info');
+  _loginErrClear();
+  _validandoPromise=_validarNominaReal(nomina).finally(()=>{
+    if(_validandoNomina===nomina){ _validandoPromise=null; _validandoNomina=null; }
+  });
+  return _validandoPromise;
+}
 
+async function _validarNominaReal(nomina){
+  // ¿sigue siendo esta la nómina escrita en pantalla?
+  const vigente=()=>((document.getElementById('l-nomina').value||'').trim()===nomina);
   try{
-
     const r=await fetch(`${SUPABASE_URL}/functions/v1/validate-employee`,{
-
       method:'POST',
-
       headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
-
       body:JSON.stringify({payroll_no:nomina})
-
     });
-
-    const data=await r.json();
+    const data=await r.json().catch(()=>({}));
+    if(!vigente()) return;                       // el usuario ya cambió el número
 
     if(!r.ok||!data.employee){
-
-      if(errEl){errEl.textContent=data.error||'Empleado no encontrado.';errEl.classList.add('show');}
-
+      _ocultarDatosLogin();
+      _estadoNomina('','info');
+      _loginErr(data.error||'Nómina no encontrada. Revisa el número.');
       return;
-
     }
 
     const e=data.employee;
-
-    // Normalizamos al formato que usa el resto de la app (SESSION.empleado).
-
     _empValidado={
-
       nomina:e.payroll_no,
-
       nombre:e.employee_name,
-
       pais:({MX:'MEXICO',UY:'URUGUAY',RD:'REPUBLICA DOMINICANA',CL:'CHILE'})[e.country_code]||e.country_code,
-
       parque:e.office_name||'',
-
       _hse:e.hse_name?{nombre:e.hse_name,email:e.hse_email}:null
-
     };
 
-    // ── Selección de HSE (empleados de ESPINAL sin oficina) ──
-    const selWrap = document.getElementById('l-hse-select-wrap');
-    const selHse  = document.getElementById('l-hse-select');
-    const hseFijoWrap = document.getElementById('l-hse-wrap');
-    if (data.debe_elegir_hse && Array.isArray(data.hse_options) && data.hse_options.length) {
-      _empValidado._debeElegirHse = true;
-      _empValidado._hseOpciones = data.hse_options;
-      _empValidado._hse = null;  // aún no elige; se define con el selector
-      selHse.innerHTML = '<option value="">— Elige tu HSE —</option>' +
-        data.hse_options.map(o => `<option value="${o.email}" data-nombre="${o.nombre.replace(/"/g,'&quot;')}">${o.nombre}</option>`).join('');
-      selHse.onchange = function(){
-        const opt = this.options[this.selectedIndex];
-        if (this.value) {
-          _empValidado._hse = { nombre: opt.getAttribute('data-nombre'), email: this.value };
-        } else {
-          _empValidado._hse = null;
-        }
-      };
-      if (hseFijoWrap) hseFijoWrap.style.display = 'none';  // ocultar HSE fijo: lo define el selector
-      selWrap.style.display = 'block';
-    } else {
-      _empValidado._debeElegirHse = false;
-      if (selWrap) selWrap.style.display = 'none';
-    }
-
-    cacheEmpleado(_empValidado); // guardar para login offline futuro
-
-    _nominaValidada = nomina; // recordar que esta nómina ya se validó (evita reinicios)
-
-    // Pintar nombre, parque y HSE verificados
-
+    // Pintar nombre y parque verificados
     document.getElementById('l-emp-nombre').textContent=e.employee_name;
-
     document.getElementById('l-emp-wrap').style.display='block';
-
     document.getElementById('l-parque-val').textContent=e.office_name||'Parque (lo indicas en el reporte)';
-
     document.getElementById('l-parque-wrap').style.display='block';
 
+    // HSE fijo
     const hseWrap=document.getElementById('l-hse-wrap');
-
     if(e.hse_name&&hseWrap){
-
       document.getElementById('l-hse-nombre').textContent=e.hse_name;
-
       document.getElementById('l-hse-email').textContent=e.hse_email||'—';
-
       hseWrap.style.display='block';
-
+    }else if(hseWrap){
+      hseWrap.style.display='none';
     }
+
+    // Selector de HSE (ESPINAL sin oficina)
+    if(data.debe_elegir_hse && Array.isArray(data.hse_options) && data.hse_options.length){
+      _empValidado._hse=null;                    // aún no elige
+      _pintarSelectorHse(data.hse_options);
+      _estadoNomina('✓ Nómina verificada — elige tu HSE responsable','ok');
+    }else{
+      _empValidado._debeElegirHse=false;
+      const selWrap=document.getElementById('l-hse-select-wrap');
+      if(selWrap) selWrap.style.display='none';
+      _estadoNomina('✓ Nómina verificada','ok');
+    }
+
+    _nominaValidada=nomina;                      // recordar validación exitosa
+    _loginErrClear();                            // ← borra cualquier error previo
+    cacheEmpleado(_empValidado);                 // para login offline futuro
 
   }catch(err){
-
+    if(!vigente()) return;
     // Sin conexión: intentar login con datos cacheados de una sesión previa
-
-    const cached = await getEmpleadoCacheado(nomina);
-
-    if (cached) {
-
-      _empValidado = cached;
-
-      document.getElementById('l-emp-nombre').textContent = cached.nombre + ' (sin conexión)';
-
-      document.getElementById('l-emp-wrap').style.display = 'block';
-
-      document.getElementById('l-parque-val').textContent = cached.parque || 'Parque (lo indicas en el reporte)';
-
-      document.getElementById('l-parque-wrap').style.display = 'block';
-
-      const hseWrap = document.getElementById('l-hse-wrap');
-
-      if (cached._hse && hseWrap) {
-
-        document.getElementById('l-hse-nombre').textContent = cached._hse.nombre;
-
-        document.getElementById('l-hse-email').textContent = cached._hse.email || '—';
-
-        hseWrap.style.display = 'block';
-
+    const cached=await getEmpleadoCacheado(nomina);
+    if(!vigente()) return;
+    if(cached){
+      _empValidado=cached;
+      document.getElementById('l-emp-nombre').textContent=cached.nombre+' (sin conexión)';
+      document.getElementById('l-emp-wrap').style.display='block';
+      document.getElementById('l-parque-val').textContent=cached.parque||'Parque (lo indicas en el reporte)';
+      document.getElementById('l-parque-wrap').style.display='block';
+      const hseWrap=document.getElementById('l-hse-wrap');
+      if(cached._hse&&hseWrap){
+        document.getElementById('l-hse-nombre').textContent=cached._hse.nombre;
+        document.getElementById('l-hse-email').textContent=cached._hse.email||'—';
+        hseWrap.style.display='block';
       }
-
-      if(errEl) errEl.classList.remove('show');
-
-    } else {
-
-      if(errEl){errEl.textContent='Sin conexión y esta nómina no se ha usado antes en este dispositivo. Conéctate una vez para habilitarla.';errEl.classList.add('show');}
-
+      if(cached._debeElegirHse&&Array.isArray(cached._hseOpciones)&&cached._hseOpciones.length){
+        _pintarSelectorHse(cached._hseOpciones);
+      }
+      _nominaValidada=nomina;
+      _loginErrClear();
+      _estadoNomina('✓ Verificada sin conexión','ok');
+    }else{
+      _ocultarDatosLogin();
+      _estadoNomina('','info');
+      _loginErr('Sin conexión y esta nómina no se ha usado antes en este dispositivo. Conéctate una vez para habilitarla.');
     }
-
   }
-
 }
 
-function doLogin(){
-
-  const errEl=document.getElementById('login-err');
-
+// ── Botón Siguiente ──────────────────────────────────────────
+async function doLogin(){
   const val=(document.getElementById('l-nomina').value||'').trim();
+  const btn=document.getElementById('l-btn');
 
-  if(!val){
+  if(!val){ _loginErr('Ingresa tu número de nómina.'); return; }
+  if(!/^\d{3,10}$/.test(val)){ _loginErr('El número de nómina solo lleva dígitos (mínimo 3).'); return; }
 
-    if(errEl){errEl.textContent='Ingresa tu número de nómina.';errEl.classList.add('show');}
-
-    return;
-
+  // Si todavía no terminó de validarse, esperamos aquí en vez de
+  // mostrar "Nómina no verificada" por adelantado.
+  if(!_empValidado || val!==_nominaValidada){
+    if(btn){ btn.disabled=true; btn.textContent='Verificando…'; }
+    try{ await validarAhora(); }catch(_e){}
+    if(btn){ btn.disabled=false; btn.innerHTML='Siguiente →'; }
   }
 
   if(!_empValidado){
-
-    if(errEl){errEl.textContent='Nómina no verificada. Revisa el número.';errEl.classList.add('show');}
-
+    const errEl=document.getElementById('login-err');
+    if(!errEl||!errEl.classList.contains('show')) _loginErr('Nómina no verificada. Revisa el número.');
     return;
-
   }
 
   // Si debe elegir HSE (ESPINAL sin oficina) y no ha elegido, no avanzar.
   if(_empValidado._debeElegirHse && !_empValidado._hse){
-    if(errEl){errEl.textContent='Selecciona tu HSE responsable para continuar.';errEl.classList.add('show');}
+    _loginErr('Selecciona tu HSE responsable para continuar.');
     const selWrap=document.getElementById('l-hse-select-wrap');
+    const selHse =document.getElementById('l-hse-select');
     if(selWrap) selWrap.style.display='block';
+    if(selHse){ selHse.style.borderColor='#cc1417'; try{ selHse.focus(); selHse.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_e){} }
     return;
   }
 
-  if(errEl)errEl.classList.remove('show');
-
+  _loginErrClear();
   SESSION={empleado:_empValidado,hse:_empValidado._hse,parqueAuto:_empValidado.parque};
-
   const ds=document.getElementById('dash-semana');
-
   if(ds)ds.textContent=`Semana W${getWeek()} · ${new Date().getFullYear()}`;
-
   showOffline();
-
   goForm();
-
 }
 
 function doLogout(){SESSION=null;setScreen('screen-login')}
@@ -2144,6 +2161,16 @@ function nuevoHazard(){
   // Resetea el campo de nómina del login
 
   _empValidado=null;
+
+  _nominaValidada=null;
+
+  _validandoPromise=null;
+
+  _validandoNomina=null;
+
+  clearTimeout(_nominaTimer);
+
+  _estadoNomina('','info');
 
   const ln=document.getElementById('l-nomina');
 
@@ -2160,6 +2187,10 @@ function nuevoHazard(){
   if(pw)pw.style.display='none';
 
   if(hw)hw.style.display='none';
+
+  const sw=document.getElementById('l-hse-select-wrap');
+
+  if(sw)sw.style.display='none';
 
   const err=document.getElementById('login-err');
 

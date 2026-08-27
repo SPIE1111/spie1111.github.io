@@ -1910,6 +1910,8 @@ async function getEmpleadoCacheado(nomina){
 
 }
 
+let _nominaValidada = null; // guarda la nómina que ya se validó con éxito
+
 function loginNominaInput(){
 
   const val=(document.getElementById('l-nomina').value||'').trim();
@@ -1922,13 +1924,23 @@ function loginNominaInput(){
 
   const errEl=document.getElementById('login-err');
 
+  // Si el número no cambió respecto al ya validado, NO reiniciar nada
+  // (evita borrar la validación al interactuar con el selector de HSE).
+  if(_empValidado && val === _nominaValidada) return;
+
   _empValidado=null;
+
+  _nominaValidada=null;
 
   if(empWrap)empWrap.style.display='none';
 
   if(parqWrap)parqWrap.style.display='none';
 
   if(hseWrap)hseWrap.style.display='none';
+
+  const selWrap=document.getElementById('l-hse-select-wrap');
+
+  if(selWrap)selWrap.style.display='none';
 
   if(errEl)errEl.classList.remove('show');
 
@@ -1987,9 +1999,11 @@ async function validarNomina(nomina){
     // ── Selección de HSE (empleados de ESPINAL sin oficina) ──
     const selWrap = document.getElementById('l-hse-select-wrap');
     const selHse  = document.getElementById('l-hse-select');
+    const hseFijoWrap = document.getElementById('l-hse-wrap');
     if (data.debe_elegir_hse && Array.isArray(data.hse_options) && data.hse_options.length) {
       _empValidado._debeElegirHse = true;
       _empValidado._hseOpciones = data.hse_options;
+      _empValidado._hse = null;  // aún no elige; se define con el selector
       selHse.innerHTML = '<option value="">— Elige tu HSE —</option>' +
         data.hse_options.map(o => `<option value="${o.email}" data-nombre="${o.nombre.replace(/"/g,'&quot;')}">${o.nombre}</option>`).join('');
       selHse.onchange = function(){
@@ -2000,14 +2014,16 @@ async function validarNomina(nomina){
           _empValidado._hse = null;
         }
       };
+      if (hseFijoWrap) hseFijoWrap.style.display = 'none';  // ocultar HSE fijo: lo define el selector
       selWrap.style.display = 'block';
-      // Como debe elegir, ocultamos el HSE fijo (se define al elegir)
     } else {
       _empValidado._debeElegirHse = false;
       if (selWrap) selWrap.style.display = 'none';
     }
 
     cacheEmpleado(_empValidado); // guardar para login offline futuro
+
+    _nominaValidada = nomina; // recordar que esta nómina ya se validó (evita reinicios)
 
     // Pintar nombre, parque y HSE verificados
 

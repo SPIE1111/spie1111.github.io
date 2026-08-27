@@ -103,12 +103,12 @@
     <div class="brand"><img src="spie-logo.png" alt="SPIE Hazard" style="width:44px;height:44px;border-radius:9px"/><h1>Panel HSE</h1></div>
     <p class="sub">Gestión de reportes · SPIE</p>
     <label>Usuario</label>
-    <input id="l-user" autocomplete="username" placeholder="Nómina o usuario"/>
+    <input id="l-user" autocomplete="username" placeholder="Nómina o usuario" onkeydown="loginEnter(event)"/>
     <label id="l-pass-lbl">Contraseña</label>
-    <input id="l-pass" type="password" autocomplete="current-password" placeholder="••••••••"/>
+    <input id="l-pass" type="password" autocomplete="current-password" placeholder="••••••••" onkeydown="loginEnter(event)"/>
     <div id="l-pass2-wrap" class="hide">
       <label>Confirma la contraseña</label>
-      <input id="l-pass2" type="password" placeholder="••••••••"/>
+      <input id="l-pass2" type="password" placeholder="••••••••" onkeydown="loginEnter(event)"/>
       <p class="muted" style="margin-top:6px">Primer ingreso: crea tu contraseña (mínimo 8 caracteres).</p>
     </div>
     <button class="btn" onclick="doLogin()" id="l-btn">Entrar</button>
@@ -333,30 +333,40 @@ async function api(action, extra={}){
   return r.json();
 }
 
-async function doLogin(){
-  const err=document.getElementById('l-err');
-  const user=document.getElementById('l-user').value.trim();
-  const pass=document.getElementById('l-pass').value;
-  err.classList.remove('show');
-  if(!user||!pass){err.textContent='Ingresa usuario y contraseña.';err.classList.add('show');return;}
-  if(_needsPass){
-    const p2=document.getElementById('l-pass2').value;
-    if(pass!==p2){err.textContent='Las contraseñas no coinciden.';err.classList.add('show');return;}
-    const s=await api('set-password',{user,pass});
-    if(!s.ok){err.textContent=s.error||'No se pudo crear la contraseña.';err.classList.add('show');return;}
-    _needsPass=false;
-    document.getElementById('l-pass2-wrap').classList.add('hide');
-  }
-  const d=await api('login',{user,pass});
-  if(d.needs_password){
-    _needsPass=true;
-    document.getElementById('l-pass2-wrap').classList.remove('hide');
-    document.getElementById('l-pass-lbl').textContent='Crea tu contraseña';
-    err.textContent='Primer ingreso: crea tu contraseña y confírmala.';err.classList.add('show');
-    return;
-  }
-  if(!d.ok){err.textContent=d.error||'Usuario o contraseña incorrectos.';err.classList.add('show');return;}
-  SESSION=d.user;
+// ═══════════ SESIÓN PERSISTENTE ═══════════
+const SESSION_KEY = 'hazard_panel_session';
+const SESSION_HORAS = 12;            // la sesión dura 12 h y se renueva al usar el panel
+
+function guardarSesion(user){
+  try{
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      user, exp: Date.now() + SESSION_HORAS*3600*1000
+    }));
+  }catch(_e){}
+}
+function renovarSesion(){
+  if(SESSION) guardarSesion(SESSION);
+}
+function borrarSesion(){
+  try{ localStorage.removeItem(SESSION_KEY); }catch(_e){}
+}
+function leerSesion(){
+  try{
+    const raw = localStorage.getItem(SESSION_KEY);
+    if(!raw) return null;
+    const d = JSON.parse(raw);
+    if(!d || !d.user || !d.exp || Date.now() > d.exp){ borrarSesion(); return null; }
+    return d.user;
+  }catch(_e){ return null; }
+}
+
+// Enter en cualquier campo del login = botón Entrar
+function loginEnter(ev){
+  if(ev.key === 'Enter'){ ev.preventDefault(); doLogin(); }
+}
+
+// Pinta el panel una vez que hay SESSION (login nuevo o sesión restaurada)
+function entrarAlPanel(){
   document.getElementById('login').classList.add('hide');
   document.getElementById('app').classList.remove('hide');
   document.getElementById('who').textContent=`${SESSION.full_name} · ${SESSION.role==='admin'?'Administrador':SESSION.country_code}`;
@@ -364,12 +374,69 @@ async function doLogin(){
   if(SESSION.role==='admin'){
     document.getElementById('nav-emp').classList.remove('hide');
     document.getElementById('nav-cumpl').classList.remove('hide');
+  }else{
+    document.getElementById('nav-emp').classList.add('hide');
+    document.getElementById('nav-cumpl').classList.add('hide');
   }
+}
+
+async function doLogin(){
+  const err=document.getElementById('l-err');
+  const btn=document.getElementById('l-btn');
+  const user=document.getElementById('l-user').value.trim();
+  const pass=document.getElementById('l-pass').value;
+  err.classList.remove('show');
+  if(!user||!pass){err.textContent='Ingresa usuario y contraseña.';err.classList.add('show');return;}
+  if(btn){ btn.disabled=true; btn.textContent='Entrando…'; }
+  try{
+    if(_needsPass){
+      const p2=document.getElementById('l-pass2').value;
+      if(pass!==p2){err.textContent='Las contraseñas no coinciden.';err.classList.add('show');return;}
+      const s=await api('set-password',{user,pass});
+      if(!s.ok){err.textContent=s.error||'No se pudo crear la contraseña.';err.classList.add('show');return;}
+      _needsPass=false;
+      document.getElementById('l-pass2-wrap').classList.add('hide');
+      document.getElementById('l-pass-lbl').textContent='Contraseña';
+    }
+    const d=await api('login',{user,pass});
+    if(d.needs_password){
+      _needsPass=true;
+      document.getElementById('l-pass2-wrap').classList.remove('hide');
+      document.getElementById('l-pass-lbl').textContent='Crea tu contraseña';
+      err.textContent='Primer ingreso: crea tu contraseña y confírmala.';err.classList.add('show');
+      return;
+    }
+    if(!d.ok){err.textContent=d.error||'Usuario o contraseña incorrectos.';err.classList.add('show');return;}
+    SESSION=d.user;
+    guardarSesion(SESSION);
+    document.getElementById('l-pass').value='';
+    const p2el=document.getElementById('l-pass2'); if(p2el) p2el.value='';
+    entrarAlPanel();
+    await loadHazards();
+  }catch(e){
+    err.textContent='No se pudo conectar. Revisa tu internet e inténtalo otra vez.';err.classList.add('show');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='Entrar'; }
+  }
+}
+
+// Al abrir/recargar la página: si hay sesión vigente, entrar directo
+async function restaurarSesion(){
+  const u = leerSesion();
+  if(!u) return;
+  SESSION = u;
+  entrarAlPanel();
+  renovarSesion();
   await loadHazards();
 }
 
 async function loadHazards(){
   const d=await api('list');
+  // Si el usuario guardado ya no es válido (dado de baja o renombrado), volver al login
+  if(d && d.ok===false && /usuario|autoriz|inactiv|no encontrado|permiso/i.test(d.error||'')){
+    borrarSesion(); SESSION=null; location.reload(); return;
+  }
+  renovarSesion();
   HAZARDS = d.ok ? d.hazards : [];
   const c = await api('all-comments');
   COMMENTS_BY_CODE = {};
@@ -772,7 +839,7 @@ async function addComment(code){
 }
 
 function closeModal(){document.getElementById('modal').classList.remove('show');}
-function logout(){SESSION=null;location.reload();}
+function logout(){borrarSesion();SESSION=null;location.reload();}
 
 async function exportCSV(){
   if (typeof XLSX === 'undefined') { alert('La librería de Excel no cargó. Verifica que xlsx.min.js esté subido junto al panel.'); return; }
@@ -1169,6 +1236,9 @@ function exportCumplimiento(){
 }
 
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
+
+// Restaurar sesión al cargar (refrescar la página ya no cierra sesión)
+restaurarSesion();
 </script>
 </body>
 </html>

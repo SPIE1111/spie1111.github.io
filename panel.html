@@ -97,6 +97,7 @@
   @media(max-width:640px){.kv{grid-template-columns:1fr}.hide-sm{display:none}}
 </style>
 <script src="xlsx.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="jsa/jspdf.umd.min.js?v=7"></script>
 <script src="jsa/pdf-assets.js?v=7"></script>
 <script src="jsa/pdf.js?v=10"></script>
@@ -216,6 +217,7 @@
     <div id="cumpl-gauge"></div>
     <div id="cumpl-paises"></div>
     <div class="stat" id="cumpl-stats"></div>
+    <p class="muted" id="cumpl-info" style="margin:-8px 0 12px;font-size:13px"></p>
     <table>
       <thead><tr>
         <th>Nómina</th><th>Nombre</th><th class="hide-sm">País</th>
@@ -1563,6 +1565,42 @@ function gaugeHtml(pct){
   </div>`;
 }
 
+// Un solo lugar decide qué se ve: lo usan la tabla, los medidores y el Excel
+function cumplFiltrado(){
+  const paisSel = document.getElementById('cumpl-pais').value;
+  const paisId  = paisSel ? parseInt(paisSel,10) : null;
+  const q       = (document.getElementById('cumpl-q').value||'').toLowerCase();
+  const estado  = document.getElementById('cumpl-filter').value;
+
+  // base = solo país (los medidores y contadores se calculan sobre esto)
+  const base = (CUMPL?.empleados||[]).filter(e => paisId===null || e.country_id===paisId);
+
+  // list = lo que realmente se ve en la tabla
+  const list = base.filter(e=>{
+    const txt=`${e.payroll_no} ${e.full_name}`.toLowerCase();
+    if(q && !txt.includes(q)) return false;
+    if(estado==='faltan') return !e.cumplio;
+    if(estado==='cumplieron') return e.cumplio;
+    return true;
+  });
+  return { base, list, paisId, q, estado };
+}
+
+// Descripción legible del filtro activo (va en pantalla y en el Excel)
+function cumplFiltroTexto(){
+  const { paisId, q, estado } = cumplFiltrado();
+  const mes = (document.getElementById('cumpl-mes')||{}).value || '';
+  const semSel = document.getElementById('cumpl-semana');
+  const partes = [];
+  if(mes) partes.push(mes);
+  if(semSel && semSel.value) partes.push(semSel.options[semSel.selectedIndex].text);
+  if(paisId!==null) partes.push(paisNombre(paisId));
+  if(estado==='faltan') partes.push('solo pendientes');
+  if(estado==='cumplieron') partes.push('solo completados');
+  if(q) partes.push(`"${q}"`);
+  return partes.join(' · ');
+}
+
 function filtrarCumplPais(id){
   document.getElementById('cumpl-pais').value = id===''? '' : String(id);
   renderCumplimiento();
@@ -1570,11 +1608,7 @@ function filtrarCumplPais(id){
 
 function renderCumplimiento(){
   if(!CUMPL) return;
-  const paisSel = document.getElementById('cumpl-pais').value;
-  const paisId = paisSel ? parseInt(paisSel,10) : null;
-
-  // Base filtrada por país (afecta medidor y stats)
-  const base = (CUMPL.empleados||[]).filter(e => paisId===null || e.country_id===paisId);
+  const { base, list, paisId } = cumplFiltrado();
   const total = base.length;
   const cumplieron = base.filter(e=>e.cumplio).length;
   const faltan = total - cumplieron;
@@ -1617,16 +1651,12 @@ function renderCumplimiento(){
     `<span class="pill">Faltan <b style="color:var(--red)">${faltan}</b></span>`+
     `<span class="pill">Cumplimiento <b>${pct}%</b></span>`;
 
-  // Lista con búsqueda y filtro de estado, dentro del país seleccionado
-  const q=(document.getElementById('cumpl-q').value||'').toLowerCase();
-  const filtro=document.getElementById('cumpl-filter').value;
-  let list = base.filter(e=>{
-    const txt=`${e.payroll_no} ${e.full_name}`.toLowerCase();
-    if(q && !txt.includes(q)) return false;
-    if(filtro==='faltan') return !e.cumplio;
-    if(filtro==='cumplieron') return e.cumplio;
-    return true;
-  });
+  const info=document.getElementById('cumpl-info');
+  if(info){
+    const t=cumplFiltroTexto();
+    info.textContent = `Mostrando ${list.length} de ${(CUMPL.empleados||[]).length} empleados` + (t?` · filtro: ${t}`:'');
+  }
+
   const rows=document.getElementById('cumpl-rows');
   rows.innerHTML = list.map(e=>{
     const estado = e.cumplio
@@ -1645,30 +1675,247 @@ function renderCumplimiento(){
   document.getElementById('cumpl-empty').style.display=list.length?'none':'block';
 }
 
-function exportCumplimiento(){
-  if (typeof XLSX === 'undefined') { alert('La librería de Excel no cargó.'); return; }
-  if(!CUMPL){ alert('Primero carga el cumplimiento.'); return; }
+// Color del nivel de cumplimiento (misma escala que el medidor en pantalla)
+function colorNivel(p){
+  if(p>=95) return '#1a8a4a';
+  if(p>=75) return '#4caf50';
+  if(p>=50) return '#f5a623';
+  if(p>=30) return '#e67e22';
+  return '#c0392b';
+}
+
+// Dibuja el medidor (general + por país) en un canvas y lo devuelve como PNG.
+// Se usa para incrustar la gráfica dentro del Excel.
+function graficaCumplimientoPNG(resumen){
+  const { pct, total, cumplieron, faltan, periodo, filtro, paises } = resumen;
+  const W = 960, filaH = 40;
+  const H = 250 + (paises.length ? 46 + paises.length*filaH : 0);
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  const INK='#222953', INK2='#5a6680', LINEA='#e8edf3';
+  // Rectángulo redondeado propio (ctx.roundRect no existe en navegadores viejos)
+  const rr=(x,y,w,h,r)=>{
+    const rad=Math.min(r,h/2,w/2);
+    g.beginPath();
+    g.moveTo(x+rad,y);
+    g.arcTo(x+w,y,x+w,y+h,rad);
+    g.arcTo(x+w,y+h,x,y+h,rad);
+    g.arcTo(x,y+h,x,y,rad);
+    g.arcTo(x,y,x+w,y,rad);
+    g.closePath();
+  };
+
+  g.fillStyle='#ffffff'; g.fillRect(0,0,W,H);
+
+  // Encabezado
+  g.fillStyle=INK; g.font='bold 26px Arial';
+  g.fillText('Cumplimiento de reportes de Hazard', 40, 48);
+  g.fillStyle=INK2; g.font='15px Arial';
+  g.fillText(periodo, 40, 74);
+  if(filtro){ g.fillText('Filtro: '+filtro, 40, 96); }
+
+  // Número principal
+  const col = colorNivel(pct);
+  g.fillStyle=col; g.font='bold 54px Arial'; g.textAlign='right';
+  g.fillText(pct+'%', W-40, 74);
+  g.textAlign='left';
+
+  // Barra general
+  const bx=40, by=130, bw=W-80, bh=18;
+  g.fillStyle=LINEA; rr(bx,by,bw,bh,9); g.fill();
+  g.fillStyle=col;   rr(bx,by,Math.max(4,bw*pct/100),bh,9); g.fill();
+
+  // Línea de meta 95% (etiquetada, no solo color)
+  const mx = bx + bw*0.95;
+  g.strokeStyle=INK; g.lineWidth=3;
+  g.beginPath(); g.moveTo(mx,by-8); g.lineTo(mx,by+bh+8); g.stroke();
+  g.fillStyle=INK; g.font='bold 12px Arial'; g.textAlign='center';
+  g.fillText('META 95%', mx, by-14);
+  g.textAlign='left';
+
+  // Escala y resumen numérico
+  g.fillStyle='#aab4bd'; g.font='12px Arial';
+  [0,25,50,75,100].forEach(v=>{
+    g.textAlign = v===0?'left':(v===100?'right':'center');
+    g.fillText(v+'%', bx + bw*v/100, by+bh+24);
+  });
+  g.textAlign='left';
+  g.fillStyle=INK2; g.font='15px Arial';
+  g.fillText(`Activos: ${total}   ·   Cumplieron: ${cumplieron}   ·   Faltan: ${faltan}`, 40, by+70);
+
+  // Barras por país
+  if(paises.length){
+    let y = by + 104;
+    g.fillStyle=INK2; g.font='bold 13px Arial';
+    g.fillText('CUMPLIMIENTO POR PAÍS', 40, y);
+    y += 22;
+    paises.forEach(p=>{
+      const pc = colorNivel(p.pct);
+      g.fillStyle=INK; g.font='15px Arial';
+      g.fillText(p.nombre, 40, y+16);
+      const x0=260, w0=W-260-190;
+      g.fillStyle=LINEA; rr(x0,y+4,w0,14,7); g.fill();
+      g.fillStyle=pc;    rr(x0,y+4,Math.max(3,w0*p.pct/100),14,7); g.fill();
+      // Marca de meta en cada barra
+      g.strokeStyle='#c8d0dc'; g.lineWidth=2;
+      g.beginPath(); g.moveTo(x0+w0*0.95, y+1); g.lineTo(x0+w0*0.95, y+21); g.stroke();
+      // Valor en texto (identidad nunca por color solo)
+      g.fillStyle=INK; g.font='bold 15px Arial'; g.textAlign='right';
+      g.fillText(`${p.pct}%  (${p.ok}/${p.total})`, W-40, y+17);
+      g.textAlign='left';
+      y += filaH;
+    });
+  }
+  return c.toDataURL('image/png');
+}
+
+// Reúne lo que se está viendo: mismos filtros que la pantalla
+function datosCumplExport(){
   const paisSel = document.getElementById('cumpl-pais').value;
-  const paisId = paisSel ? parseInt(paisSel,10) : null;
+  const paisId  = paisSel ? parseInt(paisSel,10) : null;
+  const q       = (document.getElementById('cumpl-q').value||'').toLowerCase();
+  const estado  = document.getElementById('cumpl-filter').value;
+  const semSel  = document.getElementById('cumpl-semana');
+  const mesSel  = document.getElementById('cumpl-mes');
+
+  // Base del país elegido (para medidores y totales)
   const base = (CUMPL.empleados||[]).filter(e => paisId===null || e.country_id===paisId);
-  const todos = base.map(e=>({
+  // Lista exacta de la tabla (búsqueda + estado)
+  const lista = base.filter(e=>{
+    const txt=`${e.payroll_no} ${e.full_name}`.toLowerCase();
+    if(q && !txt.includes(q)) return false;
+    if(estado==='faltan') return !e.cumplio;
+    if(estado==='cumplieron') return e.cumplio;
+    return true;
+  });
+
+  const total=base.length, cumplieron=base.filter(e=>e.cumplio).length;
+  const pct = total>0 ? Math.round(1000*cumplieron/total)/10 : 0;
+
+  // Medidores por país (siempre sobre el universo cargado)
+  const mapa=new Map();
+  (CUMPL.empleados||[]).forEach(e=>{
+    if(e.country_id==null) return;
+    const r=mapa.get(e.country_id)||{total:0,ok:0,nombre:e.country_name||paisNombre(e.country_id)};
+    r.total++; if(e.cumplio) r.ok++;
+    mapa.set(e.country_id,r);
+  });
+  const paises=[...mapa.entries()].sort((a,b)=>a[0]-b[0]).map(([id,r])=>({
+    id, nombre:r.nombre, ok:r.ok, total:r.total,
+    pct: r.total? Math.round(1000*r.ok/r.total)/10 : 0
+  }));
+
+  // Texto del periodo y del filtro
+  const periodo = (CUMPL.desde && CUMPL.hasta)
+    ? `Periodo: ${CUMPL.desde} a ${CUMPL.hasta}`
+    : 'Periodo: acumulado';
+  const partes=[];
+  if(paisId!==null) partes.push(paisNombre(paisId));
+  if(semSel && semSel.value) partes.push(semSel.options[semSel.selectedIndex].text);
+  if(estado!=='todos') partes.push(estado==='faltan'?'solo pendientes':'solo completados');
+  if(q) partes.push(`búsqueda "${q}"`);
+
+  const mesTxt = (mesSel && mesSel.value) ? mesSel.value : new Date().toISOString().slice(0,7);
+  const semTxt = (semSel && semSel.value) ? '_'+semSel.options[semSel.selectedIndex].text.split(' ')[0] : '';
+  const paisTxt = paisId!==null ? '_'+paisNombre(paisId).replace(/[^\wÁÉÍÓÚÑáéíóúñ]+/g,'') : '';
+
+  return { base, lista, total, cumplieron, faltan: total-cumplieron, pct, paises,
+           periodo, filtro: partes.join(' · '),
+           archivo: `cumplimiento_${mesTxt}${semTxt}${paisTxt}.xlsx` };
+}
+
+async function exportCumplimiento(){
+  if(!CUMPL){ alert('Primero carga el cumplimiento.'); return; }
+  const d = datosCumplExport();
+  if(!d.lista.length){ alert('No hay empleados con el filtro actual para exportar.'); return; }
+
+  const filas = d.lista.map(e=>({
     'Nómina': e.payroll_no, 'Nombre': e.full_name,
-    'País': e.country_name || '', 'Zona': e.hse_zone || '',
+    'País': e.country_name || paisNombre(e.country_id), 'Zona': e.hse_zone || '',
     'Hazards en periodo': e.hazards_periodo,
     'Estado': e.cumplio ? 'Cumplió' : 'Falta',
     'Último reporte': e.ultima_fecha ? new Date(e.ultima_fecha).toLocaleString('es-MX') : ''
   }));
-  const faltan = base.filter(e=>!e.cumplio).map(e=>({
+  const faltan = d.lista.filter(e=>!e.cumplio).map(e=>({
     'Nómina': e.payroll_no, 'Nombre': e.full_name,
-    'País': e.country_name || '', 'Zona': e.hse_zone || ''
+    'País': e.country_name || paisNombre(e.country_id), 'Zona': e.hse_zone || ''
   }));
+
+  // ── Con ExcelJS: incluye la gráfica como imagen ──
+  if(typeof ExcelJS !== 'undefined'){
+    try{
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'Panel HSE SPIE';
+      wb.created = new Date();
+
+      const wsR = wb.addWorksheet('Resumen');
+      wsR.columns = [{width:26},{width:16},{width:16},{width:16},{width:16}];
+      wsR.addRow(['Cumplimiento de reportes de Hazard']);
+      wsR.getRow(1).font = { bold:true, size:16, color:{argb:'FF222953'} };
+      wsR.addRow([d.periodo]);
+      wsR.addRow(['Filtro aplicado', d.filtro || 'ninguno']);
+      wsR.addRow(['Generado', new Date().toLocaleString('es-MX')]);
+      wsR.addRow([]);
+      wsR.addRow(['Activos','Cumplieron','Faltan','Cumplimiento','Meta']);
+      wsR.getRow(6).font = { bold:true };
+      wsR.addRow([d.total, d.cumplieron, d.faltan, d.pct/100, 0.95]);
+      wsR.getCell('D7').numFmt = '0.0%';
+      wsR.getCell('E7').numFmt = '0%';
+
+      // La gráfica, tal como se ve en el panel
+      const png = graficaCumplimientoPNG(d);
+      const imgId = wb.addImage({ base64: png, extension: 'png' });
+      wsR.addImage(imgId, { tl:{ col:0, row:8 }, ext:{ width:960, height:250 + (d.paises.length?46+d.paises.length*40:0) } });
+
+      // Tabla por país (lista para graficar en Excel si se quiere)
+      const filaTabla = 8 + Math.ceil((250 + (d.paises.length?46+d.paises.length*40:0))/20) + 2;
+      wsR.getRow(filaTabla).values = ['País','Activos','Cumplieron','Faltan','Cumplimiento'];
+      wsR.getRow(filaTabla).font = { bold:true };
+      d.paises.forEach((p,i)=>{
+        const r = wsR.getRow(filaTabla+1+i);
+        r.values = [p.nombre, p.total, p.ok, p.total-p.ok, p.pct/100];
+        r.getCell(5).numFmt = '0.0%';
+      });
+
+      const hoja = (nombre, datos) => {
+        const ws = wb.addWorksheet(nombre);
+        if(!datos.length){ ws.addRow(['Sin registros']); return; }
+        const cols = Object.keys(datos[0]);
+        ws.columns = cols.map(c=>({ header:c, key:c, width: Math.min(38, Math.max(12, c.length+6)) }));
+        datos.forEach(x=>ws.addRow(x));
+        ws.getRow(1).font = { bold:true };
+        ws.autoFilter = { from:{row:1,column:1}, to:{row:1,column:cols.length} };
+        ws.views = [{ state:'frozen', ySplit:1 }];
+      };
+      hoja('Cumplimiento', filas);
+      hoja('Quiénes faltan', faltan);
+
+      const buf = await wb.xlsx.writeBuffer();
+      const url = URL.createObjectURL(new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+      const a = document.createElement('a');
+      a.href = url; a.download = d.archivo; a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 2000);
+      return;
+    }catch(e){
+      console.error('ExcelJS falló, se usa el respaldo:', e);
+    }
+  }
+
+  // ── Respaldo sin internet: mismo Excel filtrado, pero sin la imagen ──
+  if (typeof XLSX === 'undefined') { alert('No se pudo generar el Excel.'); return; }
+  const resumen = [
+    {'Cumplimiento de reportes de Hazard': d.periodo},
+    {'Cumplimiento de reportes de Hazard': 'Filtro: '+(d.filtro||'ninguno')},
+    {'Cumplimiento de reportes de Hazard': `Activos ${d.total} · Cumplieron ${d.cumplieron} · Faltan ${d.faltan} · ${d.pct}% (meta 95%)`},
+    ...d.paises.map(p=>({'Cumplimiento de reportes de Hazard': `${p.nombre}: ${p.pct}% (${p.ok}/${p.total})`}))
+  ];
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(todos), 'Cumplimiento');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Resumen');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Cumplimiento');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(faltan.length?faltan:[{'Sin faltantes':''}]), 'Quiénes faltan');
-  const semSel=document.getElementById('cumpl-semana');
-  const semTxt = semSel && semSel.value ? '_'+semSel.options[semSel.selectedIndex].text.split(' ')[0] : '';
-  const periodo = (CUMPL.desde ? String(CUMPL.desde).slice(0,7) : new Date().toISOString().slice(0,7)) + semTxt;
-  XLSX.writeFile(wb, `cumplimiento_${periodo}.xlsx`);
+  XLSX.writeFile(wb, d.archivo);
+  alert('Se descargó el Excel sin la gráfica (no se pudo cargar la librería de imágenes). Los datos sí respetan el filtro.');
 }
 
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});

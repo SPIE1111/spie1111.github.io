@@ -146,6 +146,9 @@
       <select id="fNivel" onchange="render()">
         <option value="">Categorías</option>
       </select>
+      <select id="fPais" onchange="render()">
+        <option value="">Países</option>
+      </select>
       <input type="month" id="fMes" onchange="render()" title="Filtrar por mes" style="min-width:150px"/>
       <button class="btn sm ghost" onclick="limpiarFiltros()">Limpiar filtros</button>
       <button class="btn sm" onclick="exportCSV()">Exportar Excel</button>
@@ -170,10 +173,17 @@
         <option value="todos">Todos</option>
         <option value="bajas">Bajas</option>
       </select>
+      <select id="emp-pais" onchange="renderEmp()">
+        <option value="">Todos los países</option>
+      </select>
+      <select id="emp-zona" onchange="renderEmp()">
+        <option value="">Todas las zonas</option>
+      </select>
       <button class="btn sm" onclick="openEmpForm()">+ Alta individual</button>
       <button class="btn sm ghost" onclick="openBulk()">Alta por grupo</button>
     </div>
     <div class="stat" id="emp-stats"></div>
+    <p class="muted" id="emp-info" style="margin:-8px 0 12px;font-size:13px"></p>
     <table>
       <thead><tr>
         <th>Nómina</th><th>Nombre</th><th class="hide-sm">País</th>
@@ -188,7 +198,10 @@
   <div class="wrap hide" id="view-cumpl">
     <div class="toolbar">
       <label style="margin:0 6px 0 0;font-size:13px;align-self:center">Mes:</label>
-      <input type="month" id="cumpl-mes" onchange="loadCumplimiento()" style="flex:0 0 auto"/>
+      <input type="month" id="cumpl-mes" onchange="onCumplMesChange()" style="flex:0 0 auto"/>
+      <select id="cumpl-semana" onchange="loadCumplimiento()" style="flex:0 0 auto" title="Semana dentro del mes">
+        <option value="">Todo el mes</option>
+      </select>
       <select id="cumpl-pais" onchange="renderCumplimiento()">
         <option value="">Países</option>
       </select>
@@ -201,6 +214,7 @@
       <button class="btn sm" onclick="exportCumplimiento()">Exportar Excel</button>
     </div>
     <div id="cumpl-gauge"></div>
+    <div id="cumpl-paises"></div>
     <div class="stat" id="cumpl-stats"></div>
     <table>
       <thead><tr>
@@ -454,7 +468,22 @@ async function loadHazards(){
     }
   }
   buildCategoryFilter();
+  buildPaisFilter();
   render();
+}
+
+// El selector de países se arma con los países presentes en SUS hazards:
+// un HSE de México solo verá México; Rosa verá Chile y Uruguay.
+function buildPaisFilter(){
+  const sel=document.getElementById('fPais');
+  if(!sel) return;
+  const paises=[...new Set((HAZARDS||[]).map(h=>h.country).filter(Boolean))].sort();
+  const actual=sel.value;
+  sel.innerHTML='<option value="">Todos los países</option>'+
+    paises.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+  sel.value=actual;
+  // Si solo hay un país, el filtro no aporta: se oculta
+  sel.classList.toggle('hide', paises.length<2);
 }
 
 function buildCategoryFilter(){
@@ -703,6 +732,7 @@ function initCumplMes(){
     const now=new Date();
     el.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   }
+  if(typeof buildCumplSemanas==='function') buildCumplSemanas();
 }
 
 // ═══════════ HAZARDS (sin cambios) ═══════════
@@ -742,12 +772,14 @@ function aplicarFiltros(lista){
   const fe = document.getElementById('fEstatus').value;
   const fn = document.getElementById('fNivel').value;
   const fm = (document.getElementById('fMes')||{}).value || '';
+  const fp = (document.getElementById('fPais')||{}).value || '';
   return (lista||[]).filter(h=>{
     const txt = `${h.hazard_code} ${h.employee_name} ${h.parque} ${h.tipo_riesgo}`.toLowerCase();
     return (!q || txt.includes(q))
         && (!fe || (h.estatus||'').includes(fe))
         && (!fn || h.clasif_codigo===fn)
-        && (!fm || mesDe(h)===fm);
+        && (!fm || mesDe(h)===fm)
+        && (!fp || (h.country||'')===fp);
   });
 }
 
@@ -762,6 +794,7 @@ function limpiarFiltros(){
   document.getElementById('fEstatus').value='';
   document.getElementById('fNivel').value='';
   const m=document.getElementById('fMes'); if(m) m.value='';
+  const pa=document.getElementById('fPais'); if(pa) pa.value='';
   render();
 }
 
@@ -777,6 +810,8 @@ function filtroTexto(){
     const nom=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][parseInt(m,10)-1]||m;
     partes.push(`${nom} ${a}`);
   }
+  const fp=(document.getElementById('fPais')||{}).value||'';
+  if(fp) partes.push(fp);
   if(fe) partes.push(fe);
   if(fn) partes.push(`categoría ${fn} · ${CAT_LABEL[fn]||''}`);
   if(q)  partes.push(`"${q}"`);
@@ -1026,7 +1061,8 @@ async function exportCSV(){
   // El nombre del archivo refleja el filtro (mes / estatus) para no confundir reportes
   const fm=(document.getElementById('fMes')||{}).value||'';
   const fe=document.getElementById('fEstatus').value||'';
-  const suf=[fm, fe.toLowerCase().replace(/\s+/g,'-')].filter(Boolean).join('_');
+  const fp=((document.getElementById('fPais')||{}).value||'').toLowerCase().replace(/\s+/g,'-');
+  const suf=[fm, fp, fe.toLowerCase().replace(/\s+/g,'-')].filter(Boolean).join('_');
   XLSX.writeFile(wb, `hazards_${suf||new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
@@ -1044,25 +1080,74 @@ async function loadEmpleados(){
   EMP_CAT = cat;
   const d = await api('emp-list', {incluir_bajas:true});
   EMPLEADOS = d.ok ? (d.employees||[]) : [];
+  buildEmpFiltros();
+  renderEmp();
+}
+
+// Llena los selectores de país y zona con lo que existe en la lista
+function buildEmpFiltros(){
+  const selP=document.getElementById('emp-pais');
+  const selZ=document.getElementById('emp-zona');
+  if(selP){
+    const ids=[...new Set(EMPLEADOS.map(e=>e.country_id).filter(v=>v!=null))].sort((a,b)=>a-b);
+    const act=selP.value;
+    selP.innerHTML='<option value="">Todos los países</option>'+
+      ids.map(id=>`<option value="${id}">${paisNombre(id)}</option>`).join('');
+    selP.value=act;
+  }
+  if(selZ){
+    const zonas=[...new Set(EMPLEADOS.map(e=>e.hse_zone).filter(Boolean))].sort();
+    const act=selZ.value;
+    selZ.innerHTML='<option value="">Todas las zonas</option>'+
+      zonas.map(z=>`<option value="${escapeHtml(z)}">${escapeHtml(z)}</option>`).join('');
+    selZ.value=act;
+    selZ.classList.toggle('hide', zonas.length<2);
+  }
+}
+
+function filtrarEmp(v){
+  document.getElementById('emp-filter').value=v;
   renderEmp();
 }
 
 function renderEmp(){
   const q=(document.getElementById('emp-q').value||'').toLowerCase();
   const filtro=document.getElementById('emp-filter').value;
-  let list = EMPLEADOS.filter(e=>{
+  const fPais=(document.getElementById('emp-pais')||{}).value||'';
+  const fZona=(document.getElementById('emp-zona')||{}).value||'';
+
+  // Base: país y zona (afecta también a los contadores)
+  const base = EMPLEADOS.filter(e=>
+    (!fPais || String(e.country_id)===fPais) &&
+    (!fZona || (e.hse_zone||'')===fZona)
+  );
+
+  let list = base.filter(e=>{
     const txt=`${e.payroll_no} ${e.full_name}`.toLowerCase();
     if(q && !txt.includes(q)) return false;
     if(filtro==='activos') return e.active;
     if(filtro==='bajas') return !e.active;
     return true;
   });
-  const activos = EMPLEADOS.filter(e=>e.active).length;
-  const bajas = EMPLEADOS.filter(e=>!e.active).length;
+
+  const activos = base.filter(e=>e.active).length;
+  const bajas = base.filter(e=>!e.active).length;
   document.getElementById('emp-stats').innerHTML =
-    `<span class="pill">Total <b>${EMPLEADOS.length}</b></span>`+
-    `<span class="pill">Activos <b>${activos}</b></span>`+
-    `<span class="pill">Bajas <b>${bajas}</b></span>`;
+    `<span class="pill click ${filtro==='todos'?'on':''}" onclick="filtrarEmp('todos')">Total <b>${base.length}</b></span>`+
+    `<span class="pill click ${filtro==='activos'?'on':''}" onclick="filtrarEmp('activos')">Activos <b>${activos}</b></span>`+
+    `<span class="pill click ${filtro==='bajas'?'on':''}" onclick="filtrarEmp('bajas')">Bajas <b>${bajas}</b></span>`;
+
+  const info=document.getElementById('emp-info');
+  if(info){
+    const partes=[];
+    if(fPais) partes.push(paisNombre(parseInt(fPais,10)));
+    if(fZona) partes.push(fZona);
+    if(filtro!=='todos') partes.push(filtro==='activos'?'activos':'bajas');
+    if(q) partes.push(`"${q}"`);
+    info.textContent = partes.length
+      ? `Mostrando ${list.length} de ${EMPLEADOS.length} empleados · filtro: ${partes.join(' · ')}`
+      : `Mostrando los ${EMPLEADOS.length} empleados`;
+  }
   const rows=document.getElementById('emp-rows');
   rows.innerHTML = list.map(e=>{
     const estado = e.active
@@ -1179,82 +1264,246 @@ async function reactivarEmp(payroll){
 }
 
 // ── Carga masiva ──
+// Acepta pegado desde Excel (TAB), CSV (coma o punto y coma) o texto con
+// espacios. El país se reconoce por código o por nombre.
+const PAIS_ALIAS = {
+  'MX':'MX','MEX':'MX','MEXICO':'MX','MEJICO':'MX',
+  'UY':'UY','URU':'UY','URUGUAY':'UY',
+  'RD':'RD','DO':'RD','DOM':'RD','DOMINICANA':'RD','REPUBLICADOMINICANA':'RD','REPDOMINICANA':'RD',
+  'CL':'CL','CHI':'CL','CHILE':'CL'
+};
+
+function sinAcentos(t){
+  return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
+}
+
+function resolverPais(txt){
+  const limpio = sinAcentos(txt).replace(/[^A-Z]/g,'');
+  const code = PAIS_ALIAS[limpio];
+  return code ? codeToPaisId(code) : null;
+}
+
+// Separa una fila: TAB > punto y coma > coma > 2+ espacios
+function parseBulkLine(line){
+  let sep;
+  if(line.includes('\t')) sep='\t';
+  else if(line.includes(';')) sep=';';
+  else if(line.includes(',')) sep=',';
+  else sep=/\s{2,}/;
+  return line.split(sep).map(c=>c.trim().replace(/^["']|["']$/g,'')).filter((c,i,a)=>!(c==='' && i===a.length-1));
+}
+
+function esEncabezado(cols){
+  const t = sinAcentos(cols.join(' '));
+  return t.includes('NOMINA') && t.includes('NOMBRE');
+}
+
+// Analiza el texto pegado y devuelve filas válidas + errores explicados
+function analizarBulk(){
+  const raw = document.getElementById('bulk-text').value || '';
+  const lineas = raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length);
+  const validas = [], errores = [];
+
+  lineas.forEach((linea, idx) => {
+    const cols = parseBulkLine(linea);
+    if(idx===0 && esEncabezado(cols)) return;          // ignora el encabezado
+    const [payroll, full_name, paisTxt, zonaTxt] = cols;
+    const n = idx+1;
+
+    if(cols.length < 3){
+      errores.push({fila:n, payroll:payroll||'', error:`Solo se detectaron ${cols.length} columna(s). Separa nómina, nombre y país con TAB (Excel) o con comas.`});
+      return;
+    }
+    if(!payroll || !/^\d+$/.test(payroll)){
+      errores.push({fila:n, payroll:payroll||'', error:'La nómina debe ser solo números y va en la primera columna.'});
+      return;
+    }
+    if(!full_name || full_name.length < 3){
+      errores.push({fila:n, payroll, error:'Falta el nombre completo (segunda columna).'});
+      return;
+    }
+    const country_id = resolverPais(paisTxt);
+    if(!country_id){
+      errores.push({fila:n, payroll, error:`No se reconoce el país "${paisTxt||''}". Usa MX, UY, RD o CL.`});
+      return;
+    }
+    // La zona solo aplica a México
+    let zone = null;
+    const z = sinAcentos(zonaTxt);
+    if(z){
+      if(codeToPaisId('MX') !== country_id){
+        errores.push({fila:n, payroll, error:`La zona "${zonaTxt}" solo aplica a México; se ignoró.`, aviso:true});
+      } else if(z==='ESPINAL' || z==='CDMX'){
+        zone = z;
+      } else {
+        errores.push({fila:n, payroll, error:`Zona "${zonaTxt}" no válida. Usa ESPINAL o CDMX.`});
+        return;
+      }
+    }
+    validas.push({ payroll, full_name, country_id, zone, office_id:null, _fila:n });
+  });
+
+  return { validas, errores };
+}
+
 function openBulk(){
   document.getElementById('m-code').textContent='Carga masiva de empleados';
   document.getElementById('m-body').innerHTML=`
     <div class="bulk-help">
-      Pega una fila por empleado, con estas columnas en orden:<br><br>
-      <code>Nómina    Nombre completo    País    Zona</code><br><br>
-      • <b>País</b>: usa el código MX, UY, RD o CL.<br>
-      • <b>Zona</b>: solo para México (ESPINAL o CDMX). Los demás países se dejan sin zona.<br>
-      • Separadas por TAB (copiando de Excel) o por comas. El sistema lo detecta.<br><br>
-      Ejemplo:<br>
-      <code>1234    Juan Pérez López    MX    ESPINAL
-1235    María García    MX    CDMX
-1236    Carlos Méndez    UY
-1237    Ana Torres    RD</code>
+      Una fila por empleado, con estas columnas <b>en este orden</b>:<br><br>
+      <code>Nómina | Nombre completo | País | Zona</code><br><br>
+      • <b>País</b>: MX, UY, RD o CL (también acepta "México", "Uruguay", etc.).<br>
+      • <b>Zona</b>: solo para México — ESPINAL o CDMX. Los demás países se dejan en blanco.<br>
+      • Lo más seguro es <b>copiar y pegar desde Excel</b> (4 columnas). También acepta comas o punto y coma.<br>
+      • Si pegas el encabezado de la tabla, se ignora solo.<br><br>
+      Ejemplo con comas:<br>
+      <code>1234,Juan Pérez López,MX,ESPINAL
+1235,María García,MX,CDMX
+1236,Carlos Méndez,UY
+1237,Ana Torres,RD</code>
     </div>
-    <textarea id="bulk-text" style="min-height:160px" placeholder="Pega aquí las filas..."></textarea>
-    <button class="btn" onclick="procesarBulk()">Procesar carga</button>
+    <textarea id="bulk-text" style="min-height:150px" placeholder="Pega aquí las filas..." oninput="previsualizarBulk()"></textarea>
+    <div class="bulk-res" id="bulk-preview"></div>
+    <button class="btn" id="bulk-btn" onclick="procesarBulk()" disabled>Procesar carga</button>
     <div class="bulk-res" id="bulk-res"></div>`;
   document.getElementById('modal').classList.add('show');
 }
 
-function parseBulkLine(line){
-  // Detecta separador: TAB si existe, si no coma
-  const sep = line.includes('\t') ? '\t' : ',';
-  return line.split(sep).map(s=>s.trim());
+// Muestra, antes de enviar, qué entendió el sistema de cada fila
+function previsualizarBulk(){
+  const cont = document.getElementById('bulk-preview');
+  const btn  = document.getElementById('bulk-btn');
+  const { validas, errores } = analizarBulk();
+  const bloqueantes = errores.filter(e=>!e.aviso);
+
+  if(!validas.length && !errores.length){ cont.innerHTML=''; btn.disabled=true; return; }
+
+  const filas = validas.map(v=>`<tr>
+      <td>${v._fila}</td><td><b>${escapeHtml(v.payroll)}</b></td>
+      <td>${escapeHtml(v.full_name)}</td>
+      <td>${paisNombre(v.country_id)}</td>
+      <td>${escapeHtml(v.zone||'—')}</td>
+      <td><span class="okc">✓ Lista</span></td></tr>`).join('');
+
+  const fallos = errores.map(e=>`<tr>
+      <td>${e.fila}</td><td>${escapeHtml(e.payroll||'')}</td>
+      <td colspan="3" class="muted">${escapeHtml(e.error)}</td>
+      <td><span class="${e.aviso?'muted':'failc'}">${e.aviso?'⚠ Aviso':'✗ No se dará de alta'}</span></td></tr>`).join('');
+
+  cont.innerHTML = `
+    <div style="margin:10px 0 6px"><b>${validas.length}</b> fila(s) lista(s)${bloqueantes.length?` · <span class="failc">${bloqueantes.length} con problema</span>`:''}</div>
+    <div style="max-height:230px;overflow:auto;border:1px solid var(--line);border-radius:9px">
+      <table style="margin:0"><thead><tr>
+        <th>Fila</th><th>Nómina</th><th>Nombre</th><th>País</th><th>Zona</th><th>Estado</th>
+      </tr></thead><tbody>${filas}${fallos}</tbody></table>
+    </div>`;
+  btn.disabled = validas.length === 0;
+  btn.textContent = validas.length ? `Dar de alta ${validas.length} empleado(s)` : 'Procesar carga';
 }
 
 async function procesarBulk(){
-  const raw=document.getElementById('bulk-text').value;
-  const res=document.getElementById('bulk-res');
-  const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l.length);
-  if(!lines.length){ res.innerHTML='<span class="failc">No hay filas para procesar.</span>'; return; }
-  const rows=[]; const locales=[];
-  lines.forEach((line,idx)=>{
-    const cols=parseBulkLine(line);
-    const [payroll, full_name, paisCode, zona] = cols;
-    const country_id = codeToPaisId(paisCode);
-    if(!payroll || !full_name || !country_id){
-      locales.push({payroll:payroll||'(vacío)', error:'Fila '+(idx+1)+': faltan datos o país inválido.'});
-      return;
-    }
-    rows.push({payroll, full_name, country_id:String(country_id), zone:(zona||''), office_id:''});
-  });
-  if(!rows.length){
-    res.innerHTML=`<span class="failc">Ninguna fila válida.</span><br>`+
-      locales.map(e=>`<div class="muted">• ${escapeHtml(e.error)}</div>`).join('');
+  const res = document.getElementById('bulk-res');
+  const btn = document.getElementById('bulk-btn');
+  const { validas, errores } = analizarBulk();
+  if(!validas.length){
+    res.innerHTML='<span class="failc">No hay filas válidas para dar de alta.</span>';
     return;
   }
-  res.innerHTML='Procesando...';
-  const d=await api('emp-add-bulk',{rows});
-  if(!d.ok){ res.innerHTML=`<span class="failc">${escapeHtml(d.error||'Error en la carga.')}</span>`; return; }
-  const errServer = (d.errores||[]);
-  const totalFail = locales.length + (d.fallidos||0);
+
+  btn.disabled = true;
+  res.innerHTML = 'Procesando...';
+  const rows = validas.map(v=>({
+    payroll: v.payroll,
+    full_name: v.full_name,
+    country_id: v.country_id,   // número, no texto
+    zone: v.zone,               // null si no aplica
+    office_id: null
+  }));
+
+  const d = await api('emp-add-bulk', { rows });
+  btn.disabled = false;
+
+  if(!d.ok){
+    res.innerHTML = `<span class="failc">${escapeHtml(d.error||'Error en la carga.')}</span>`;
+    return;
+  }
+
+  const errServer = d.errores || [];
   let html = `<span class="okc">✓ ${d.agregados||0} agregado(s)</span>`;
+  const noEnviadas = errores.filter(e=>!e.aviso).length;
+  const totalFail = noEnviadas + (d.fallidos||0);
   if(totalFail) html += ` &nbsp; <span class="failc">✗ ${totalFail} no agregado(s)</span>`;
-  const allErrors = [...locales, ...errServer];
-  if(allErrors.length){
-    html += '<div style="margin-top:8px">'+allErrors.map(e=>
+  if(errServer.length){
+    html += '<div style="margin-top:8px">'+errServer.map(e=>
       `<div class="muted">• Nómina ${escapeHtml(e.payroll||'')}: ${escapeHtml(e.error||'')}</div>`
     ).join('')+'</div>';
   }
-  res.innerHTML=html;
-  await loadEmpleados(); // refrescar lista detrás del modal
+  res.innerHTML = html;
+  await loadEmpleados();   // refrescar la lista de atrás
+  previsualizarBulk();
 }
 
 // ═══════════════════════════════════════════════
 // CUMPLIMIENTO DE REPORTES (solo admin)
 // ═══════════════════════════════════════════════
+// Semanas ISO (lunes a domingo) que tocan el mes elegido, recortadas al mes
+function semanasDelMes(anio, mes){
+  const out=[];
+  const ultimo=new Date(anio, mes, 0).getDate();
+  let d=new Date(anio, mes-1, 1);
+  // Retroceder al lunes de esa semana
+  const dow=(d.getDay()+6)%7;           // 0 = lunes
+  d.setDate(d.getDate()-dow);
+  while(d <= new Date(anio, mes-1, ultimo)){
+    const ini=new Date(d);
+    const fin=new Date(d); fin.setDate(fin.getDate()+6);
+    // Recortar al mes
+    const desde = ini < new Date(anio, mes-1, 1) ? new Date(anio, mes-1, 1) : ini;
+    const hasta = fin > new Date(anio, mes-1, ultimo) ? new Date(anio, mes-1, ultimo) : fin;
+    const f=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+    out.push({ semana:`W${isoWeek(ini)}`, desde:f(desde), hasta:f(hasta),
+               etiqueta:`W${isoWeek(ini)} · ${desde.getDate()}–${hasta.getDate()}` });
+    d.setDate(d.getDate()+7);
+  }
+  return out;
+}
+
+function isoWeek(d0){
+  const d=new Date(Date.UTC(d0.getFullYear(), d0.getMonth(), d0.getDate()));
+  d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));
+  const y=new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil((((d-y)/86400000)+1)/7);
+}
+
+// Al cambiar el mes se rearman las semanas disponibles y se recarga
+function onCumplMesChange(){
+  buildCumplSemanas();
+  loadCumplimiento();
+}
+
+function buildCumplSemanas(){
+  const sel=document.getElementById('cumpl-semana');
+  const mesInput=document.getElementById('cumpl-mes');
+  if(!sel||!mesInput||!mesInput.value){ if(sel) sel.innerHTML='<option value="">Todo el mes</option>'; return; }
+  const [y,m]=mesInput.value.split('-').map(Number);
+  sel.innerHTML='<option value="">Todo el mes</option>'+
+    semanasDelMes(y,m).map(w=>`<option value="${w.desde}|${w.hasta}">${w.etiqueta}</option>`).join('');
+}
+
 async function loadCumplimiento(){
   const mesInput = document.getElementById('cumpl-mes');
+  const semSel   = document.getElementById('cumpl-semana');
   let desde=null, hasta=null;
   if(mesInput && mesInput.value){
     const [y,m] = mesInput.value.split('-').map(Number);
     desde = `${y}-${String(m).padStart(2,'0')}-01`;
     const last = new Date(y, m, 0).getDate();
     hasta = `${y}-${String(m).padStart(2,'0')}-${String(last).padStart(2,'0')}`;
+    // Si hay semana elegida, el periodo se recorta a esa semana
+    if(semSel && semSel.value){
+      const [ds,hs]=semSel.value.split('|');
+      desde=ds; hasta=hs;
+    }
   }
   const d = await api('cumplimiento', (desde&&hasta) ? {desde, hasta} : {});
   if(!d.ok){ alert(d.error||'No se pudo cargar el cumplimiento.'); return; }
@@ -1314,6 +1563,11 @@ function gaugeHtml(pct){
   </div>`;
 }
 
+function filtrarCumplPais(id){
+  document.getElementById('cumpl-pais').value = id===''? '' : String(id);
+  renderCumplimiento();
+}
+
 function renderCumplimiento(){
   if(!CUMPL) return;
   const paisSel = document.getElementById('cumpl-pais').value;
@@ -1326,8 +1580,35 @@ function renderCumplimiento(){
   const faltan = total - cumplieron;
   const pct = total>0 ? Math.round(1000*cumplieron/total)/10 : 0;
 
-  // Medidor
+  // Medidor general
   document.getElementById('cumpl-gauge').innerHTML = gaugeHtml(pct);
+
+  // Medidores por país (clic = filtrar ese país)
+  const porPais = new Map();
+  (CUMPL.empleados||[]).forEach(e=>{
+    if(e.country_id==null) return;
+    const r = porPais.get(e.country_id) || {total:0, ok:0, nombre:e.country_name||paisNombre(e.country_id)};
+    r.total++; if(e.cumplio) r.ok++;
+    porPais.set(e.country_id, r);
+  });
+  const barras=[...porPais.entries()].sort((a,b)=>a[0]-b[0]).map(([id,r])=>{
+    const p = r.total ? Math.round(1000*r.ok/r.total)/10 : 0;
+    const col = p>=95 ? '#1a8a4a' : p>=75 ? '#4caf50' : p>=50 ? '#f5a623' : p>=30 ? '#e67e22' : '#c0392b';
+    const activo = paisId===id;
+    return `<div onclick="filtrarCumplPais(${activo?"''":id})" title="Clic para filtrar" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;${activo?'background:#eef3fb;':''}">
+      <div style="flex:0 0 150px;font-size:13px;font-weight:${activo?'800':'600'};color:var(--ink)">${escapeHtml(r.nombre)}</div>
+      <div style="flex:1;height:10px;background:#e8edf3;border-radius:6px;overflow:hidden">
+        <div style="height:100%;width:${p}%;background:${col};border-radius:6px;transition:width .4s ease"></div>
+      </div>
+      <div style="flex:0 0 92px;text-align:right;font-size:13px;font-weight:700;color:${col}">${p}% <span class="muted" style="font-weight:500">(${r.ok}/${r.total})</span></div>
+    </div>`;
+  }).join('');
+  document.getElementById('cumpl-paises').innerHTML = porPais.size>1
+    ? `<div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:16px;box-shadow:0 2px 10px rgba(34,41,83,.05)">
+         <div style="font-size:13px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Cumplimiento por país</div>
+         ${barras}
+       </div>`
+    : '';
 
   // Stats (del país seleccionado o global)
   document.getElementById('cumpl-stats').innerHTML =
@@ -1384,7 +1665,9 @@ function exportCumplimiento(){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(todos), 'Cumplimiento');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(faltan.length?faltan:[{'Sin faltantes':''}]), 'Quiénes faltan');
-  const periodo = CUMPL.desde ? String(CUMPL.desde).slice(0,7) : new Date().toISOString().slice(0,7);
+  const semSel=document.getElementById('cumpl-semana');
+  const semTxt = semSel && semSel.value ? '_'+semSel.options[semSel.selectedIndex].text.split(' ')[0] : '';
+  const periodo = (CUMPL.desde ? String(CUMPL.desde).slice(0,7) : new Date().toISOString().slice(0,7)) + semTxt;
   XLSX.writeFile(wb, `cumplimiento_${periodo}.xlsx`);
 }
 

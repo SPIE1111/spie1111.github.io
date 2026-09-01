@@ -8,7 +8,7 @@
 //    la app esté cerrada.
 // Sube el número de versión cada vez que quieras forzar actualización total.
 // ════════════════════════════════════════════
-const CACHE = 'hazard-hse-v6';
+const CACHE = 'hazard-hse-v7';
 const CORE = [
   './',
   './index.html',
@@ -101,13 +101,20 @@ self.addEventListener('push', (e) => {
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const scope = self.registration.scope;
+  // En un rechazo, el servidor manda "?corregir=H-2026-XXXX":
+  // así la app abre ese reporte listo para corregir, sin pasar por el registro.
+  const destino = scope + (e.notification.data && e.notification.data.url ? e.notification.data.url : '');
 
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((lista) => {
       for (const c of lista) {
-        if (c.url.startsWith(scope) && 'focus' in c) return c.focus();
+        if (c.url.startsWith(scope)) {
+          // Si la app ya estaba abierta, se la lleva al reporte indicado
+          if ('navigate' in c && destino !== c.url) { return c.navigate(destino).then((cl) => cl && cl.focus()); }
+          if ('focus' in c) return c.focus();
+        }
       }
-      return clients.openWindow(scope);
+      return clients.openWindow(destino);
     })
   );
 });

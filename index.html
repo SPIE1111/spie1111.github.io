@@ -1564,6 +1564,8 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
     <div class="suc-guard" id="suc-sync">✓ Registro guardado correctamente</div>
 
+    <div id="suc-push" style="width:100%;max-width:340px;margin-top:4px;display:none"></div>
+
     <div style="width:100%;max-width:340px;margin-top:4px">
 
       <button class="btn-cyan" onclick="nuevoHazard()">+ Registrar otro Hazard</button>
@@ -2081,6 +2083,9 @@ async function _validarNominaReal(nomina){
     _loginErrClear();                            // ← borra cualquier error previo
     cacheEmpleado(_empValidado);                 // para login offline futuro
 
+    // Si ya aceptó notificaciones antes, se reasigna este celular a su nómina
+    suscribirPush(nomina, false);
+
     // Avisos de revisión (aprobado / rechazado) de este empleado
     const avisos = await cargarAvisos(nomina);
     if(avisos.length){
@@ -2122,6 +2127,84 @@ async function _validarNominaReal(nomina){
       _loginErr('Sin conexión y esta nómina no se ha usado antes en este dispositivo. Conéctate una vez para habilitarla.');
     }
   }
+}
+
+// ════════════════════════════════════════════
+// NOTIFICACIONES PUSH (avisan aunque la app esté cerrada)
+// ════════════════════════════════════════════
+// Llave PÚBLICA de VAPID: puede ir en el código, es su función.
+const VAPID_PUBLIC_KEY = 'BMXNv-nd_j7YstI5pdq8_q7dwU4Kg_gsjGrKxsO0GXHE8gVdrglUutVGAH_xbdgjxsH5p3KOazOngvligmf2_OM';
+
+function b64ToUint8(base64){
+  const pad = '='.repeat((4 - base64.length % 4) % 4);
+  const b64 = (base64 + pad).replace(/-/g,'+').replace(/_/g,'/');
+  const raw = atob(b64);
+  const out = new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i);
+  return out;
+}
+
+function pushDisponible(){
+  return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+}
+
+// Registra este celular para el empleado que acaba de entrar.
+// Si el celular es compartido, la suscripción se reasigna a la nómina actual.
+async function suscribirPush(nomina, pedirPermiso){
+  if(!pushDisponible() || !nomina) return false;
+  try{
+    if(Notification.permission === 'denied') return false;
+    if(Notification.permission === 'default'){
+      if(!pedirPermiso) return false;
+      const p = await Notification.requestPermission();
+      if(p !== 'granted') return false;
+    }
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub){
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: b64ToUint8(VAPID_PUBLIC_KEY)
+      });
+    }
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/hazard-empleado`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
+      body: JSON.stringify({
+        action:'suscribir',
+        payroll_no: nomina,
+        sub: sub.toJSON(),
+        user_agent: navigator.userAgent
+      })
+    });
+    const d = await r.json();
+    return !!d.ok;
+  }catch(e){ console.warn('No se pudo activar el push:', e); return false; }
+}
+
+// Botón "Activar avisos" de la pantalla de éxito
+async function activarAvisos(btn){
+  const nomina = SESSION?.empleado?.nomina || _empValidado?.nomina;
+  if(btn){ btn.disabled=true; btn.textContent='Activando…'; }
+  const ok = await suscribirPush(nomina, true);
+  if(btn){ btn.disabled=false; }
+  if(!ok && Notification.permission === 'denied'){
+    alert('Las notificaciones están bloqueadas para esta página. Actívalas desde los ajustes del navegador para este sitio.');
+  }
+  pintarBotonAvisos();
+}
+
+function pintarBotonAvisos(){
+  const cont = document.getElementById('suc-push');
+  if(!cont) return;
+  if(!pushDisponible() || Notification.permission === 'denied'){ cont.style.display='none'; return; }
+  if(Notification.permission === 'granted'){
+    cont.innerHTML = '<div style="font-size:12px;color:#27ae60;font-weight:600">🔔 Avisos activados en este celular</div>';
+  } else {
+    cont.innerHTML = '<button class="btn-cyan" style="padding:12px;font-size:14px" onclick="activarAvisos(this)">🔔 Activar avisos en este celular</button>' +
+      '<div style="font-size:11px;color:var(--text2);margin-top:5px">Te avisamos cuando tu HSE revise tus reportes, aunque la app esté cerrada.</div>';
+  }
+  cont.style.display='block';
 }
 
 // ════════════════════════════════════════════
@@ -3384,6 +3467,7 @@ async function submitForm(){
       const b=document.getElementById('correccion-banner'); if(b) b.style.display='none';
       btn.disabled=false; btn.textContent='Siguiente →';
       setScreen('screen-success');
+      pintarBotonAvisos();
       return;
     }catch(err){
       alert('No se pudo enviar la corrección: '+err.message+'\nRevisa tu conexión e inténtalo otra vez.');
@@ -3462,14 +3546,7 @@ async function submitForm(){
 
   setScreen('screen-success');
 
-  // La primera vez que envía algo, ofrecemos activar los avisos del HSE
-  try{
-    if('Notification' in window && Notification.permission === 'default'
-       && !localStorage.getItem('hazard_notif_pedido')){
-      localStorage.setItem('hazard_notif_pedido','1');
-      setTimeout(()=>Notification.requestPermission().catch(()=>{}), 1200);
-    }
-  }catch(_e){}
+  pintarBotonAvisos();   // ofrece activar los avisos en este celular
 
 }
 

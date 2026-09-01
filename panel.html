@@ -791,6 +791,19 @@ const TZ_PAIS = {
   'CHILE':'America/Santiago'
 };
 
+const TZ_PAIS_ID = { 1:'America/Mexico_City', 2:'America/Montevideo', 3:'America/Santo_Domingo', 4:'America/Santiago' };
+
+// Fecha y hora en la zona del país (para que el Excel nunca contradiga al conteo)
+function fechaHoraLocal(iso, tz){
+  if(!iso) return '';
+  try{
+    return new Intl.DateTimeFormat('es-MX',{
+      timeZone: tz || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
+    }).format(new Date(iso));
+  }catch(_e){ return String(iso).slice(0,16).replace('T',' '); }
+}
+
 function fechaLocalPais(iso, country){
   if(!iso) return '';
   try{
@@ -1156,7 +1169,8 @@ async function exportCSV(){
   if(!rows.length){ alert('No hay hazards con el filtro actual para exportar.'); return; }
   const hoja1 = rows.map(h=>({
     'Código': h.hazard_code,
-    'Fecha': h.created_at ? new Date(h.created_at).toLocaleString('es-MX') : '',
+    'Fecha': fechaHoraLocal(h.created_at, TZ_PAIS[String(h.country||'').toUpperCase()]),
+    'Mes (local)': mesDe(h),
     'País': h.country,
     'Empleado': h.employee_name,
     'Nómina': h.payroll_no,
@@ -1787,7 +1801,9 @@ function renderCumplimiento(){
     const estado = e.cumplio
       ? '<span class="tag cerrado">✓ Cumplió</span>'
       : '<span class="tag abierto">Falta</span>';
-    const ultima = e.ultima_fecha ? new Date(e.ultima_fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '—';
+    const ultima = e.ultima_fecha
+      ? fechaHoraLocal(e.ultima_fecha, TZ_PAIS_ID[e.country_id]).slice(0,10)
+      : '—';
     return `<tr>
       <td><b>${escapeHtml(e.payroll_no)}</b></td>
       <td>${escapeHtml(e.full_name)}</td>
@@ -1960,7 +1976,7 @@ async function exportCumplimiento(){
     'País': e.country_name || paisNombre(e.country_id), 'Zona': e.hse_zone || '',
     'Hazards en periodo': e.hazards_periodo,
     'Estado': e.cumplio ? 'Cumplió' : 'Falta',
-    'Último reporte': e.ultima_fecha ? new Date(e.ultima_fecha).toLocaleString('es-MX') : ''
+    'Último reporte': fechaHoraLocal(e.ultima_fecha, TZ_PAIS_ID[e.country_id])
   }));
   const faltan = d.lista.filter(e=>!e.cumplio).map(e=>({
     'Nómina': e.payroll_no, 'Nombre': e.full_name,

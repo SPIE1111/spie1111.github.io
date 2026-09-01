@@ -2239,8 +2239,17 @@ async function cargarAvisos(nomina){
     const d = await r.json();
     AVISOS     = (d.ok && d.avisos) ? d.avisos : [];
     PENDIENTES = (d.ok && d.pendientes) ? d.pendientes : [];
-    try{ localStorage.setItem('hazard_ultima_nomina', String(nomina)); }catch(_e){}
-  }catch(_e){ AVISOS = []; PENDIENTES = []; }
+    try{
+      localStorage.setItem('hazard_ultima_nomina', String(nomina));
+      // Se guardan para que el bloqueo siga aplicando aunque abra sin señal
+      localStorage.setItem('hazard_pend_'+nomina, JSON.stringify(PENDIENTES));
+    }catch(_e){}
+  }catch(_e){
+    AVISOS = [];
+    // Sin conexión: usar lo último que se supo de este empleado
+    try{ PENDIENTES = JSON.parse(localStorage.getItem('hazard_pend_'+nomina) || '[]'); }
+    catch(_e2){ PENDIENTES = []; }
+  }
   return AVISOS;
 }
 
@@ -2576,6 +2585,15 @@ function goDash(){setScreen('screen-dashboard')}
 function goForm(){
 
   if(!SESSION)return;
+
+  // Candado único: mientras haya un rechazo sin corregir, el formulario
+  // solo se abre en modo corrección. Cubre todos los caminos (botones,
+  // "registrar otro", QR, volver al inicio, etc.).
+  if(PENDIENTES.length && !CORRIGIENDO){
+    pintarAvisos();
+    setScreen('screen-avisos');
+    return;
+  }
 
   try{
 
@@ -3424,6 +3442,14 @@ async function idbCount(){
 
 async function submitForm(){
 
+  // Barrera final: si hay un rechazo pendiente, no se envía un reporte nuevo
+  if(PENDIENTES.length && !CORRIGIENDO){
+    alert('Tienes un reporte rechazado sin corregir. Corrígelo y después podrás registrar uno nuevo.');
+    pintarAvisos();
+    setScreen('screen-avisos');
+    return;
+  }
+
   const btn=document.getElementById('btn-next');
 
   btn.disabled=true;
@@ -3542,6 +3568,10 @@ async function submitForm(){
       // Ese reporte deja de estar pendiente: se libera el bloqueo
       PENDIENTES = PENDIENTES.filter(x=>x.hazard_code !== CORRIGIENDO);
       AVISOS     = AVISOS.filter(x=>x.hazard_code !== CORRIGIENDO);
+      try{
+        const nom = SESSION?.empleado?.nomina;
+        if(nom) localStorage.setItem('hazard_pend_'+nom, JSON.stringify(PENDIENTES));
+      }catch(_e){}
 
       document.getElementById('suc-id').textContent   = CORRIGIENDO;
       document.getElementById('suc-msg').textContent  = 'Tu corrección se envió a tu HSE para una nueva revisión.';

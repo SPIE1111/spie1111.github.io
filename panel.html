@@ -781,8 +781,28 @@ function fotosCell(h){
   return out;
 }
 
-// Devuelve el mes (YYYY-MM) de un hazard
-function mesDe(h){ return h.created_at ? String(h.created_at).slice(0,7) : ''; }
+// La BD guarda created_at en UTC. Un reporte hecho el 31 de agosto a las
+// 6:30 pm en México queda como "2026-09-01T00:30Z", y agrupado en crudo
+// caería en septiembre. Por eso se convierte a la hora local del PAÍS.
+const TZ_PAIS = {
+  'MEXICO':'America/Mexico_City',
+  'URUGUAY':'America/Montevideo',
+  'REPUBLICA DOMINICANA':'America/Santo_Domingo',
+  'CHILE':'America/Santiago'
+};
+
+function fechaLocalPais(iso, country){
+  if(!iso) return '';
+  try{
+    const tz = TZ_PAIS[String(country||'').toUpperCase()] ||
+               Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return new Intl.DateTimeFormat('en-CA',{ timeZone:tz, year:'numeric', month:'2-digit', day:'2-digit' })
+             .format(new Date(iso));           // YYYY-MM-DD
+  }catch(_e){ return String(iso).slice(0,10); }
+}
+
+// Mes (YYYY-MM) del hazard, en la hora local de su país
+function mesDe(h){ return fechaLocalPais(h.created_at, h.country).slice(0,7); }
 
 // Aplica TODOS los filtros activos (buscador, estatus, categoría y mes)
 // a cualquier lista de hazards. Lo usan la tabla y la exportación.
@@ -890,7 +910,8 @@ function render(){
   rows.innerHTML=filtered.map(h=>{
     const est=(h.estatus||'Abierto').toLowerCase();
     const cls=est.includes('cerrad')?'cerrado':est.includes('proces')?'proceso':'abierto';
-    const fecha=new Date(h.created_at).toLocaleDateString('es-MX',{day:'2-digit',month:'short'});
+    const fl=fechaLocalPais(h.created_at, h.country);
+    const fecha= fl ? new Date(fl+'T12:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '';
     const cat = h.clasif_codigo ? `<span class="catcode">${h.clasif_codigo}</span> · ${CAT_LABEL[h.clasif_codigo]||''}` : '—';
     return `<tr class="main" onclick='openHazard(${JSON.stringify(h.hazard_code)})'>
       <td><b>${h.hazard_code}</b></td><td>${fecha}</td>

@@ -871,7 +871,10 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
       <div style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px">Avisos de tu HSE</div>
       <div style="font-size:13px;color:rgba(255,255,255,0.65);margin-bottom:14px" id="avisos-sub">Revisaron tus reportes</div>
       <div id="avisos-lista"></div>
-      <button class="btn-cyan" style="margin-top:14px" onclick="continuarDesdeAvisos()">Continuar a un nuevo reporte →</button>
+      <button class="btn-cyan" id="avisos-continuar" style="margin-top:14px" onclick="continuarDesdeAvisos()">Continuar a un nuevo reporte →</button>
+      <div id="avisos-nota" style="display:none;margin-top:14px;padding:12px 14px;background:rgba(229,53,53,0.14);border:1px solid rgba(229,53,53,0.35);border-radius:12px;font-size:13px;color:#fff;line-height:1.5">
+        Para registrar un hazard nuevo primero debes corregir el reporte rechazado.
+      </div>
     </div>
   </div>
 </div>
@@ -2211,6 +2214,8 @@ function pintarBotonAvisos(){
 // AVISOS DE REVISIÓN (aprobado / rechazado)
 // ════════════════════════════════════════════
 let AVISOS = [];            // avisos sin leer del empleado
+let PENDIENTES = [];        // rechazados sin corregir: bloquean reportes nuevos
+let CODIGO_DESDE_NOTIF = null;  // hazard que llega en la URL (?corregir=)
 let CORRIGIENDO = null;     // hazard_code que se está corrigiendo
 let DATOS_CORRECCION = null;
 
@@ -2232,8 +2237,10 @@ async function cargarAvisos(nomina){
       body: JSON.stringify({ action:'avisos', payroll_no: nomina })
     });
     const d = await r.json();
-    AVISOS = (d.ok && d.avisos) ? d.avisos : [];
-  }catch(_e){ AVISOS = []; }
+    AVISOS     = (d.ok && d.avisos) ? d.avisos : [];
+    PENDIENTES = (d.ok && d.pendientes) ? d.pendientes : [];
+    try{ localStorage.setItem('hazard_ultima_nomina', String(nomina)); }catch(_e){}
+  }catch(_e){ AVISOS = []; PENDIENTES = []; }
   return AVISOS;
 }
 
@@ -2253,11 +2260,28 @@ function pintarAvisos(){
   const cont = document.getElementById('avisos-lista');
   const sub  = document.getElementById('avisos-sub');
   if(!cont) return;
-  const rech = AVISOS.filter(a=>a.revision==='Rechazado').length;
-  const apro = AVISOS.filter(a=>a.revision==='Aprobado').length;
-  if(sub) sub.textContent = `${apro} aprobado(s) · ${rech} por corregir`;
 
-  cont.innerHTML = AVISOS.map(a=>{
+  // Mientras haya rechazados sin corregir no se puede levantar uno nuevo
+  const bloqueado = PENDIENTES.length > 0;
+  const btnSeguir = document.getElementById('avisos-continuar');
+  const nota      = document.getElementById('avisos-nota');
+  if(btnSeguir) btnSeguir.style.display = bloqueado ? 'none' : 'block';
+  if(nota) nota.style.display = bloqueado ? 'block' : 'none';
+
+  // Los rechazados pendientes se muestran siempre (aunque el aviso ya se vio)
+  const yaListados = new Set(AVISOS.map(a=>a.hazard_code));
+  const lista = AVISOS.concat(
+    PENDIENTES.filter(p=>!yaListados.has(p.hazard_code))
+              .map(p=>({...p, revision:'Rechazado'}))
+  );
+
+  const rech = lista.filter(a=>a.revision==='Rechazado').length;
+  const apro = lista.filter(a=>a.revision==='Aprobado').length;
+  if(sub) sub.textContent = bloqueado
+    ? `${rech} reporte(s) por corregir antes de poder registrar otro`
+    : `${apro} aprobado(s) · ${rech} por corregir`;
+
+  cont.innerHTML = lista.map(a=>{
     const fecha = a.revision_en ? new Date(a.revision_en).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '';
     if(a.revision === 'Aprobado'){
       return `<div style="background:rgba(255,255,255,0.97);border-radius:14px;padding:16px;margin-bottom:10px;border-left:5px solid #27ae60">
@@ -2278,7 +2302,6 @@ function pintarAvisos(){
       </div>
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="btn-cyan" style="flex:1;padding:11px" onclick="corregirHazard('${a.hazard_code}')">Corregir ahora</button>
-        <button onclick="cerrarAviso('${a.hazard_code}')" style="background:none;border:1.5px solid #d0d8e8;border-radius:9px;color:#5a6680;font-family:var(--font);font-size:13px;padding:11px 14px;cursor:pointer">Después</button>
       </div>
     </div>`;
   }).join('');
@@ -2292,11 +2315,16 @@ function escapeAviso(t){
 async function cerrarAviso(code){
   AVISOS = AVISOS.filter(a=>a.hazard_code!==code);
   try{ await apiEmpleado('visto', { hazard_code: code }); }catch(_e){}
-  if(!AVISOS.length){ continuarDesdeAvisos(); return; }
+  if(!AVISOS.length && !PENDIENTES.length){ continuarDesdeAvisos(); return; }
   pintarAvisos();
 }
 
 function continuarDesdeAvisos(){
+  if(PENDIENTES.length){
+    alert('Primero corrige tu reporte rechazado. En cuanto lo envíes podrás registrar uno nuevo.');
+    pintarAvisos();
+    return;
+  }
   CORRIGIENDO = null; DATOS_CORRECCION = null;
   const b=document.getElementById('correccion-banner'); if(b) b.style.display='none';
   goForm();
@@ -2304,13 +2332,49 @@ function continuarDesdeAvisos(){
 
 // Abre el formulario con los datos del reporte rechazado
 async function corregirHazard(code){
-  const aviso = AVISOS.find(a=>a.hazard_code===code);
+  const aviso = AVISOS.find(a=>a.hazard_code===code) || PENDIENTES.find(a=>a.hazard_code===code);
   const d = await apiEmpleado('detalle', { hazard_code: code });
   if(!d.ok){ alert(d.error||'No se pudo abrir el reporte.'); return; }
   CORRIGIENDO = code;
   DATOS_CORRECCION = d.hazard;
   DATOS_CORRECCION._motivo = aviso ? aviso.revision_motivo : (d.hazard.revision_motivo||'');
   goForm();
+}
+
+// ── Entrada directa desde la notificación (?corregir=H-2026-XXXX) ──
+// Usa la última nómina que se validó en ESTE celular para no pedir el
+// registro otra vez. Si no la hay, manda al login y continúa al validarla.
+async function abrirDesdeNotificacion(code){
+  CODIGO_DESDE_NOTIF = code;
+  let nomina = null;
+  try{ nomina = localStorage.getItem('hazard_ultima_nomina'); }catch(_e){}
+
+  if(!nomina){
+    setScreen('screen-login');
+    _estadoNomina('Ingresa tu nómina para corregir '+code, 'info');
+    return;
+  }
+
+  // Revalidar en silencio esa nómina y entrar
+  const inp = document.getElementById('l-nomina');
+  if(inp) inp.value = nomina;
+  _estadoNomina('Abriendo tu reporte '+code+'…','info');
+  await validarNomina(nomina);
+
+  if(!_empValidado){                       // sin red o nómina dada de baja
+    setScreen('screen-login');
+    return;
+  }
+  if(_empValidado._debeElegirHse && !_empValidado._hse){
+    setScreen('screen-login');             // primero debe elegir su HSE
+    _loginErr('Selecciona tu HSE para continuar con la corrección.');
+    return;
+  }
+
+  SESSION = { empleado:_empValidado, hse:_empValidado._hse, parqueAuto:_empValidado.parque };
+  showOffline();
+  CODIGO_DESDE_NOTIF = null;
+  corregirHazard(code);
 }
 
 // Vuelca los datos del hazard rechazado en el formulario
@@ -2419,8 +2483,16 @@ async function doLogin(){
   if(ds)ds.textContent=`Semana W${getWeek()} · ${new Date().getFullYear()}`;
   showOffline();
 
-  // Si su HSE ya revisó reportes, primero se los mostramos
-  if(AVISOS.length){
+  // Si llegó desde una notificación de rechazo, va directo a ese reporte
+  if(CODIGO_DESDE_NOTIF){
+    const code = CODIGO_DESDE_NOTIF;
+    CODIGO_DESDE_NOTIF = null;
+    corregirHazard(code);
+    return;
+  }
+
+  // Si su HSE ya revisó reportes (o tiene rechazados sin corregir), se los mostramos
+  if(AVISOS.length || PENDIENTES.length){
     pintarAvisos();
     setScreen('screen-avisos');
     return;
@@ -2431,6 +2503,13 @@ async function doLogin(){
 function doLogout(){SESSION=null;setScreen('screen-login')}
 
 function nuevoHazard(){
+
+  // Si quedó un rechazo sin corregir, ahí es donde debe ir
+  if(PENDIENTES.length){
+    pintarAvisos();
+    setScreen('screen-avisos');
+    return;
+  }
 
   // Limpia la sesión completamente para seleccionar nuevo país/empleado
 
@@ -3460,6 +3539,10 @@ async function submitForm(){
       });
       if(!d.ok) throw new Error(d.error||'No se pudo enviar la corrección.');
 
+      // Ese reporte deja de estar pendiente: se libera el bloqueo
+      PENDIENTES = PENDIENTES.filter(x=>x.hazard_code !== CORRIGIENDO);
+      AVISOS     = AVISOS.filter(x=>x.hazard_code !== CORRIGIENDO);
+
       document.getElementById('suc-id').textContent   = CORRIGIENDO;
       document.getElementById('suc-msg').textContent  = 'Tu corrección se envió a tu HSE para una nueva revisión.';
       document.getElementById('suc-sync').textContent = '✓ Reporte corregido y reenviado';
@@ -3632,9 +3715,17 @@ function init(){
 
   try{
 
-    const p=new URLSearchParams(window.location.search).get('parque');
+    const qs=new URLSearchParams(window.location.search);
+
+    const p=qs.get('parque');
 
     if(p&&SESSION){SESSION.parqueAuto=p;goForm()}
+
+    // Llegó tocando la notificación de un rechazo
+
+    const corregir=qs.get('corregir');
+
+    if(corregir){ abrirDesdeNotificacion(corregir); }
 
   }catch(e){}
 

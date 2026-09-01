@@ -858,6 +858,24 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 </div>
 
+<!-- ══════════ AVISOS DE REVISIÓN ══════════ -->
+<div class="screen" id="screen-avisos">
+  <div class="hdr">
+    <div class="hdr-logo">
+      <div class="hdr-icon">🛡️</div>
+      <span class="hdr-name">HAZARD HSE</span>
+    </div>
+  </div>
+  <div class="login-body">
+    <div style="width:100%;max-width:520px">
+      <div style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px">Avisos de tu HSE</div>
+      <div style="font-size:13px;color:rgba(255,255,255,0.65);margin-bottom:14px" id="avisos-sub">Revisaron tus reportes</div>
+      <div id="avisos-lista"></div>
+      <button class="btn-cyan" style="margin-top:14px" onclick="continuarDesdeAvisos()">Continuar a un nuevo reporte →</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════ HOME ══════════ -->
 
 <div class="screen" id="screen-home">
@@ -966,6 +984,10 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
     <!-- Título y subtítulo del paso -->
 
+    <div id="correccion-banner" style="display:none;max-width:600px;width:100%;margin:12px auto 0;padding:12px 14px;background:rgba(229,53,53,0.12);border:1px solid rgba(229,53,53,0.35);border-radius:12px">
+      <div style="font-size:13px;font-weight:800;color:#fff">Estás corrigiendo <span id="correccion-code">—</span></div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-top:3px" id="correccion-motivo"></div>
+    </div>
     <div class="form-title-row">
 
       <button class="form-back" onclick="formBack()">← </button>
@@ -2059,6 +2081,18 @@ async function _validarNominaReal(nomina){
     _loginErrClear();                            // ← borra cualquier error previo
     cacheEmpleado(_empValidado);                 // para login offline futuro
 
+    // Avisos de revisión (aprobado / rechazado) de este empleado
+    const avisos = await cargarAvisos(nomina);
+    if(avisos.length){
+      const rech = avisos.filter(a=>a.revision==='Rechazado').length;
+      _estadoNomina(rech
+        ? `Tienes ${rech} reporte(s) por corregir`
+        : `Tienes ${avisos.length} aviso(s) de tu HSE`, rech ? 'err' : 'ok');
+      notificacionLocal('Hazard HSE',
+        rech ? `Tienes ${rech} reporte(s) rechazado(s) por corregir.`
+             : `Tu HSE revisó ${avisos.length} de tus reportes.`);
+    }
+
   }catch(err){
     if(!vigente()) return;
     // Sin conexión: intentar login con datos cacheados de una sesión previa
@@ -2088,6 +2122,180 @@ async function _validarNominaReal(nomina){
       _loginErr('Sin conexión y esta nómina no se ha usado antes en este dispositivo. Conéctate una vez para habilitarla.');
     }
   }
+}
+
+// ════════════════════════════════════════════
+// AVISOS DE REVISIÓN (aprobado / rechazado)
+// ════════════════════════════════════════════
+let AVISOS = [];            // avisos sin leer del empleado
+let CORRIGIENDO = null;     // hazard_code que se está corrigiendo
+let DATOS_CORRECCION = null;
+
+async function apiEmpleado(action, extra){
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/hazard-empleado`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
+    body: JSON.stringify({ action, payroll_no: SESSION?.empleado?.nomina || _empValidado?.nomina, ...extra })
+  });
+  return r.json();
+}
+
+// Se consulta al validar la nómina; si no hay red, simplemente no hay avisos
+async function cargarAvisos(nomina){
+  try{
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/hazard-empleado`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
+      body: JSON.stringify({ action:'avisos', payroll_no: nomina })
+    });
+    const d = await r.json();
+    AVISOS = (d.ok && d.avisos) ? d.avisos : [];
+  }catch(_e){ AVISOS = []; }
+  return AVISOS;
+}
+
+// Notificación local (si el empleado ya dio permiso en este dispositivo)
+function notificacionLocal(titulo, cuerpo){
+  try{
+    if(!('Notification' in window) || Notification.permission !== 'granted') return;
+    if(navigator.serviceWorker && navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(reg => reg.showNotification(titulo, {
+        body: cuerpo, icon:'icon-192.png', badge:'icon-192.png', tag:'hazard-revision'
+      })).catch(()=>{});
+    }
+  }catch(_e){}
+}
+
+function pintarAvisos(){
+  const cont = document.getElementById('avisos-lista');
+  const sub  = document.getElementById('avisos-sub');
+  if(!cont) return;
+  const rech = AVISOS.filter(a=>a.revision==='Rechazado').length;
+  const apro = AVISOS.filter(a=>a.revision==='Aprobado').length;
+  if(sub) sub.textContent = `${apro} aprobado(s) · ${rech} por corregir`;
+
+  cont.innerHTML = AVISOS.map(a=>{
+    const fecha = a.revision_en ? new Date(a.revision_en).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '';
+    if(a.revision === 'Aprobado'){
+      return `<div style="background:rgba(255,255,255,0.97);border-radius:14px;padding:16px;margin-bottom:10px;border-left:5px solid #27ae60">
+        <div style="font-size:13px;font-weight:800;color:#1a8a4a">✓ REPORTE APROBADO</div>
+        <div style="font-size:17px;font-weight:800;color:#0a1540;margin:4px 0">${a.hazard_code}</div>
+        <div style="font-size:12px;color:#5a6680">${escapeAviso(a.parque||'')} · ${fecha}</div>
+        <div style="font-size:13px;color:#0a1540;margin-top:8px">Gracias por reportar. Tu hazard quedó registrado y cuenta para tu cumplimiento.</div>
+        <button class="btn-cyan" style="margin-top:10px;padding:11px" onclick="cerrarAviso('${a.hazard_code}')">Entendido</button>
+      </div>`;
+    }
+    return `<div style="background:rgba(255,255,255,0.97);border-radius:14px;padding:16px;margin-bottom:10px;border-left:5px solid #e53535">
+      <div style="font-size:13px;font-weight:800;color:#cc1417">✕ REPORTE RECHAZADO</div>
+      <div style="font-size:17px;font-weight:800;color:#0a1540;margin:4px 0">${a.hazard_code}</div>
+      <div style="font-size:12px;color:#5a6680">${escapeAviso(a.parque||'')} · ${fecha}</div>
+      <div style="background:#fdecea;border-radius:9px;padding:10px 12px;margin-top:8px">
+        <div style="font-size:11px;font-weight:800;color:#a5321f;text-transform:uppercase;letter-spacing:.05em">Motivo</div>
+        <div style="font-size:13px;color:#0a1540;margin-top:3px">${escapeAviso(a.revision_motivo||'')}</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn-cyan" style="flex:1;padding:11px" onclick="corregirHazard('${a.hazard_code}')">Corregir ahora</button>
+        <button onclick="cerrarAviso('${a.hazard_code}')" style="background:none;border:1.5px solid #d0d8e8;border-radius:9px;color:#5a6680;font-family:var(--font);font-size:13px;padding:11px 14px;cursor:pointer">Después</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escapeAviso(t){
+  return String(t??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+}
+
+// "Entendido" / "Después": se marca leído y se quita de la lista
+async function cerrarAviso(code){
+  AVISOS = AVISOS.filter(a=>a.hazard_code!==code);
+  try{ await apiEmpleado('visto', { hazard_code: code }); }catch(_e){}
+  if(!AVISOS.length){ continuarDesdeAvisos(); return; }
+  pintarAvisos();
+}
+
+function continuarDesdeAvisos(){
+  CORRIGIENDO = null; DATOS_CORRECCION = null;
+  const b=document.getElementById('correccion-banner'); if(b) b.style.display='none';
+  goForm();
+}
+
+// Abre el formulario con los datos del reporte rechazado
+async function corregirHazard(code){
+  const aviso = AVISOS.find(a=>a.hazard_code===code);
+  const d = await apiEmpleado('detalle', { hazard_code: code });
+  if(!d.ok){ alert(d.error||'No se pudo abrir el reporte.'); return; }
+  CORRIGIENDO = code;
+  DATOS_CORRECCION = d.hazard;
+  DATOS_CORRECCION._motivo = aviso ? aviso.revision_motivo : (d.hazard.revision_motivo||'');
+  goForm();
+}
+
+// Vuelca los datos del hazard rechazado en el formulario
+function precargarCorreccion(){
+  const h = DATOS_CORRECCION;
+  if(!h) return;
+  const set=(id,val)=>{const el=document.getElementById(id); if(el&&val!=null) el.value=val;};
+
+  // Ubicación
+  const parque = h.parque||'';
+  set('f-parque-val', parque);
+  const auto=document.getElementById('parque-auto-val');
+  if(auto && document.getElementById('parque-auto-wrap').style.display!=='none') auto.value=parque;
+  const manual=document.getElementById('f-parque');
+  if(manual) manual.value=parque;
+  set('f-tipo-trabajo', h.tipo_trabajo||'');
+  set('f-tipo-trabajo-val', h.tipo_trabajo||'');
+  set('f-wtg', h.wtg||h.WTG||'');
+
+  // Riesgo
+  set('f-tipo-riesgo', h.tipo_riesgo||'');
+  document.querySelectorAll('.tipo-btn').forEach(b=>{
+    b.classList.toggle('sel', b.textContent.trim().includes((h.tipo_riesgo||'').trim()));
+  });
+  set('f-descripcion', h.descripcion||'');
+  if(h.clasif_codigo){
+    set('f-clas-cod', h.clasif_codigo);
+    set('f-clas-item', h.clasif_item||'');
+    const tag=document.getElementById('risk-sel-txt');
+    if(tag) tag.textContent=`[${h.clasif_codigo}] ${h.clasif_item||''}`;
+    const wrap=document.getElementById('risk-sel-tag');
+    if(wrap) wrap.style.display='block';
+    const fila=document.getElementById(`rr-${h.clasif_codigo}`);
+    if(fila) fila.classList.add('has-sel');
+  }
+  if(h.nivel){
+    set('f-nivel', h.nivel);
+    document.querySelectorAll('.nivel-btn').forEach(b=>
+      b.classList.toggle('sel', b.classList.contains((h.nivel||'').toLowerCase())));
+  }
+  if(h.violacion_reglas){
+    set('f-violacion', h.violacion_reglas);
+    const bt=document.getElementById('vb-'+String(h.violacion_reglas).toLowerCase());
+    if(bt) bt.classList.add('sel');
+    const rd=document.getElementById('reglas-detalle');
+    if(rd) rd.style.display = h.violacion_reglas==='Si' ? 'block' : 'none';
+    set('f-regla', h.regla||'');
+  }
+
+  // Acción
+  set('f-acciones', h.acciones||'');
+  if(h.estatus){
+    set('f-estatus', h.estatus);
+    document.querySelectorAll('.status-btn').forEach(b=>b.classList.remove('sel'));
+    const sb=document.getElementById('sb-'+String(h.estatus).toLowerCase());
+    if(sb) sb.classList.add('sel');
+    const cw=document.getElementById('cierre-wrap');
+    if(cw) cw.style.display = h.estatus==='Cerrado' ? 'block' : 'none';
+  }
+
+  // Banner con el motivo del rechazo
+  const b=document.getElementById('correccion-banner');
+  if(b){
+    document.getElementById('correccion-code').textContent = h.hazard_code;
+    document.getElementById('correccion-motivo').textContent = 'Motivo del rechazo: ' + (h._motivo||'');
+    b.style.display='block';
+  }
+  if(typeof buildSummary==='function') buildSummary();
 }
 
 // ── Botón Siguiente ──────────────────────────────────────────
@@ -2127,6 +2335,13 @@ async function doLogin(){
   const ds=document.getElementById('dash-semana');
   if(ds)ds.textContent=`Semana W${getWeek()} · ${new Date().getFullYear()}`;
   showOffline();
+
+  // Si su HSE ya revisó reportes, primero se los mostramos
+  if(AVISOS.length){
+    pintarAvisos();
+    setScreen('screen-avisos');
+    return;
+  }
   goForm();
 }
 
@@ -2141,6 +2356,12 @@ function nuevoHazard(){
   // Resetea el campo de nómina del login
 
   _empValidado=null;
+
+  CORRIGIENDO=null;
+
+  DATOS_CORRECCION=null;
+
+  AVISOS=[];
 
   _nominaValidada=null;
 
@@ -2326,6 +2547,14 @@ function goForm(){
 
     FOTO_PREVIA = null; // Consumida
 
+  }
+
+  // Modo corrección: rellenar con lo que ya había reportado
+  const bannerC = document.getElementById('correccion-banner');
+  if(CORRIGIENDO && DATOS_CORRECCION){
+    precargarCorreccion();
+  } else if(bannerC){
+    bannerC.style.display='none';
   }
 
   }catch(e){console.error('goForm error:',e);alert('Error al abrir formulario: '+e.message);}
@@ -3123,6 +3352,46 @@ async function submitForm(){
 
   };
 
+  // ── Corrección de un reporte rechazado: se actualiza el MISMO hazard ──
+  if(CORRIGIENDO){
+    try{
+      const d = await apiEmpleado('corregir', {
+        hazard_code: CORRIGIENDO,
+        campos: {
+          parque:           payload.Parque,
+          tipo_trabajo:     payload.TipoTrabajo,
+          wtg:              payload.WTG,
+          tipo_riesgo:      payload.TipoRiesgo,
+          descripcion:      payload.Descripcion,
+          clasif_codigo:    payload.ClasifCodigo,
+          clasif_item:      payload.ClasifItem,
+          nivel:            payload.Nivel,
+          violacion_reglas: payload.ViolacionReglas,
+          regla:            payload.Regla,
+          acciones:         payload.Acciones,
+          estatus:          payload.Estatus,
+          fecha_cierre:     payload.FechaCierre
+        },
+        foto_base64: FOTOS.evidencia ? FOTOS.evidencia.base64 : null,
+        foto_mime:   FOTOS.evidencia ? FOTOS.evidencia.mime   : null
+      });
+      if(!d.ok) throw new Error(d.error||'No se pudo enviar la corrección.');
+
+      document.getElementById('suc-id').textContent   = CORRIGIENDO;
+      document.getElementById('suc-msg').textContent  = 'Tu corrección se envió a tu HSE para una nueva revisión.';
+      document.getElementById('suc-sync').textContent = '✓ Reporte corregido y reenviado';
+      CORRIGIENDO=null; DATOS_CORRECCION=null;
+      const b=document.getElementById('correccion-banner'); if(b) b.style.display='none';
+      btn.disabled=false; btn.textContent='Siguiente →';
+      setScreen('screen-success');
+      return;
+    }catch(err){
+      alert('No se pudo enviar la corrección: '+err.message+'\nRevisa tu conexión e inténtalo otra vez.');
+      btn.disabled=false; btn.innerHTML='✈️ &nbsp;Enviar Hazard';
+      return;
+    }
+  }
+
   let savedOnline = false;
 
   let syncMsg     = '';
@@ -3192,6 +3461,15 @@ async function submitForm(){
   btn.textContent = 'Siguiente →';
 
   setScreen('screen-success');
+
+  // La primera vez que envía algo, ofrecemos activar los avisos del HSE
+  try{
+    if('Notification' in window && Notification.permission === 'default'
+       && !localStorage.getItem('hazard_notif_pedido')){
+      localStorage.setItem('hazard_notif_pedido','1');
+      setTimeout(()=>Notification.requestPermission().catch(()=>{}), 1200);
+    }
+  }catch(_e){}
 
 }
 

@@ -2265,24 +2265,37 @@ function notificacionLocal(titulo, cuerpo){
   }catch(_e){}
 }
 
+// Rechazos que siguen sin corregir. Se arma con DOS fuentes para que el
+// bloqueo funcione aunque el servidor no mande la lista "pendientes":
+//   1) lo que devuelve hazard-empleado (incluye los ya vistos)
+//   2) los avisos de rechazo que el empleado tiene en pantalla
+function rechazosPendientes(){
+  const m = new Map();
+  (PENDIENTES||[]).forEach(p => m.set(p.hazard_code, {...p, revision:'Rechazado'}));
+  (AVISOS||[]).filter(a => a.revision === 'Rechazado')
+              .forEach(a => { if(!m.has(a.hazard_code)) m.set(a.hazard_code, a); });
+  return [...m.values()];
+}
+
+function hayPendientes(){ return rechazosPendientes().length > 0; }
+
 function pintarAvisos(){
   const cont = document.getElementById('avisos-lista');
   const sub  = document.getElementById('avisos-sub');
   if(!cont) return;
 
   // Mientras haya rechazados sin corregir no se puede levantar uno nuevo
-  const bloqueado = PENDIENTES.length > 0;
+  const rechazos  = rechazosPendientes();
+  const bloqueado = rechazos.length > 0;
   const btnSeguir = document.getElementById('avisos-continuar');
   const nota      = document.getElementById('avisos-nota');
   if(btnSeguir) btnSeguir.style.display = bloqueado ? 'none' : 'block';
   if(nota) nota.style.display = bloqueado ? 'block' : 'none';
 
-  // Los rechazados pendientes se muestran siempre (aunque el aviso ya se vio)
-  const yaListados = new Set(AVISOS.map(a=>a.hazard_code));
-  const lista = AVISOS.concat(
-    PENDIENTES.filter(p=>!yaListados.has(p.hazard_code))
-              .map(p=>({...p, revision:'Rechazado'}))
-  );
+  // Aprobados sin leer + todos los rechazos pendientes
+  const codigosRech = new Set(rechazos.map(r=>r.hazard_code));
+  const lista = AVISOS.filter(a => a.revision === 'Aprobado' && !codigosRech.has(a.hazard_code))
+                      .concat(rechazos);
 
   const rech = lista.filter(a=>a.revision==='Rechazado').length;
   const apro = lista.filter(a=>a.revision==='Aprobado').length;
@@ -2324,12 +2337,12 @@ function escapeAviso(t){
 async function cerrarAviso(code){
   AVISOS = AVISOS.filter(a=>a.hazard_code!==code);
   try{ await apiEmpleado('visto', { hazard_code: code }); }catch(_e){}
-  if(!AVISOS.length && !PENDIENTES.length){ continuarDesdeAvisos(); return; }
+  if(!AVISOS.length && !hayPendientes()){ continuarDesdeAvisos(); return; }
   pintarAvisos();
 }
 
 function continuarDesdeAvisos(){
-  if(PENDIENTES.length){
+  if(hayPendientes()){
     alert('Primero corrige tu reporte rechazado. En cuanto lo envíes podrás registrar uno nuevo.');
     pintarAvisos();
     return;
@@ -2341,7 +2354,8 @@ function continuarDesdeAvisos(){
 
 // Abre el formulario con los datos del reporte rechazado
 async function corregirHazard(code){
-  const aviso = AVISOS.find(a=>a.hazard_code===code) || PENDIENTES.find(a=>a.hazard_code===code);
+  const aviso = rechazosPendientes().find(a=>a.hazard_code===code)
+             || AVISOS.find(a=>a.hazard_code===code);
   const d = await apiEmpleado('detalle', { hazard_code: code });
   if(!d.ok){ alert(d.error||'No se pudo abrir el reporte.'); return; }
   CORRIGIENDO = code;
@@ -2501,7 +2515,7 @@ async function doLogin(){
   }
 
   // Si su HSE ya revisó reportes (o tiene rechazados sin corregir), se los mostramos
-  if(AVISOS.length || PENDIENTES.length){
+  if(AVISOS.length || hayPendientes()){
     pintarAvisos();
     setScreen('screen-avisos');
     return;
@@ -2514,7 +2528,7 @@ function doLogout(){SESSION=null;setScreen('screen-login')}
 function nuevoHazard(){
 
   // Si quedó un rechazo sin corregir, ahí es donde debe ir
-  if(PENDIENTES.length){
+  if(hayPendientes()){
     pintarAvisos();
     setScreen('screen-avisos');
     return;
@@ -2589,7 +2603,7 @@ function goForm(){
   // Candado único: mientras haya un rechazo sin corregir, el formulario
   // solo se abre en modo corrección. Cubre todos los caminos (botones,
   // "registrar otro", QR, volver al inicio, etc.).
-  if(PENDIENTES.length && !CORRIGIENDO){
+  if(hayPendientes() && !CORRIGIENDO){
     pintarAvisos();
     setScreen('screen-avisos');
     return;
@@ -3443,7 +3457,7 @@ async function idbCount(){
 async function submitForm(){
 
   // Barrera final: si hay un rechazo pendiente, no se envía un reporte nuevo
-  if(PENDIENTES.length && !CORRIGIENDO){
+  if(hayPendientes() && !CORRIGIENDO){
     alert('Tienes un reporte rechazado sin corregir. Corrígelo y después podrás registrar uno nuevo.');
     pintarAvisos();
     setScreen('screen-avisos');

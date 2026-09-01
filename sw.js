@@ -4,9 +4,11 @@
 //  - index.html y archivos raíz: NETWORK-FIRST (siempre busca la versión nueva;
 //    usa caché solo si no hay conexión). Esto evita que los cambios no se vean.
 //  - Otros recursos (íconos, librerías): CACHE-FIRST (rápidos, offline).
+//  - NUEVO: recibe notificaciones push del HSE (aprobado / rechazado) aunque
+//    la app esté cerrada.
 // Sube el número de versión cada vez que quieras forzar actualización total.
 // ════════════════════════════════════════════
-const CACHE = 'hazard-hse-v5';
+const CACHE = 'hazard-hse-v6';
 const CORE = [
   './',
   './index.html',
@@ -65,5 +67,47 @@ self.addEventListener('fetch', (e) => {
         return resp;
       }).catch(() => cached)
     )
+  );
+});
+
+// ════════════════════════════════════════════
+// NOTIFICACIONES PUSH
+// El servidor (push-send) manda: { titulo, cuerpo, code, url }
+// ════════════════════════════════════════════
+self.addEventListener('push', (e) => {
+  let d = {};
+  try {
+    d = e.data ? e.data.json() : {};
+  } catch (_err) {
+    d = { titulo: 'Hazard HSE', cuerpo: e.data ? e.data.text() : '' };
+  }
+
+  const titulo = d.titulo || 'Hazard HSE';
+  const opciones = {
+    body: d.cuerpo || '',
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    // Un aviso por reporte: si llega otro del mismo hazard, lo reemplaza
+    tag: d.code || 'hazard-revision',
+    renotify: true,
+    vibrate: [120, 60, 120],
+    data: { code: d.code || '', url: d.url || './' },
+  };
+
+  e.waitUntil(self.registration.showNotification(titulo, opciones));
+});
+
+// Al tocar la notificación: abrir la app (o enfocarla si ya está abierta)
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const scope = self.registration.scope;
+
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((lista) => {
+      for (const c of lista) {
+        if (c.url.startsWith(scope) && 'focus' in c) return c.focus();
+      }
+      return clients.openWindow(scope);
+    })
   );
 });

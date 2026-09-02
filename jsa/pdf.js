@@ -386,7 +386,8 @@
     const PW = 210, PH = 297, M = 8;
     const h = detail.head || {};
     const site = (h.jsa_sites && h.jsa_sites.site) || '';
-    const ap = (detail.approvals || [])[0];
+    const aps = detail.approvals || [];
+    const ap = aps.length ? aps[aps.length - 1] : null;   // último resultado (sello del pie)
     const photos = (detail.photos || []).filter((p) => p.image_dataurl);
 
     function header() {
@@ -467,6 +468,42 @@
         doc.text((ap.result === 'aprobado' ? 'APROBADO' : 'RECHAZADO') + (ap.approver_name ? (' · ' + ap.approver_name) : ''), PW / 2, PH - 5, { align: 'center' });
       }
     }
+
+    // ── Página de historial de revisión y aprobación (todas las rondas apiladas) ──
+    const apList = aps.filter((a) => a && a.result);
+    if (apList.length) {
+      doc.addPage();
+      header();
+      let y = M + 14 + 8;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(20, 20, 20);
+      doc.text('Revisión y aprobación', M + 3, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(90, 90, 90);
+      doc.text('Historial de aprobaciones — se conserva cada revisión.', M + 3, y);
+      y += 6;
+      const blockH = 30;
+      apList.forEach((a, i) => {
+        if (y + blockH > PH - 12) { doc.addPage(); header(); y = M + 14 + 8; }
+        doc.setDrawColor(210, 214, 224); doc.setLineWidth(0.3);
+        doc.rect(M + 1, y, PW - 2 * M - 2, blockH - 3);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(20, 20, 20);
+        doc.text('Revisión ' + (i + 1), M + 4, y + 6);
+        const okAp = a.result === 'aprobado';
+        doc.setTextColor(okAp ? 30 : 200, okAp ? 122 : 40, okAp ? 52 : 40);
+        doc.text(okAp ? 'APROBADO' : 'RECHAZADO', M + 34, y + 6);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(40, 40, 40);
+        doc.text(String(a.approver_name || '—') + (a.approver_role ? (' · ' + a.approver_role) : ''), M + 4, y + 12);
+        doc.setFontSize(8); doc.setTextColor(90, 90, 90);
+        doc.text('Fecha: ' + String(a.created_at || '').slice(0, 10), M + 4, y + 17);
+        if (a.comment) doc.text(doc.splitTextToSize('Comentario: ' + a.comment, PW - 2 * M - 62).slice(0, 2), M + 4, y + 22);
+        if (a.signature_dataurl && String(a.signature_dataurl).startsWith('data:image')) {
+          try { doc.addImage(a.signature_dataurl, 'PNG', PW - M - 50, y + 3, 44, blockH - 11); } catch (_e) {}
+        }
+        doc.setFontSize(7.5); doc.setTextColor(120, 120, 120);
+        doc.text('Firma', PW - M - 50, y + blockH - 4);
+        y += blockH;
+      });
+    }
     return doc;
   }
 
@@ -478,6 +515,7 @@
     }
     for (const p of (detail.photos || [])) p.image_dataurl = await toDataURL(p.image_url);
     for (const c of (detail.crew || [])) c.signature_url = await toDataURL(c.signature_url);
+    for (const a of (detail.approvals || [])) a.signature_dataurl = await toDataURL(a.signature_url || a.signature_dataurl);
     return detail;
   }
 

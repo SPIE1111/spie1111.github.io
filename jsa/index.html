@@ -21,7 +21,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <script src="jspdf.umd.min.js?v=6"></script>
 <script src="pdf-assets.js?v=6"></script>
-<script src="pdf.js?v=10"></script>
+<script src="pdf.js?v=11"></script>
 <style>
 /* ── RESET ── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -2050,6 +2050,16 @@ async function detailToDraft(d){
     crew, crew_declaration_accepted: !!h.crew_declaration_accepted,
   };
 }
+// Editar un JSA YA APROBADO -> se reenvía a aprobación como nueva revisión.
+// El backend conserva la(s) aprobación(es) previa(s); el PDF las apila.
+async function editarAprobado(id, btn){
+  const ok = await confirmar({ icon:'✏️', titulo:'¿Editar un JSA aprobado?',
+    mensaje:'Se abrirá para que agregues o cambies lo que necesites y se enviará de nuevo a aprobación. La aprobación anterior NO se borra: en el PDF quedará la primera aprobación y, al aprobarse otra vez, la nueva se agrega debajo.',
+    ok:'Editar y reenviar', cancel:'Cancelar' });
+  if(!ok) return;
+  await corregirJSA(id, btn);   // reabre prellenado; al reenviar usa resubmit (conserva historial)
+}
+
 // Recuperar un JSA enviado (aún sin aprobar) para volver a editarlo y reenviarlo.
 async function recuperarJSA(id, btn){
   const ok = await confirmar({ icon:'↩️', titulo:'¿Recuperar este JSA?',
@@ -2154,6 +2164,13 @@ function jsaItem(j, pendiente){
       pdf.className='sig-btn'; pdf.textContent='📄 PDF';
       pdf.onclick=(e)=>{e.stopPropagation(); descargarPDF(j.id, pdf);};
       bar.appendChild(pdf);
+      if(j.mine){   // editar un JSA ya aprobado -> nueva revisión (conserva la aprobación previa)
+        const ed = document.createElement('button');
+        ed.className='sig-btn'; ed.style='border-color:var(--amber);color:#a06b00';
+        ed.textContent='✏️ Editar y reenviar';
+        ed.onclick=(e)=>{e.stopPropagation(); editarAprobado(j.id, ed);};
+        bar.appendChild(ed);
+      }
     }
     if(j.status==='rechazado' && j.mine){
       const fix = document.createElement('button');

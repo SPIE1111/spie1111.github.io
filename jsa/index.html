@@ -2050,6 +2050,22 @@ async function detailToDraft(d){
     crew, crew_declaration_accepted: !!h.crew_declaration_accepted,
   };
 }
+// Recuperar un JSA enviado (aún sin aprobar) para volver a editarlo y reenviarlo.
+async function recuperarJSA(id, btn){
+  const ok = await confirmar({ icon:'↩️', titulo:'¿Recuperar este JSA?',
+    mensaje:'Volverá a edición para que agregues o cambies lo que necesites (un compañero, un riesgo…). El supervisor dejará de verlo hasta que lo reenvíes.',
+    ok:'Recuperar', cancel:'Cancelar' });
+  if(!ok) return;
+  if(btn){ btn.disabled=true; btn.textContent='Recuperando…'; }
+  try{
+    await api('recall',{ jsa_id:id, payroll_no:SESSION.nomina });
+    await corregirJSA(id);   // reabre prellenado para editar y reenviar
+  }catch(e){
+    toast(navigator.onLine ? ('No se pudo recuperar: '+e.message) : 'Necesitas conexión para recuperar el JSA.');
+    if(btn){ btn.disabled=false; btn.textContent='↩️ Recuperar para editar'; }
+  }
+}
+
 async function corregirJSA(id, btn){
   if(btn){ btn.disabled=true; btn.textContent='Cargando…'; }
   try{
@@ -2145,6 +2161,20 @@ function jsaItem(j, pendiente){
       fix.textContent='✏️ Corregir y reenviar';
       fix.onclick=(e)=>{e.stopPropagation(); corregirJSA(j.id, fix);};
       bar.appendChild(fix);
+    }
+    if(est==='enviado' && j.mine){   // aún sin aprobar → se puede recuperar para editar
+      const rec = document.createElement('button');
+      rec.className='sig-btn'; rec.style='border-color:var(--amber);color:#a06b00';
+      rec.textContent='↩️ Recuperar para editar';
+      rec.onclick=(e)=>{e.stopPropagation(); recuperarJSA(j.id, rec);};
+      bar.appendChild(rec);
+    }
+    if(est==='borrador' && j.mine){   // recuperado, en edición → continuar
+      const cont = document.createElement('button');
+      cont.className='sig-btn';
+      cont.textContent='✏️ Continuar edición';
+      cont.onclick=(e)=>{e.stopPropagation(); corregirJSA(j.id, cont);};
+      bar.appendChild(cont);
     }
     div.appendChild(bar);
   }

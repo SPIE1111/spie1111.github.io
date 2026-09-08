@@ -400,19 +400,45 @@ function loginEnter(ev){
   if(ev.key === 'Enter'){ ev.preventDefault(); doLogin(); }
 }
 
+// ═══════════ PERMISOS POR USUARIO ═══════════
+// Cada usuario trae desde la base qué pestañas puede ver. Ya no depende
+// de ser "admin": Rosa puede ver Cumplimiento sin ver Empleados, y Erick
+// puede ver solo Cumplimiento.
+function permisos(){
+  const s = SESSION || {};
+  return {
+    hazards: !!s.ver_hazards,
+    jsa:     !!s.ver_jsa,
+    emp:     !!s.ver_empleados,
+    cumpl:   !!s.ver_cumplimiento
+  };
+}
+
+// Primera pestaña que este usuario sí puede abrir
+function primeraVista(){
+  const P = permisos();
+  if(P.hazards) return 'hazards';
+  if(P.jsa)     return 'jsa';
+  if(P.cumpl)   return 'cumpl';
+  if(P.emp)     return 'emp';
+  return null;
+}
+
 // Pinta el panel una vez que hay SESSION (login nuevo o sesión restaurada)
 function entrarAlPanel(){
   document.getElementById('login').classList.add('hide');
   document.getElementById('app').classList.remove('hide');
-  document.getElementById('who').textContent=`${SESSION.full_name} · ${SESSION.role==='admin'?'Administrador':SESSION.country_code}`;
-  // Mostrar pestañas de admin (Empleados y Cumplimiento)
-  if(SESSION.role==='admin'){
-    document.getElementById('nav-emp').classList.remove('hide');
-    document.getElementById('nav-cumpl').classList.remove('hide');
-  }else{
-    document.getElementById('nav-emp').classList.add('hide');
-    document.getElementById('nav-cumpl').classList.add('hide');
-  }
+
+  const etiqueta = SESSION.role==='admin' ? 'Administrador'
+                 : (SESSION.country_code || 'Consulta');
+  document.getElementById('who').textContent=`${SESSION.full_name} · ${etiqueta}`;
+
+  // Cada pestaña se muestra solo si el usuario tiene ese permiso
+  const P = permisos();
+  document.getElementById('nav-hazards').classList.toggle('hide', !P.hazards);
+  document.getElementById('nav-jsa').classList.toggle('hide',     !P.jsa);
+  document.getElementById('nav-emp').classList.toggle('hide',     !P.emp);
+  document.getElementById('nav-cumpl').classList.toggle('hide',   !P.cumpl);
 }
 
 async function doLogin(){
@@ -447,7 +473,7 @@ async function doLogin(){
     document.getElementById('l-pass').value='';
     const p2el=document.getElementById('l-pass2'); if(p2el) p2el.value='';
     entrarAlPanel();
-    await loadHazards();
+    await abrirVistaInicial();
   }catch(e){
     err.textContent='No se pudo conectar. Revisa tu internet e inténtalo otra vez.';err.classList.add('show');
   }finally{
@@ -455,14 +481,29 @@ async function doLogin(){
   }
 }
 
+// Abre la primera pestaña permitida y carga sus datos
+async function abrirVistaInicial(){
+  const v = primeraVista();
+  if(!v){
+    document.getElementById('who').textContent =
+      `${SESSION.full_name} · sin pestañas asignadas`;
+    return;
+  }
+  showView(v);
+  if(v==='hazards') await loadHazards();
+}
+
 // Al abrir/recargar la página: si hay sesión vigente, entrar directo
 async function restaurarSesion(){
   const u = leerSesion();
   if(!u) return;
+  // Sesión guardada antes de los permisos por usuario: se pide login otra vez
+  // para que el navegador reciba los permisos nuevos.
+  if(u.ver_cumplimiento === undefined){ borrarSesion(); return; }
   SESSION = u;
   entrarAlPanel();
   renovarSesion();
-  await loadHazards();
+  await abrirVistaInicial();
 }
 
 async function loadHazards(){
@@ -515,6 +556,14 @@ function escapeHtml(s){return String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>'
 
 // ═══════════ NAVEGACIÓN ENTRE VISTAS ═══════════
 function showView(v){
+  // Nadie puede abrir una pestaña que no tiene asignada
+  const P = permisos();
+  const permitido = {hazards:P.hazards, jsa:P.jsa, emp:P.emp, cumpl:P.cumpl};
+  if(!permitido[v]){
+    const alt = primeraVista();
+    if(!alt || alt===v) return;
+    v = alt;
+  }
   document.getElementById('view-hazards').classList.toggle('hide', v!=='hazards');
   document.getElementById('view-emp').classList.toggle('hide', v!=='emp');
   document.getElementById('view-cumpl').classList.toggle('hide', v!=='cumpl');
@@ -526,9 +575,14 @@ function showView(v){
   if(v==='jsa' && JSA_LIST===null){ loadJSA(); }
   if(v==='emp' && !EMP_CAT){ loadEmpleados(); }
   if(v==='cumpl'){
-    // Asegurar catálogos (para paisNombre) y cargar cumplimiento del mes actual
-    if(!EMP_CAT){ loadEmpleados().then(()=>{ initCumplMes(); loadCumplimiento(); }); }
-    else { initCumplMes(); if(!CUMPL) loadCumplimiento(); }
+    // Los catálogos solo se piden si el usuario tiene acceso a Empleados;
+    // si no los tiene, el nombre del país viene en los propios datos.
+    if(!EMP_CAT && P.emp){
+      loadEmpleados().then(()=>{ initCumplMes(); loadCumplimiento(); });
+    }else{
+      initCumplMes();
+      if(!CUMPL) loadCumplimiento();
+    }
   }
 }
 
@@ -1242,7 +1296,14 @@ async function exportCSV(){
 // ═══════════════════════════════════════════════
 // MANTENIMIENTO DE EMPLEADOS (solo admin)
 // ═══════════════════════════════════════════════
-function paisNombre(id){ const p=(EMP_CAT?.paises||[]).find(x=>x.id===id); return p?`${p.flag_emoji} ${p.name}`:('País '+id); }
+function paisNombre(id){
+  const p=(EMP_CAT?.paises||[]).find(x=>x.id===id);
+  if(p) return `${p.flag_emoji} ${p.name}`;
+  // Sin catálogo (usuarios que no administran empleados): el nombre viene
+  // en los propios datos de cumplimiento.
+  const e=(CUMPL?.empleados||[]).find(x=>x.country_id===id && x.country_name);
+  return e ? e.country_name : ('País '+id);
+}
 function paisCode(id){ const p=(EMP_CAT?.paises||[]).find(x=>x.id===id); return p?p.code:''; }
 function codeToPaisId(code){ const p=(EMP_CAT?.paises||[]).find(x=>x.code===String(code).toUpperCase()); return p?p.id:null; }
 function zonasDePais(id){ return (EMP_CAT?.hse||[]).filter(h=>h.country_id===id); }
@@ -1699,6 +1760,8 @@ function buildCumplPaisFilter(){
     [...vistos.entries()].sort((a,b)=>a[0]-b[0])
       .map(([id,nom])=>`<option value="${id}">${nom}</option>`).join('');
   sel.value = actual; // conservar selección si sigue válida
+  // Si el usuario solo ve un país, el filtro no aporta nada: se oculta
+  sel.classList.toggle('hide', vistos.size < 2);
 }
 
 // Medidor lineal con color por nivel y línea de meta al 95%

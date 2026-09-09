@@ -52,6 +52,23 @@
   .pill.on{background:#222953;border-color:#222953;color:#fff}
   .pill.on b{color:#fff}
   .pill b{color:var(--steel)}
+  .sub2{font-weight:600;font-size:11.5px;color:var(--muted);letter-spacing:.01em}
+  .pill.on .sub2{color:rgba(255,255,255,.8)}
+  /* Bitácora del hazard */
+  .hist{border-left:2px solid var(--line);margin:4px 0 0 6px;padding-left:14px}
+  .hist .ev{position:relative;padding:9px 0}
+  .hist .ev::before{content:'';position:absolute;left:-21px;top:14px;width:9px;height:9px;border-radius:50%;background:var(--steel);border:2px solid #fff}
+  .hist .ev.apro::before{background:var(--green,#1a8a4a)}
+  .hist .ev.rech::before{background:var(--red,#c0392b)}
+  .hist .ev .acc{font-weight:700;font-size:13.5px}
+  .hist .ev .cuando{font-size:12.5px;color:var(--muted)}
+  .hist .ev .lapso{font-size:12.5px;color:var(--steel);font-weight:600}
+  .hist .ev .det{font-size:13px;margin-top:3px}
+  .hist .aprox{font-size:11.5px;color:var(--muted);font-style:italic}
+  .tmt{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 2px}
+  .tmt .box{border:1px solid var(--line);border-radius:9px;padding:8px 12px;background:#fff;min-width:150px}
+  .tmt .box .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+  .tmt .box .val{font-size:14px;font-weight:700;margin-top:2px}
   table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
   th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:11px 12px;border-bottom:2px solid var(--line);background:#fafbfc}
   td{padding:11px 12px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
@@ -317,6 +334,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let SESSION = null, HAZARDS = [], _needsPass = false;
 let REVISIONES = {};   // hazard_code -> { revision, revision_motivo, revision_por, revision_en }
 let COMMENTS_BY_CODE = {};
+let TIEMPOS = {};      // hazard_code -> { n_rechazos, n_aprobaciones, min_a_primera_revision, ... }
 let EMPLEADOS = [], EMP_CAT = null; // catálogos: paises, hse, oficinas
 let CUMPL = null; // datos de cumplimiento {resumen, empleados, desde, hasta}
 let JSA_LIST = null, JSA_COUNTRIES = []; // JSA para el panel HSE
@@ -527,6 +545,7 @@ async function loadHazards(){
   if (rv.ok && rv.revisiones) {
     for (const r of rv.revisiones) REVISIONES[r.hazard_code] = r;
   }
+  await cargarTiempos();
   buildCategoryFilter();
   buildPaisFilter();
   render();
@@ -947,6 +966,45 @@ function revBadge(code){
   return '<span class="rev pend">Por revisar</span>';
 }
 
+// ═══════════ TIEMPOS Y BITÁCORA ═══════════
+// Los tiempos se miden en MINUTOS. Se piden al servidor junto con los hazards.
+async function cargarTiempos(){
+  try{
+    const t = await api('tiempos');
+    TIEMPOS = {};
+    if(t.ok && t.tiempos) for(const x of t.tiempos) TIEMPOS[x.hazard_code] = x;
+  }catch(_e){ TIEMPOS = {}; }
+}
+
+function tiempoDe(code){ return TIEMPOS[code] || {}; }
+
+// 1 340  →  "1 340 min (22 h 20 min)".  Siempre se muestra el minuto exacto.
+function fmtMin(m){
+  if(m===null || m===undefined || isNaN(m)) return '—';
+  const min = Math.max(0, Math.round(m));
+  const txt = min.toLocaleString('es-MX') + ' min';
+  if(min < 60) return txt;
+  const d = Math.floor(min/1440), h = Math.floor((min%1440)/60), r = min%60;
+  const partes = [];
+  if(d) partes.push(d+' d');
+  if(h) partes.push(h+' h');
+  if(r && !d) partes.push(r+' min');
+  return `${txt} (${partes.join(' ')})`;
+}
+
+// Suma las acciones de la bitácora sobre un conjunto de hazards.
+// Un hazard rechazado dos veces y luego aprobado suma 2 rechazos y 1 aprobación.
+function conteoAcciones(lista){
+  let rech = 0, apro = 0, corr = 0;
+  for(const h of lista){
+    const t = tiempoDe(h.hazard_code);
+    rech += (t.n_rechazos      || 0);
+    apro += (t.n_aprobaciones  || 0);
+    corr += (t.n_correcciones  || 0);
+  }
+  return { rech, apro, corr };
+}
+
 function render(){
   const filtered = aplicarFiltros(HAZARDS);
   const fe = document.getElementById('fEstatus').value;
@@ -958,12 +1016,24 @@ function render(){
   const cerrados = base.filter(h=>(h.estatus||'').toLowerCase().includes('cerrad')).length;
   const proceso  = base.filter(h=>(h.estatus||'').toLowerCase().includes('proces')).length;
 
+  // Revisión: cuántos hazards están en cada estado HOY, y entre paréntesis
+  // cuántas acciones se han hecho en total (un hazard rechazado dos veces
+  // suma dos rechazos, aunque hoy ya esté aprobado).
+  const fr = (document.getElementById('fRevision')||{}).value || '';
+  const nPend = base.filter(h=>revisionDe(h.hazard_code)==='Pendiente').length;
+  const nApro = base.filter(h=>revisionDe(h.hazard_code)==='Aprobado').length;
+  const nRech = base.filter(h=>revisionDe(h.hazard_code)==='Rechazado').length;
+  const acc   = conteoAcciones(base);
+
   document.getElementById('stats').innerHTML=
     `<span class="pill click ${fe===''?'on':''}" onclick="filtrarEstatus('')">Total <b>${base.length}</b></span>`+
     `<span class="pill click ${fe==='Abierto'?'on':''}" onclick="filtrarEstatus('Abierto')">Abiertos <b>${abiertos}</b></span>`+
     `<span class="pill click ${fe==='En proceso'?'on':''}" onclick="filtrarEstatus('En proceso')">En proceso <b>${proceso}</b></span>`+
     `<span class="pill click ${fe==='Cerrado'?'on':''}" onclick="filtrarEstatus('Cerrado')">Cerrados <b>${cerrados}</b></span>`+
-    `<span class="pill click" onclick="filtrarRevision('Pendiente')" title="Hazards que aún no revisas">Por revisar <b>${base.filter(h=>revisionDe(h.hazard_code)==='Pendiente').length}</b></span>`;
+    `<span class="pill click ${fr==='Pendiente'?'on':''}" onclick="filtrarRevision('Pendiente')" title="Hazards que aún no revisas">Por revisar <b>${nPend}</b></span>`+
+    `<span class="pill click ${fr==='Aprobado'?'on':''}" onclick="filtrarRevision('Aprobado')" title="Hazards aprobados hoy. Entre paréntesis, el total de aprobaciones registradas.">✓ Aprobados <b>${nApro}</b>${acc.apro!==nApro?` <span class="sub2">(${acc.apro} acciones)</span>`:''}</span>`+
+    `<span class="pill click ${fr==='Rechazado'?'on':''}" onclick="filtrarRevision('Rechazado')" title="Hazards rechazados hoy. Entre paréntesis, el total de rechazos registrados, incluyendo los que ya se corrigieron.">✕ Rechazados <b>${nRech}</b>${acc.rech!==nRech?` <span class="sub2">(${acc.rech} rechazos)</span>`:''}</span>`+
+    (acc.corr?`<span class="pill" title="Correcciones que los empleados han reenviado">↻ Correcciones <b>${acc.corr}</b></span>`:'');
 
   const info=document.getElementById('filtro-info');
   if(info){
@@ -1036,6 +1106,12 @@ async function openHazard(code){
     <h3>Revisión del reporte</h3>
     <div id="m-revision"></div>
 
+    <h3>Tiempos de atención</h3>
+    <div id="m-tiempos"></div>
+
+    <h3>Historial de acciones</h3>
+    <div id="m-historial" class="muted" style="font-size:13px">Cargando…</div>
+
     <h3>Evidencia fotográfica de cierre</h3>
     <div class="row" style="align-items:center;gap:8px;flex-wrap:wrap">
       <label class="btn sm" for="m-foto-cam">📷 Tomar foto</label>
@@ -1052,8 +1128,60 @@ async function openHazard(code){
       <button class="btn sm" onclick="addComment('${h.hazard_code}')">Añadir</button>
     </div>`;
   pintarRevision(h.hazard_code);
+  pintarTiempos(h.hazard_code);
   document.getElementById('modal').classList.add('show');
   loadComments(h.hazard_code);
+  cargarHistorial(h.hazard_code);
+}
+
+// Resumen de tiempos del hazard, en minutos
+function pintarTiempos(code){
+  const cont = document.getElementById('m-tiempos');
+  if(!cont) return;
+  const t = tiempoDe(code);
+  const caja = (lbl, val, extra) =>
+    `<div class="box"><div class="lbl">${lbl}</div><div class="val">${val}</div>${extra?`<div class="aprox">${extra}</div>`:''}</div>`;
+
+  const sinRevisar = t.min_a_primera_revision === null || t.min_a_primera_revision === undefined;
+  cont.innerHTML = `<div class="tmt">
+    ${caja('Espera de revisión',
+        sinRevisar ? fmtMin(t.min_sin_movimiento) + ' y contando' : fmtMin(t.min_a_primera_revision),
+        sinRevisar ? 'Todavía sin revisar' : 'Del registro a la primera revisión')}
+    ${caja('Hasta la aprobación', fmtMin(t.min_a_aprobacion), t.min_a_aprobacion==null?'Aún no aprobado':'Del registro a la aprobación')}
+    ${caja('Hasta el cierre', fmtMin(t.min_a_cierre),
+        t.min_a_cierre==null ? 'Aún no cerrado'
+        : (t.cierre_estimado ? 'Aproximado · dato anterior a la bitácora' : 'Del registro al cierre'))}
+    ${caja('Idas y vueltas', `${t.n_rechazos||0} rechazo(s) · ${t.n_correcciones||0} corrección(es)`, '')}
+  </div>`;
+}
+
+// Bitácora completa: qué pasó, cuándo, y cuánto tardó cada paso
+async function cargarHistorial(code){
+  const cont = document.getElementById('m-historial');
+  if(!cont) return;
+  const d = await api('historial', { code });
+  if(!d.ok){ cont.textContent = d.error || 'No se pudo cargar el historial.'; return; }
+  const evs = d.eventos || [];
+  if(!evs.length){ cont.textContent = 'Sin movimientos registrados.'; return; }
+
+  const ICONO = {
+    'Registrado':'📝', 'Aprobado':'✓', 'Rechazado':'✕',
+    'Corregido':'↻', 'Estatus':'🔄', 'Foto de cierre':'📷'
+  };
+  cont.classList.remove('muted');
+  cont.innerHTML = '<div class="hist">' + evs.map((e,i)=>{
+    const cls = e.accion==='Aprobado' ? 'apro' : e.accion==='Rechazado' ? 'rech' : '';
+    const titulo = e.accion==='Estatus' ? `Estatus: ${escapeHtml(e.detalle||'')}` : e.accion;
+    const lapso = i===0 ? 'inicio'
+      : `+${fmtMin(e.min_desde_anterior)} desde el paso anterior · ${fmtMin(e.min_desde_registro)} desde el registro`;
+    return `<div class="ev ${cls}">
+      <div class="acc">${ICONO[e.accion]||'•'} ${escapeHtml(titulo)}</div>
+      <div class="cuando">${new Date(e.creado_en).toLocaleString('es-MX')}${e.actor?` · ${escapeHtml(e.actor)}`:''}</div>
+      <div class="lapso">${lapso}</div>
+      ${e.detalle && e.accion!=='Estatus' ? `<div class="det">${escapeHtml(e.detalle)}</div>` : ''}
+      ${e.estimado ? '<div class="aprox">Fecha aproximada: este movimiento es anterior a la bitácora.</div>' : ''}
+    </div>`;
+  }).join('') + '</div>';
 }
 
 async function loadComments(code){
@@ -1216,14 +1344,24 @@ async function revisar(code, revision){
     revision_en: new Date().toISOString(),
     corregido_en: (REVISIONES[code]||{}).corregido_en || null
   };
+  await cargarTiempos();
   pintarRevision(code);
+  pintarTiempos(code);
+  cargarHistorial(code);
   render();
 }
 
 async function saveStatus(code){
   const status=document.getElementById('m-status').value;
   const d=await api('status',{code,status});
-  if(d.ok){const h=HAZARDS.find(x=>x.hazard_code===code);if(h)h.estatus=status;render();alert('Estatus actualizado.');}
+  if(d.ok){
+    const h=HAZARDS.find(x=>x.hazard_code===code); if(h)h.estatus=status;
+    await cargarTiempos();
+    pintarTiempos(code);
+    cargarHistorial(code);
+    render();
+    alert('Estatus actualizado.');
+  }
   else alert(d.error||'No se pudo actualizar.');
 }
 
@@ -1247,7 +1385,7 @@ function logout(){borrarSesion();SESSION=null;location.reload();}
 
 async function exportCSV(){
   if (typeof XLSX === 'undefined') { alert('La librería de Excel no cargó. Verifica que xlsx.min.js esté subido junto al panel.'); return; }
-  const [exp, com] = await Promise.all([ api('export'), api('all-comments') ]);
+  const [exp, com, hist] = await Promise.all([ api('export'), api('all-comments'), api('historial') ]);
   // Exportar SOLO lo que está viendo en pantalla (mismo filtro activo)
   const rows = aplicarFiltros(exp.ok ? exp.rows : HAZARDS);
   const codigos = new Set(rows.map(h=>h.hazard_code));
@@ -1270,6 +1408,14 @@ async function exportCSV(){
     'Revisión': revisionDe(h.hazard_code),
     'Motivo de rechazo': (REVISIONES[h.hazard_code]||{}).revision_motivo || '',
     'Revisado por': (REVISIONES[h.hazard_code]||{}).revision_por || '',
+    // ── Tiempos de atención, en MINUTOS ──
+    'Rechazos (total)':     tiempoDe(h.hazard_code).n_rechazos ?? 0,
+    'Aprobaciones (total)': tiempoDe(h.hazard_code).n_aprobaciones ?? 0,
+    'Correcciones (total)': tiempoDe(h.hazard_code).n_correcciones ?? 0,
+    'Min. hasta 1ra revisión': tiempoDe(h.hazard_code).min_a_primera_revision ?? '',
+    'Min. hasta aprobación':   tiempoDe(h.hazard_code).min_a_aprobacion ?? '',
+    'Min. hasta cierre':       tiempoDe(h.hazard_code).min_a_cierre ?? '',
+    'Min. sin movimiento':     tiempoDe(h.hazard_code).min_sin_movimiento ?? '',
     'Fecha cierre': h.fecha_cierre || '',
     'HSE': h.hse_name,
     'Foto evidencia (SharePoint)': h.foto_sharepoint_url || '',
@@ -1282,9 +1428,23 @@ async function exportCSV(){
     'Fecha': c.at ? new Date(c.at).toLocaleString('es-MX') : '',
     'Comentario / Acción': c.comment
   }));
+  // Hoja de historial: una fila por acción, con los minutos que tardó cada paso
+  const eventos = ((hist && hist.ok) ? (hist.eventos||[]) : []).filter(e=>codigos.has(e.hazard_code));
+  const hoja3 = eventos.map(e=>({
+    'Código Hazard': e.hazard_code,
+    'Acción': e.accion==='Estatus' ? `Estatus: ${e.detalle||''}` : e.accion,
+    'Fecha y hora': e.creado_en ? new Date(e.creado_en).toLocaleString('es-MX') : '',
+    'Quién': e.actor || '',
+    'Detalle / motivo': (e.accion==='Estatus' ? '' : (e.detalle||'')),
+    'Min. desde el paso anterior': e.min_desde_anterior ?? '',
+    'Min. desde el registro': e.min_desde_registro ?? '',
+    'Fecha aproximada': e.estimado ? 'Sí' : ''
+  }));
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hoja1), 'Hazards');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hoja2.length?hoja2:[{'Sin comentarios':''}]), 'Seguimiento');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hoja3.length?hoja3:[{'Sin historial':''}]), 'Historial');
   // El nombre del archivo refleja el filtro (mes / estatus) para no confundir reportes
   const fm=(document.getElementById('fMes')||{}).value||'';
   const fe=document.getElementById('fEstatus').value||'';

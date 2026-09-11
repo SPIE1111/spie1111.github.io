@@ -261,6 +261,7 @@
     <div class="toolbar">
       <button class="btn sm" id="jsa-mode-list" onclick="setJsaMode('list')">📋 Lista</button>
       <button class="btn sm ghost" id="jsa-mode-person" onclick="setJsaMode('person')">👤 Por persona</button>
+      <button class="btn sm ghost" id="jsa-mode-compliance" onclick="setJsaMode('compliance')">✅ Cumplimiento</button>
       <select id="jsa-rango" onchange="onRangoChange()">
         <option value="all" selected>Todo el tiempo</option>
         <option value="week">Esta semana</option>
@@ -289,7 +290,7 @@
       </div>
       <table>
         <thead><tr>
-          <th>Folio</th><th>Fecha</th><th class="hide-sm">Sitio</th>
+          <th>Folio</th><th>Fecha</th><th class="hide-sm">Proyecto</th>
           <th class="hide-sm">Creó</th><th>Trabajo</th><th>Estatus</th><th>Reporte</th>
         </tr></thead>
         <tbody id="jsa-rows"></tbody>
@@ -314,6 +315,31 @@
         <tbody id="jsa-person-rows"></tbody>
       </table>
       <p class="muted" id="jsa-person-empty" style="text-align:center;padding:30px;display:none">Sin datos en este periodo.</p>
+    </div>
+
+    <!-- Modo CUMPLIMIENTO (quién envió / quién no, contra el padrón) -->
+    <div id="jsa-compliance-view" class="hide">
+      <div class="stat" id="jsa-comp-stats"></div>
+      <div class="toolbar">
+        <input id="jsa-comp-q" placeholder="Buscar técnico por nombre o nómina..." oninput="renderCompliance()"/>
+        <select id="jsa-comp-pais" onchange="renderCompliance()"><option value="">Todos los países</option></select>
+        <select id="jsa-comp-filter" onchange="renderCompliance()">
+          <option value="">Todos</option>
+          <option value="faltan">Solo los que faltan</option>
+          <option value="enviaron">Solo los que enviaron</option>
+        </select>
+        <button class="btn sm ghost" onclick="loadCompliance()">↻ Actualizar</button>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Técnico</th><th>Nómina</th>
+          <th class="hide-sm">País</th><th class="hide-sm">Proyecto</th>
+          <th style="text-align:center">Estado</th>
+          <th style="text-align:center">JSA</th>
+        </tr></thead>
+        <tbody id="jsa-comp-rows"></tbody>
+      </table>
+      <p class="muted" id="jsa-comp-empty" style="text-align:center;padding:30px;display:none">Sin datos.</p>
     </div>
   </div>
 </div>
@@ -685,18 +711,77 @@ function onRangoChange(){
   document.getElementById('jsa-from').classList.toggle('hide', !custom);
   document.getElementById('jsa-to').classList.toggle('hide', !custom);
   if(custom) return; // esperar a que elija ambas fechas
-  if(JSA_MODE==='person') loadPersonStats(); else renderJSA();
+  _rangoReload();
 }
-function onRangoCustom(){ if(JSA_MODE==='person') loadPersonStats(); else renderJSA(); }
+function onRangoCustom(){ _rangoReload(); }
+function _rangoReload(){
+  if(JSA_MODE==='person') loadPersonStats();
+  else if(JSA_MODE==='compliance') loadCompliance();
+  else renderJSA();
+}
 
 function setJsaMode(mode){
   JSA_MODE = mode;
-  const isP = mode==='person';
-  document.getElementById('jsa-list-view').classList.toggle('hide', isP);
-  document.getElementById('jsa-person-view').classList.toggle('hide', !isP);
-  document.getElementById('jsa-mode-list').classList.toggle('ghost', isP);
-  document.getElementById('jsa-mode-person').classList.toggle('ghost', !isP);
-  if(isP && !JSA_PEOPLE) loadPersonStats();
+  const show=(id,on)=>document.getElementById(id).classList.toggle('hide', !on);
+  show('jsa-list-view', mode==='list');
+  show('jsa-person-view', mode==='person');
+  show('jsa-compliance-view', mode==='compliance');
+  document.getElementById('jsa-mode-list').classList.toggle('ghost', mode!=='list');
+  document.getElementById('jsa-mode-person').classList.toggle('ghost', mode!=='person');
+  document.getElementById('jsa-mode-compliance').classList.toggle('ghost', mode!=='compliance');
+  if(mode==='person' && !JSA_PEOPLE) loadPersonStats();
+  if(mode==='compliance' && !JSA_COMPLIANCE) loadCompliance();
+}
+
+// ── Cumplimiento: quién envió / quién no (contra el padrón) ──
+let JSA_COMPLIANCE = null;
+async function loadCompliance(){
+  const tb = document.getElementById('jsa-comp-rows');
+  tb.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Cargando…</td></tr>';
+  const esAdmin = SESSION.role==='admin';
+  const paisFiltro = esAdmin ? '' : (JSA_PAIS_NOMBRE[SESSION.country_code]||'');
+  const rg = currentRange();
+  try{
+    const d = await jsaApi('panel-compliance', { country: paisFiltro, from: rg.from, to: rg.to });
+    JSA_COMPLIANCE = d;
+    // poblar filtro de país (una vez)
+    const selP = document.getElementById('jsa-comp-pais');
+    const paises = [...new Set((d.people||[]).map(p=>p.country).filter(Boolean))].sort();
+    if(selP.options.length<=1) selP.innerHTML = '<option value="">Todos los países</option>' + paises.map(c=>`<option>${escapeHtml(c)}</option>`).join('');
+    renderCompliance();
+  }catch(e){
+    tb.innerHTML = `<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">No se pudo cargar (${escapeHtml(e.message)})</td></tr>`;
+  }
+}
+function renderCompliance(){
+  if(!JSA_COMPLIANCE) return;
+  const q = (document.getElementById('jsa-comp-q').value||'').toLowerCase().trim();
+  const filtro = document.getElementById('jsa-comp-filter').value;
+  const pais = document.getElementById('jsa-comp-pais').value;
+  const scoped = pais ? JSA_COMPLIANCE.people.filter(p=>p.country===pais) : JSA_COMPLIANCE.people;
+  let list = scoped.slice();
+  if(q) list = list.filter(p=>((p.name||'')+' '+(p.payroll||'')).toLowerCase().includes(q));
+  if(filtro==='faltan') list = list.filter(p=>!p.sent);
+  if(filtro==='enviaron') list = list.filter(p=>p.sent);
+  // stats del alcance (país seleccionado o todos)
+  const env = scoped.filter(p=>p.sent).length, tot = scoped.length;
+  const pct = tot ? Math.round(env*100/tot) : 0;
+  document.getElementById('jsa-comp-stats').innerHTML =
+    `<span class="pill">Técnicos <b>${tot}</b></span>`+
+    `<span class="pill">Enviaron <b>${env}</b></span>`+
+    `<span class="pill">Faltan <b>${tot-env}</b></span>`+
+    `<span class="pill">Cumplimiento <b>${pct}%</b></span>`;
+  const tb = document.getElementById('jsa-comp-rows');
+  document.getElementById('jsa-comp-empty').style.display = list.length?'none':'block';
+  tb.innerHTML = list.map(p=>`
+    <tr class="main">
+      <td>${escapeHtml(p.name||'')}</td>
+      <td>${escapeHtml(p.payroll||'')}</td>
+      <td class="hide-sm">${escapeHtml(p.country||'')}</td>
+      <td class="hide-sm">${escapeHtml((p.project||'').slice(0,45))}</td>
+      <td style="text-align:center">${p.sent?'<span class="tag cerrado">✅ Envió</span>':'<span class="tag baja">⭕ Falta</span>'}</td>
+      <td style="text-align:center">${p.count||0}</td>
+    </tr>`).join('');
 }
 
 async function loadPersonStats(){

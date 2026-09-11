@@ -406,8 +406,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
 
       <!-- Captura -->
       <div id="cl-captura">
-        <label class="req">Sitio / Parque</label>
+        <label class="req">Proyecto</label>
         <select id="cl-site" onchange="CL.site_id=this.value;CL.site_name=this.options[this.selectedIndex]?.text||''"></select>
+        <div id="cl-proj-hint" class="sub mt0" style="color:var(--cyan);display:none"></div>
         <div id="cl-site-err" class="err">No se pudo cargar el catálogo de sitios. Conéctate una vez para descargarlo.</div>
 
         <label style="margin-top:16px">Fotos del JSA del cliente</label>
@@ -489,8 +490,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
         <h2>Datos generales</h2>
         <div class="sub mt0">Información del trabajo por realizar.</div>
 
-        <label class="req">Sitio / Parque</label>
+        <label class="req">Proyecto</label>
         <select id="f-site" onchange="D.site_id=this.value;D.site_name=this.options[this.selectedIndex]?.text||''"></select>
+        <div id="f-proj-hint" class="sub mt0" style="color:var(--cyan);display:none"></div>
         <div id="site-err" class="err">No se pudo cargar el catálogo de sitios. Conéctate una vez para descargarlo.</div>
 
         <div style="display:flex;gap:10px">
@@ -1017,6 +1019,7 @@ function doSalir(){
   SESSION = null;
   _empValidado = null;
   SUP_TOKEN = null;
+  MY_PROJECTS = null;
   ME = {is_supervisor:false, sites:[], pending_approvals:0, unread_notifications:0};
   document.getElementById('l-nomina').value = '';
   document.getElementById('l-verif').classList.remove('show');
@@ -1058,7 +1061,7 @@ async function cargarSitios(){
 function pintarSitios(sites){
   const sel = document.getElementById('f-site');
   const errEl = document.getElementById('site-err');
-  sel.innerHTML = '<option value="">— Selecciona el sitio —</option>';
+  sel.innerHTML = '<option value="">— Selecciona el proyecto —</option>';
   if(!sites || !sites.length){ errEl.classList.add('show'); return; }
   errEl.classList.remove('show');
   // Sitios del país del usuario primero
@@ -1135,12 +1138,39 @@ function draftDecision(continuar){
   _pendingDraft = null;
   arrancarWizard();
 }
+// Proyecto(s) asignado(s) al técnico según el padrón; el JSA se autollena con él.
+let MY_PROJECTS = null;
+async function cargarMiProyecto(){
+  if(MY_PROJECTS) return MY_PROJECTS;
+  try{ const d = await api('my-project',{payroll_no:SESSION.nomina}); MY_PROJECTS = d.projects||[]; }
+  catch(_e){ MY_PROJECTS = []; }
+  return MY_PROJECTS;
+}
+async function preseleccionarProyecto(selectId, hintId){
+  const mp = await cargarMiProyecto();
+  const hint = document.getElementById(hintId);
+  const sel = document.getElementById(selectId);
+  if(!mp.length){ if(hint) hint.style.display='none'; return null; }
+  const p = mp[0];
+  if(sel) sel.value = p.site_id;
+  if(hint){
+    hint.innerHTML = mp.length>1
+      ? `📌 Tu proyecto: <b>${p.project}</b>. Si es otro, elígelo arriba (${mp.length} asignados).`
+      : `📌 Proyecto asignado automáticamente: <b>${p.project}</b>. Si necesitas otro, cámbialo arriba.`;
+    hint.style.display='block';
+  }
+  return p;
+}
+
 async function arrancarWizard(){
   wizStep = 1;
   initWizardUI();
   showView('v-jsa');
   const sites = await cargarSitios();
   pintarSitios(sites);
+  const p = await preseleccionarProyecto('f-site','f-proj-hint');
+  if(p && !D.site_id){ D.site_id=p.site_id; D.site_name=p.project; }
+  else if(D.site_id){ const s=document.getElementById('f-site'); if(s) s.value=D.site_id; }
 }
 
 // ════════════════════════════════════════════
@@ -1162,12 +1192,14 @@ async function nuevoJSACliente(){
   showView('v-cliente');
   const sites = await cargarSitios();
   pintarSitiosCliente(sites);
+  const p = await preseleccionarProyecto('cl-site','cl-proj-hint');
+  if(p && !CL.site_id){ CL.site_id=p.site_id; CL.site_name=p.project; }
 }
 
 function pintarSitiosCliente(sites){
   const sel = document.getElementById('cl-site');
   const errEl = document.getElementById('cl-site-err');
-  sel.innerHTML = '<option value="">— Selecciona el sitio —</option>';
+  sel.innerHTML = '<option value="">— Selecciona el proyecto —</option>';
   if(!sites || !sites.length){ errEl.classList.add('show'); return; }
   errEl.classList.remove('show');
   const pais = (SESSION?.pais||'').toUpperCase();
@@ -1387,7 +1419,7 @@ function _zToggle(focal){ const z=_zoom; if(!z) return; if(z.s>1.05){ _zRecenter
 function clContinuar(){
   const err = document.getElementById('cl-captura-err');
   CL.site_id = document.getElementById('cl-site').value;
-  if(!CL.site_id){ err.textContent='Selecciona el sitio.'; err.classList.add('show'); return; }
+  if(!CL.site_id){ err.textContent='Selecciona el proyecto.'; err.classList.add('show'); return; }
   if(!CL.photos.length){ err.textContent='Toma al menos una foto del JSA del cliente.'; err.classList.add('show'); return; }
   err.classList.remove('show');
   document.getElementById('cl-captura').style.display='none';
@@ -1587,7 +1619,7 @@ function leerPaso(n){
 
 function validarPaso(n){
   if(n===1){
-    if(!D.site_id) return 'Selecciona el sitio.';
+    if(!D.site_id) return 'Selecciona el proyecto.';
     if(!D.work_date) return 'Indica la fecha.';
     if(!D.work_time) return 'Indica la hora.';
     if(!D.work_description) return 'Describe el trabajo por realizar.';

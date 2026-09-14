@@ -1006,6 +1006,7 @@ async function verificarPIN(){
     const d = await api('verify-pin',{payroll_no:SESSION.nomina, pin});
     SUP_TOKEN = d.token;
     entrarHome();
+    reArchivarPendientes();   // red de seguridad: sube lo que quedó sin archivar (silencioso)
   }catch(e){
     errEl.textContent = e.message || 'PIN incorrecto.';
     errEl.classList.add('show');
@@ -2445,15 +2446,31 @@ async function generarDocDeDetalle(d){
   return generarJSAPDF(d);
 }
 
-// Genera el PDF final y lo archiva en el bucket (report_url). Best-effort.
+// Genera el PDF final y lo archiva en el bucket + SharePoint (report_url). Best-effort.
+// Devuelve true si se archivó correctamente.
 async function archivarReporte(id){
   try{
-    if(typeof generarJSAPDF!=='function') return;
+    if(typeof generarJSAPDF!=='function') return false;
     const d = await api('jsa-detail',{id});
     const doc = await generarDocDeDetalle(d);
     const b64 = doc.output('datauristring').split(',').pop();
-    await api('store-report',{ jsa_id:id, pdf_base64:b64, token:SUP_TOKEN, supervisor_payroll_no:SESSION.nomina });
-  }catch(_e){ /* si falla, el panel podrá regenerarlo luego */ }
+    const r = await api('store-report',{ jsa_id:id, pdf_base64:b64, token:SUP_TOKEN, supervisor_payroll_no:SESSION.nomina });
+    return !!(r && r.ok);
+  }catch(_e){ return false; /* se reintentará la próxima vez que entre el HSE */ }
+}
+
+// Red de seguridad: al entrar el HSE, re-archiva en silencio los JSA aprobados de
+// sus sitios que se quedaron sin subir (p.ej. si su app tenía una versión vieja al aprobar).
+async function reArchivarPendientes(){
+  if(!SUP_TOKEN) return;
+  try{
+    const d = await api('pending-archives',{payroll_no:SESSION.nomina});
+    const lista = d.jsas||[];
+    if(!lista.length) return;
+    let ok=0;
+    for(const j of lista){ if(await archivarReporte(j.id)) ok++; }
+    if(ok>0){ toast('☁️ '+ok+' JSA subido(s) a SharePoint.'); refreshBadges(); }
+  }catch(_e){}
 }
 
 async function descargarPDF(id, btn){

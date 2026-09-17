@@ -53,6 +53,12 @@
   .pill.on b{color:#fff}
   .pill b{color:var(--steel)}
   .sub2{font-weight:600;font-size:11.5px;color:var(--muted);letter-spacing:.01em}
+  /* Nivel de riesgo */
+  .riesgo{display:inline-block;margin-top:3px;font-size:11px;font-weight:800;letter-spacing:.04em;
+          text-transform:uppercase;border-radius:5px;padding:2px 7px;border:1px solid}
+  .riesgo.alto {color:#a32318;background:#fdecea;border-color:#f0b6ae}
+  .riesgo.medio{color:#8a5200;background:#fdf3e2;border-color:#f0d3a0}
+  .riesgo.bajo {color:#14663a;background:#e8f6ee;border-color:#a9dcc0}
   .pill.on .sub2{color:rgba(255,255,255,.8)}
   /* Bitácora del hazard */
   .hist{border-left:2px solid var(--line);margin:4px 0 0 6px;padding-left:14px}
@@ -170,6 +176,12 @@
       </select>
       <select id="fPais" onchange="render()">
         <option value="">Países</option>
+      </select>
+      <select id="fRiesgo" onchange="render()" title="Nivel de riesgo del hazard">
+        <option value="">Nivel de riesgo</option>
+        <option value="alto">Alto</option>
+        <option value="medio">Medio</option>
+        <option value="bajo">Bajo</option>
       </select>
       <select id="fRevision" onchange="render()">
         <option value="">Revisión</option>
@@ -984,8 +996,10 @@ function aplicarFiltros(lista){
   const fm = (document.getElementById('fMes')||{}).value || '';
   const fp = (document.getElementById('fPais')||{}).value || '';
   const fr = (document.getElementById('fRevision')||{}).value || '';
+  const fg = (document.getElementById('fRiesgo')||{}).value || '';
   return (lista||[]).filter(h=>{
     if(fr && revisionDe(h.hazard_code) !== fr) return false;
+    if(fg && nivelDe(h) !== fg) return false;
     const txt = `${h.hazard_code} ${h.employee_name} ${h.parque} ${h.tipo_riesgo}`.toLowerCase();
     return (!q || txt.includes(q))
         && (!fe || (h.estatus||'').includes(fe))
@@ -1014,6 +1028,7 @@ function limpiarFiltros(){
   const m=document.getElementById('fMes'); if(m) m.value='';
   const pa=document.getElementById('fPais'); if(pa) pa.value='';
   const rv=document.getElementById('fRevision'); if(rv) rv.value='';
+  const rg=document.getElementById('fRiesgo'); if(rg) rg.value='';
   render();
 }
 
@@ -1031,12 +1046,33 @@ function filtroTexto(){
   }
   const fp=(document.getElementById('fPais')||{}).value||'';
   const fr=(document.getElementById('fRevision')||{}).value||'';
+  const fg=(document.getElementById('fRiesgo')||{}).value||'';
   if(fp) partes.push(fp);
+  if(fg) partes.push('riesgo '+fg);
   if(fr) partes.push(fr==='Pendiente'?'por revisar':fr.toLowerCase()+'s');
   if(fe) partes.push(fe);
   if(fn) partes.push(`categoría ${fn} · ${CAT_LABEL[fn]||''}`);
   if(q)  partes.push(`"${q}"`);
   return partes.join(' · ');
+}
+
+// Nivel de riesgo normalizado: 'alto' | 'medio' | 'bajo' | ''
+// Se acepta como venga capturado ("Alto", "ALTO", "Riesgo alto", "Medio/Moderado"…)
+function nivelDe(h){
+  const t = String(h.nivel||'').toLowerCase()
+              .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(!t) return '';
+  if(t.includes('alt') || t.includes('critic') || t.includes('grave')) return 'alto';
+  if(t.includes('med') || t.includes('moder'))  return 'medio';
+  if(t.includes('baj') || t.includes('leve'))   return 'bajo';
+  return '';
+}
+
+function nivelBadge(h){
+  const n = nivelDe(h);
+  if(!n) return '';
+  const txt = {alto:'Alto', medio:'Medio', bajo:'Bajo'}[n];
+  return `<span class="riesgo ${n}">${txt}</span>`;
 }
 
 // Estado de revisión de un hazard (los viejos quedan como Pendiente)
@@ -1139,7 +1175,7 @@ function render(){
       <td><b>${h.hazard_code}</b></td><td>${fecha}</td>
       <td class="hide-sm">${escapeHtml(h.employee_name)||''}</td>
       <td>${escapeHtml(h.parque)||''}</td>
-      <td>${cat}</td>
+      <td>${cat}${nivelBadge(h)?'<br>'+nivelBadge(h):''}</td>
       <td><span class="tag ${cls}">${h.estatus||'Abierto'}</span><br>${revBadge(h.hazard_code)}</td>
       <td>${fotosCell(h)}</td>
       <td onclick="event.stopPropagation()">${segCell(h.hazard_code)}</td></tr>`;
@@ -1486,6 +1522,7 @@ async function exportCSV(){
     'Parque': h.parque,
     'Categoría': h.clasif_codigo ? (h.clasif_codigo+' · '+(CAT_LABEL[h.clasif_codigo]||'')) : '',
     'Tipo de riesgo': h.tipo_riesgo,
+    'Nivel de riesgo': h.nivel || '',
     'Riesgo específico': h.clasif_item,
     'Descripción': h.descripcion,
     'Acciones': h.acciones,
@@ -1534,7 +1571,8 @@ async function exportCSV(){
   const fm=(document.getElementById('fMes')||{}).value||'';
   const fe=document.getElementById('fEstatus').value||'';
   const fp=((document.getElementById('fPais')||{}).value||'').toLowerCase().replace(/\s+/g,'-');
-  const suf=[fm, fp, fe.toLowerCase().replace(/\s+/g,'-')].filter(Boolean).join('_');
+  const fg=((document.getElementById('fRiesgo')||{}).value||'');
+  const suf=[fm, fp, fg?('riesgo-'+fg):'', fe.toLowerCase().replace(/\s+/g,'-')].filter(Boolean).join('_');
   XLSX.writeFile(wb, `hazards_${suf||new Date().toISOString().slice(0,10)}.xlsx`);
 }
 

@@ -53,6 +53,8 @@
   .pill.on b{color:#fff}
   .pill b{color:var(--steel)}
   .sub2{font-weight:600;font-size:11.5px;color:var(--muted);letter-spacing:.01em}
+  .ver{font-size:10.5px;font-weight:700;letter-spacing:.06em;opacity:.65;
+       border:1px solid currentColor;border-radius:4px;padding:1px 5px;vertical-align:middle}
   /* Nivel de riesgo */
   .riesgo{display:inline-block;margin-top:3px;font-size:11px;font-weight:800;letter-spacing:.04em;
           text-transform:uppercase;border-radius:5px;padding:2px 7px;border:1px solid}
@@ -134,7 +136,7 @@
 <div id="login">
   <div class="card">
     <div class="brand"><img src="spie-logo.png" alt="SPIE Hazard" style="width:44px;height:44px;border-radius:9px"/><h1>Panel HSE</h1></div>
-    <p class="sub">Gestión de reportes · SPIE</p>
+    <p class="sub">Gestión de reportes · SPIE <span class="ver">v2026.09.17</span></p>
     <label>Usuario</label>
     <input id="l-user" autocomplete="username" placeholder="Nómina o usuario" onkeydown="loginEnter(event)"/>
     <label id="l-pass-lbl">Contraseña</label>
@@ -151,7 +153,7 @@
 
 <div id="app" class="hide">
   <header>
-    <div style="display:flex;align-items:center;gap:10px"><img src="spie-logo.png" alt="SPIE" style="width:30px;height:30px;border-radius:7px"/><b>Panel HSE</b></div>
+    <div style="display:flex;align-items:center;gap:10px"><img src="spie-logo.png" alt="SPIE" style="width:30px;height:30px;border-radius:7px"/><b>Panel HSE</b> <span class="ver" title="Versión del panel">v2026.09.17</span></div>
     <div class="row">
       <button class="navbtn active" id="nav-hazards" onclick="showView('hazards')">Hazards</button>
       <button class="navbtn" id="nav-jsa" onclick="showView('jsa')">JSA</button>
@@ -2440,6 +2442,12 @@ async function exportCumplimiento(){
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
 
 // Restaurar sesión al cargar (refrescar la página ya no cierra sesión)
+// Sello de versión: sirve para saber, sin adivinar, qué archivo está cargado.
+console.log('%c Panel HSE v2026.09.17 ', 'background:#222953;color:#fff;font-weight:bold',
+  '· filtro de riesgo:', typeof nivelDe === 'function' ? 'sí' : 'NO',
+  '· bitácora:', typeof cargarHistorial === 'function' ? 'sí' : 'NO',
+  '· contadores:', typeof conteoAcciones === 'function' ? 'sí' : 'NO');
+
 restaurarSesion();
 </script>
 </body>

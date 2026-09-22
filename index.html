@@ -2809,6 +2809,27 @@ async function onPaisCampoChange(){
 
   const badge=document.getElementById('hse-badge-wrap');
 
+  // La elección del empleado MANDA. Si al identificarse eligió su HSE
+  // responsable, el país no debe cambiárselo: antes lo sobreescribía y
+  // el reporte terminaba llegándole a otra persona.
+  const elegido = (typeof _empValidado !== 'undefined' && _empValidado && _empValidado._hse) ? _empValidado._hse : null;
+
+  if(elegido && elegido.email){
+
+    SESSION.hse = { nombre: elegido.nombre, email: elegido.email, label: 'HSE que elegiste' };
+
+    const n=document.getElementById('hse-nombre'); if(n) n.textContent = elegido.nombre;
+
+    const e=document.getElementById('hse-email');  if(e) e.textContent = elegido.email;
+
+    const l=document.getElementById('hse-label');  if(l) l.textContent = 'HSE que elegiste';
+
+    if(badge) badge.style.display='block';
+
+    return;
+
+  }
+
   if(!cc){ if(badge)badge.style.display='none'; SESSION.hse=null; return; }
 
   try{

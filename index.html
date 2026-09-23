@@ -1155,6 +1155,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
           <option value="">Selecciona la actividad realizada...</option>
 
+          <option value="Grandes correctivos">Grandes correctivos</option>
           <option value="Mantenimiento correctivo">Mantenimiento correctivo</option>
 
           <option value="Mantenimiento preventivo mayor">Mantenimiento preventivo mayor</option>
@@ -1716,9 +1717,10 @@ const CLASIFICACION = [
   {codigo:"N",label:"Campos Electromagnéticos",emoji:"📡",items:["Exposición a líneas de alta tensión","Transformadores o subestaciones eléctricas","Campos electromagnéticos"]},
   {codigo:"Ñ",label:"Superficies Térmicas",emoji:"🌡️",items:["Exposición a fluidos o vapor a altas temperaturas","Superficies calientes/frías"]},
   {codigo:"O",label:"Productos Peligrosos",emoji:"☣️",items:["Inhalación de gases, vapores o polvos tóxicos","Salpicaduras de sustancias químicas","Almacenamiento incompatible de sustancias","Derrame o fuga de sustancias","Productos químicos tóxicos, corrosivos o peligrosos (para el medio ambiente, las personas o los bienes)"]},
+  {codigo:"P",label:"Espacios Confinados",emoji:"🕳️",items:["Atmósferas peligrosas","Comunicación deficiente"]},
   {codigo:"Q",label:"Equipamiento / EPP",emoji:"⚙️",items:["Equipo sin certificar o próximo a vencer","Equipamiento inadecuado o defectuoso"]},
   {codigo:"R",label:"Orden y Limpieza",emoji:"🧹",items:["Acumulación de desechos en zona de trabajo","Almacenamiento inadecuado de materiales y herramientas","Obstrucción de salidas de emergencia o señalética en mal estado","Orden y limpieza"]},
-  {codigo:"S",label:"Medio Ambiente",emoji:"🌿",items:["Contaminación del suelo por derrames de sustancias","Emisiones descontroladas de humo o gases a la atmósfera","Disposición incorrecta de residuos peligrosos o de manejo especial","Contaminación acústica/ruido excesivo hacia el exterior"]}
+  {codigo:"S",label:"Medio Ambiente",emoji:"🌿",items:["Contaminación del suelo por derrames de sustancias","Emisiones descontroladas de humo o gases a la atmósfera","Disposición incorrecta de residuos peligrosos o de manejo especial","Contaminación acústica/ruido excesivo hacia el exterior","Fauna nociva","Falta de iluminación"]}
 ];
 
 // ════════════════════════════════════════════
@@ -2953,7 +2955,7 @@ function stepOk(){
       return false;
     }
     const desc=(document.getElementById('f-descripcion').value||'').trim();
-    if(desc.length<6) return _faltante('f-descripcion','Describe el hallazgo (mínimo 6 caracteres).');
+    if(desc.length<6) return _faltante('f-descripcion','Describe el hallazgo');
     if(!document.getElementById('f-clas-cod').value){
       alert('Elige la clasificación de riesgo (categoría y riesgo específico).');
       const rl=document.getElementById('risk-list');

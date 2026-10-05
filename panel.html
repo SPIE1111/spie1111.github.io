@@ -1218,6 +1218,15 @@ async function openHazard(code){
       ${kv('HSE', h.hse_name)}
     </div>
     ${foto}
+    <h3>Ilustración de la situación</h3>
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn sm" id="ilus-btn" onclick="ilustrarHazard('${h.hazard_code}')">🎨 Ilustrar situación</button>
+      <button class="btn sm ghost hide" id="ilus-regen" onclick="ilustrarHazard('${h.hazard_code}', true)">↻ Regenerar</button>
+      <button class="btn sm ghost hide" id="ilus-dl" onclick="descargarIlustracion('${h.hazard_code}')">⬇️ Descargar</button>
+      <span id="ilus-estado" class="muted" style="font-size:13px"></span>
+    </div>
+    <div class="muted" style="font-size:12px;margin-top:4px">Para reuniones: convierte el reporte en un esquema claro que cualquiera entienda. Se genera una vez y se guarda.</div>
+    <div id="ilus-wrap" style="margin-top:10px"></div>
     <h3>Estatus</h3>
     <div class="row">
       <select id="m-status" style="flex:1">
@@ -1256,6 +1265,57 @@ async function openHazard(code){
   document.getElementById('modal').classList.add('show');
   loadComments(h.hazard_code);
   cargarHistorial(h.hazard_code);
+}
+
+// ═══════════ Ilustración de hazard con IA (para reuniones corporativas) ═══════════
+let _ilusSVG = {};
+async function ilustrarHazard(code, force){
+  const h = HAZARDS.find(x=>x.hazard_code===code); if(!h) return;
+  const wrap=document.getElementById('ilus-wrap');
+  const est=document.getElementById('ilus-estado');
+  const btn=document.getElementById('ilus-btn');
+  if(!wrap||!est) return;
+  est.textContent = force ? 'Regenerando…' : 'Generando ilustración…';
+  if(btn) btn.disabled = true;
+  wrap.innerHTML = '<div class="muted" style="padding:24px;text-align:center">⏳ Dibujando la situación… (unos segundos)</div>';
+  try{
+    const d = await jsaApi('illustrate-hazard', { force:!!force, hazard_code:code, hazard:{
+      hazard_code:code, clasif_codigo:h.clasif_codigo, clasif_item:h.clasif_item,
+      descripcion:h.descripcion, acciones:h.acciones, parque:h.parque,
+      country:h.country, tipo_riesgo:h.tipo_riesgo
+    }});
+    if(!d.ok) throw new Error(d.error||'No se pudo generar');
+    _ilusSVG[code] = d.svg;
+    renderIlustracion(code, d.svg);
+    est.textContent = d.cached ? 'Guardada (no se volvió a generar)' : '✓ Generada';
+    document.getElementById('ilus-regen').classList.remove('hide');
+    document.getElementById('ilus-dl').classList.remove('hide');
+  }catch(e){
+    wrap.innerHTML='';
+    est.textContent = '⚠️ '+(e.message||'Error');
+  }finally{ if(btn) btn.disabled=false; }
+}
+function renderIlustracion(code, svg){
+  const wrap=document.getElementById('ilus-wrap'); if(!wrap) return;
+  wrap.innerHTML =
+    '<div style="position:relative;max-width:680px;border-radius:12px;overflow:hidden;border:1px solid var(--line)">' +
+      svg +
+      '<img src="spie-logo.png" alt="SPIE" style="position:absolute;top:2.8%;right:2.4%;width:18%;background:#fff;border-radius:8px;padding:1.1% 1.4%;box-sizing:border-box;box-shadow:0 1px 4px rgba(0,0,0,.28)"/>' +
+    '</div>';
+}
+async function descargarIlustracion(code){
+  let svg=_ilusSVG[code]; if(!svg) return;
+  // Incrustar el logo en la esquina para que el archivo descargado salga con marca
+  try{
+    const resp = await fetch('spie-logo.png'); const blob = await resp.blob();
+    const dataUrl = await new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(blob); });
+    const marca = '<rect x="506" y="12" width="156" height="76" rx="10" fill="#ffffff"/><image x="516" y="18" width="136" height="64" preserveAspectRatio="xMidYMid meet" href="'+dataUrl+'"/>';
+    svg = svg.replace('</svg>', marca+'</svg>');
+  }catch(_e){ /* si falla, se descarga sin logo */ }
+  const out = new Blob([svg], {type:'image/svg+xml'});
+  const url = URL.createObjectURL(out);
+  const a = document.createElement('a'); a.href=url; a.download='hazard-'+code+'.svg'; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // Resumen de tiempos del hazard, en minutos

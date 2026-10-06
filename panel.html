@@ -1220,12 +1220,13 @@ async function openHazard(code){
     ${foto}
     <h3>Ilustración de la situación</h3>
     <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
-      <button class="btn sm" id="ilus-btn" onclick="ilustrarHazard('${h.hazard_code}')">🎨 Ilustrar situación</button>
-      <button class="btn sm ghost hide" id="ilus-regen" onclick="ilustrarHazard('${h.hazard_code}', true)">↻ Regenerar</button>
-      <button class="btn sm ghost hide" id="ilus-dl" onclick="descargarIlustracion('${h.hazard_code}')">⬇️ Descargar</button>
+      <button class="btn sm" id="ilus-btn" onclick="ilustrarHazard('${h.hazard_code}','default')">🎨 Ilustrar situación</button>
+      <button class="btn sm" id="ilus-btn2" onclick="ilustrarHazard('${h.hazard_code}','consequence')">⚠️ Consecuencia potencial</button>
+      <button class="btn sm ghost hide" id="ilus-regen" onclick="ilustrarHazard(_ilusLast.code, _ilusLast.mode, true)">↻ Regenerar</button>
+      <button class="btn sm ghost hide" id="ilus-dl" onclick="descargarIlustracion()">⬇️ Descargar</button>
       <span id="ilus-estado" class="muted" style="font-size:13px"></span>
     </div>
-    <div class="muted" style="font-size:12px;margin-top:4px">Para reuniones: convierte el reporte en un esquema claro que cualquiera entienda. Se genera una vez y se guarda.</div>
+    <div class="muted" style="font-size:12px;margin-top:4px">Para reuniones: convierte el reporte en un esquema claro. <b>Consecuencia potencial</b> muestra qué pudo pasar si no se controla (alta calidad). Se genera una vez y se guarda.</div>
     <div id="ilus-wrap" style="margin-top:10px"></div>
     <h3>Estatus</h3>
     <div class="row">
@@ -1269,33 +1270,38 @@ async function openHazard(code){
 
 // ═══════════ Ilustración de hazard con IA (para reuniones corporativas) ═══════════
 let _ilusSVG = {};
-async function ilustrarHazard(code, force){
+let _ilusLast = { code:null, mode:'default' };
+async function ilustrarHazard(code, mode, force){
   const h = HAZARDS.find(x=>x.hazard_code===code); if(!h) return;
+  mode = (mode==='consequence') ? 'consequence' : 'default';
+  const quality = (mode==='consequence') ? 'high' : 'normal';
+  _ilusLast = { code, mode };
   const wrap=document.getElementById('ilus-wrap');
   const est=document.getElementById('ilus-estado');
-  const btn=document.getElementById('ilus-btn');
+  const b1=document.getElementById('ilus-btn'), b2=document.getElementById('ilus-btn2');
   if(!wrap||!est) return;
-  est.textContent = force ? 'Regenerando…' : 'Generando ilustración…';
-  if(btn) btn.disabled = true;
-  wrap.innerHTML = '<div class="muted" style="padding:24px;text-align:center">⏳ Dibujando la situación… (unos segundos)</div>';
+  const key = code+'|'+mode;
+  est.textContent = force ? 'Regenerando…' : (mode==='consequence' ? 'Generando consecuencia (alta calidad)…' : 'Generando ilustración…');
+  if(b1) b1.disabled=true; if(b2) b2.disabled=true;
+  wrap.innerHTML = '<div class="muted" style="padding:24px;text-align:center">⏳ Dibujando… ('+(mode==='consequence'?'~30s':'~20s')+')</div>';
   try{
-    const d = await jsaApi('illustrate-hazard', { force:!!force, hazard_code:code, hazard:{
+    const d = await jsaApi('illustrate-hazard', { force:!!force, mode, quality, hazard_code:code, hazard:{
       hazard_code:code, clasif_codigo:h.clasif_codigo, clasif_item:h.clasif_item,
       descripcion:h.descripcion, acciones:h.acciones, parque:h.parque,
       country:h.country, tipo_riesgo:h.tipo_riesgo
     }});
     if(!d.ok) throw new Error(d.error||'No se pudo generar');
-    _ilusSVG[code] = d.svg;
-    renderIlustracion(code, d.svg);
+    _ilusSVG[key] = d.svg;
+    renderIlustracion(d.svg);
     est.textContent = d.cached ? 'Guardada (no se volvió a generar)' : '✓ Generada';
     document.getElementById('ilus-regen').classList.remove('hide');
     document.getElementById('ilus-dl').classList.remove('hide');
   }catch(e){
     wrap.innerHTML='';
     est.textContent = '⚠️ '+(e.message||'Error');
-  }finally{ if(btn) btn.disabled=false; }
+  }finally{ if(b1) b1.disabled=false; if(b2) b2.disabled=false; }
 }
-function renderIlustracion(code, svg){
+function renderIlustracion(svg){
   const wrap=document.getElementById('ilus-wrap'); if(!wrap) return;
   wrap.innerHTML =
     '<div style="position:relative;max-width:680px;border-radius:12px;overflow:hidden;border:1px solid var(--line)">' +
@@ -1303,8 +1309,9 @@ function renderIlustracion(code, svg){
       '<img src="spie-logo.png" alt="SPIE" style="position:absolute;top:2.8%;right:2.4%;width:18%;background:#fff;border-radius:8px;padding:1.1% 1.4%;box-sizing:border-box;box-shadow:0 1px 4px rgba(0,0,0,.28)"/>' +
     '</div>';
 }
-async function descargarIlustracion(code){
-  let svg=_ilusSVG[code]; if(!svg) return;
+async function descargarIlustracion(){
+  const key = _ilusLast.code+'|'+_ilusLast.mode;
+  let svg=_ilusSVG[key]; if(!svg) return;
   // Incrustar el logo en la esquina para que el archivo descargado salga con marca
   try{
     const resp = await fetch('spie-logo.png'); const blob = await resp.blob();
@@ -1314,7 +1321,7 @@ async function descargarIlustracion(code){
   }catch(_e){ /* si falla, se descarga sin logo */ }
   const out = new Blob([svg], {type:'image/svg+xml'});
   const url = URL.createObjectURL(out);
-  const a = document.createElement('a'); a.href=url; a.download='hazard-'+code+'.svg'; a.click();
+  const a = document.createElement('a'); a.href=url; a.download='hazard-'+_ilusLast.code+(_ilusLast.mode==='consequence'?'-consecuencia':'')+'.svg'; a.click();
   URL.revokeObjectURL(url);
 }
 

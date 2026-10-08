@@ -900,17 +900,38 @@ async function validarEmpleado(nomina){
     body:JSON.stringify({payroll_no:nomina})
   });
   const data = await r.json();
-  if(!r.ok || !data.employee) return null;
-  const e = data.employee;
-  const emp = {
-    nomina:e.payroll_no,
-    nombre:e.employee_name,
-    pais:({MX:'MEXICO',UY:'URUGUAY',RD:'REPUBLICA DOMINICANA',CL:'CHILE'})[e.country_code]||e.country_code,
-    parque:e.office_name||'',
-    _hse:e.hse_name?{nombre:e.hse_name,email:e.hse_email}:null
-  };
-  idbPut('employees',emp).catch(()=>{});
-  return emp;
+  if(r.ok && data.employee){
+    const e = data.employee;
+    const emp = {
+      nomina:e.payroll_no,
+      nombre:e.employee_name,
+      pais:({MX:'MEXICO',UY:'URUGUAY',RD:'REPUBLICA DOMINICANA',CL:'CHILE'})[e.country_code]||e.country_code,
+      parque:e.office_name||'',
+      _hse:e.hse_name?{nombre:e.hse_name,email:e.hse_email}:null
+    };
+    idbPut('employees',emp).catch(()=>{});
+    return emp;
+  }
+  // No está en la tabla de empleados → ¿está en el PADRÓN de JSA? Si sí, también tiene acceso.
+  const rr = await fetch(`${SUPABASE_URL}/functions/v1/jsa-api`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
+    body:JSON.stringify({action:'roster-member', payroll_no:nomina})
+  });
+  const rd = await rr.json();
+  if(rr.ok && rd.member){
+    const m = rd.member;
+    const emp = {
+      nomina:String(m.payroll_no),
+      nombre:m.full_name,
+      pais:String(m.country||'').toUpperCase(),
+      parque:m.project||'',
+      _hse:m.hse_name?{nombre:m.hse_name,email:''}:null
+    };
+    idbPut('employees',emp).catch(()=>{});
+    return emp;
+  }
+  return null;
 }
 
 async function validarNomina(nomina){

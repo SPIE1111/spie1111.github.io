@@ -136,7 +136,7 @@
 <div id="login">
   <div class="card">
     <div class="brand"><img src="spie-logo.png" alt="SPIE Hazard" style="width:44px;height:44px;border-radius:9px"/><h1>Panel HSE</h1></div>
-    <p class="sub">Gestión de reportes · SPIE <span class="ver">v2026.09.17</span></p>
+    <p class="sub">Gestión de reportes · SPIE <span class="ver">v2026.10.27</span></p>
     <label>Usuario</label>
     <input id="l-user" autocomplete="username" placeholder="Nómina o usuario" onkeydown="loginEnter(event)"/>
     <label id="l-pass-lbl">Contraseña</label>
@@ -153,7 +153,7 @@
 
 <div id="app" class="hide">
   <header>
-    <div style="display:flex;align-items:center;gap:10px"><img src="spie-logo.png" alt="SPIE" style="width:30px;height:30px;border-radius:7px"/><b>Panel HSE</b> <span class="ver" title="Versión del panel">v2026.09.17</span></div>
+    <div style="display:flex;align-items:center;gap:10px"><img src="spie-logo.png" alt="SPIE" style="width:30px;height:30px;border-radius:7px"/><b>Panel HSE</b> <span class="ver" title="Versión del panel">v2026.10.27</span></div>
     <div class="row">
       <button class="navbtn active" id="nav-hazards" onclick="showView('hazards')">Hazards</button>
       <button class="navbtn" id="nav-jsa" onclick="showView('jsa')">JSA</button>
@@ -463,14 +463,31 @@ function loginEnter(ev){
 // Cada usuario trae desde la base qué pestañas puede ver. Ya no depende
 // de ser "admin": Rosa puede ver Cumplimiento sin ver Empleados, y Erick
 // puede ver solo Cumplimiento.
+// Nóminas de consulta que no pueden editar nada. Es una red de seguridad
+// temporal: en cuanto panel-api mande solo_lectura desde la base, manda la
+// base y esta lista deja de usarse sola.
+const SOLO_LECTURA_FIJOS = ['1183'];   // Erick Guerrero
+
 function permisos(){
   const s = SESSION || {};
+  const lectura = (s.solo_lectura === undefined)
+    ? SOLO_LECTURA_FIJOS.includes(String(s.username || ''))
+    : !!s.solo_lectura;
   return {
     hazards: !!s.ver_hazards,
     jsa:     !!s.ver_jsa,
     emp:     !!s.ver_empleados,
-    cumpl:   !!s.ver_cumplimiento
+    cumpl:   !!s.ver_cumplimiento,
+    lectura: lectura            // true = puede ver y exportar, nada más
   };
+}
+
+// Atajo para los botones: avisa y corta si el perfil es de consulta.
+// La base ya rechaza estos intentos; esto solo evita el viaje y el susto.
+function bloqueaSiLectura(){
+  if(!permisos().lectura) return false;
+  alert('Tu perfil es de solo consulta: puedes ver y exportar, pero no modificar reportes.');
+  return true;
 }
 
 // Primera pestaña que este usuario sí puede abrir
@@ -488,12 +505,13 @@ function entrarAlPanel(){
   document.getElementById('login').classList.add('hide');
   document.getElementById('app').classList.remove('hide');
 
-  const etiqueta = SESSION.role==='admin' ? 'Administrador'
+  const P = permisos();
+  const etiqueta = P.lectura ? 'Solo consulta'
+                 : SESSION.role==='admin' ? 'Administrador'
                  : (SESSION.country_code || 'Consulta');
   document.getElementById('who').textContent=`${SESSION.full_name} · ${etiqueta}`;
 
   // Cada pestaña se muestra solo si el usuario tiene ese permiso
-  const P = permisos();
   document.getElementById('nav-hazards').classList.toggle('hide', !P.hazards);
   document.getElementById('nav-jsa').classList.toggle('hide',     !P.jsa);
   document.getElementById('nav-emp').classList.toggle('hide',     !P.emp);
@@ -1205,7 +1223,65 @@ async function openHazard(code){
   const fotoCi = mkFoto(h.foto_cierre_sharepoint_url, 'Foto de cierre');
   const foto = (fotoEv || fotoCi) ? `<h3>Evidencia fotográfica</h3>${fotoEv}${fotoCi}` : '';
   const catTxt = h.clasif_codigo ? `${h.clasif_codigo} · ${CAT_LABEL[h.clasif_codigo]||''}` : '';
+
+  // ── Perfiles de solo consulta (Erick) ──
+  // Ven el detalle completo, los tiempos y el historial, pero sin ningún
+  // control que escriba: ni estatus, ni revisión, ni foto de cierre, ni
+  // comentarios, ni la ilustración (que también se guarda).
+  // Esto es la cara visible; el bloqueo de verdad está en la base.
+  const L = permisos().lectura;
+
+  const bloqueIlustracion = L ? '' : `
+    <h3>Ilustración de la situación</h3>
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn sm" id="ilus-btn" onclick="ilustrarHazard('${h.hazard_code}','default')">🎨 Ilustrar situación</button>
+      <button class="btn sm" id="ilus-btn2" onclick="ilustrarHazard('${h.hazard_code}','consequence')">⚠️ Consecuencia potencial</button>
+      <button class="btn sm ghost hide" id="ilus-regen" onclick="ilustrarHazard(_ilusLast.code, _ilusLast.mode, true)">↻ Regenerar</button>
+      <button class="btn sm ghost hide" id="ilus-dl" onclick="descargarIlustracion()">⬇️ Descargar</button>
+      <span id="ilus-estado" class="muted" style="font-size:13px"></span>
+    </div>
+    <div class="muted" style="font-size:12px;margin-top:4px">Para reuniones: convierte el reporte en un esquema claro. <b>Consecuencia potencial</b> muestra qué pudo pasar si no se controla (alta calidad). Se genera una vez y se guarda.</div>
+    <div id="ilus-wrap" style="margin-top:10px"></div>`;
+
+  const bloqueEstatus = L ? `
+    <h3>Estatus</h3>
+    <div class="kv">
+      <div class="k">Estatus actual</div><div class="v">${escapeHtml(h.estatus||'—')}</div>
+    </div>` : `
+    <h3>Estatus</h3>
+    <div class="row">
+      <select id="m-status" style="flex:1">
+        <option ${h.estatus==='Abierto'?'selected':''}>Abierto</option>
+        <option ${h.estatus==='En proceso'?'selected':''}>En proceso</option>
+        <option ${h.estatus==='Cerrado'?'selected':''}>Cerrado</option>
+      </select>
+      <button class="btn sm" onclick="saveStatus('${h.hazard_code}')">Guardar</button>
+    </div>`;
+
+  const bloqueFotoCierre = L ? '' : `
+    <h3>Evidencia fotográfica de cierre</h3>
+    <div class="row" style="align-items:center;gap:8px;flex-wrap:wrap">
+      <label class="btn sm" for="m-foto-cam">📷 Tomar foto</label>
+      <label class="btn sm ghost" for="m-foto-gal">🖼️ Elegir archivo</label>
+      <span id="m-foto-estado" class="muted" style="font-size:13px">${h.foto_cierre_sharepoint_url ? 'Ya tiene evidencia de cierre. Si subes otra, la reemplaza.' : 'La foto se guarda en SharePoint, en la carpeta del país y mes del hazard.'}</span>
+    </div>
+    <input type="file" id="m-foto-cam" class="hide" accept="image/*" capture="environment" onchange="subirFotoCierre('${h.hazard_code}','m-foto-cam')"/>
+    <input type="file" id="m-foto-gal" class="hide" accept="image/*" onchange="subirFotoCierre('${h.hazard_code}','m-foto-gal')"/>`;
+
+  const bloqueComentario = L ? '' : `
+    <div class="row" style="margin-top:10px">
+      <input id="m-newcomment" placeholder="Agregar comentario o acción..." style="flex:1"/>
+      <button class="btn sm" onclick="addComment('${h.hazard_code}')">Añadir</button>
+    </div>`;
+
+  const avisoLectura = L ? `
+    <div class="cmt" style="border-left:3px solid var(--line);margin-bottom:12px">
+      <b>Perfil de solo consulta</b>
+      <div class="meta" style="margin-top:4px">Puedes ver el reporte completo y exportarlo. La revisión y el cierre los hace el HSE responsable.</div>
+    </div>` : '';
+
   document.getElementById('m-body').innerHTML=`
+    ${avisoLectura}
     <div class="kv">
       ${kv('Empleado', (h.employee_name||'')+' · #'+(h.payroll_no||''))}
       ${kv('Fecha', new Date(h.created_at).toLocaleString('es-MX'))}
@@ -1218,25 +1294,8 @@ async function openHazard(code){
       ${kv('HSE', h.hse_name)}
     </div>
     ${foto}
-    <h3>Ilustración de la situación</h3>
-    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
-      <button class="btn sm" id="ilus-btn" onclick="ilustrarHazard('${h.hazard_code}','default')">🎨 Ilustrar situación</button>
-      <button class="btn sm" id="ilus-btn2" onclick="ilustrarHazard('${h.hazard_code}','consequence')">⚠️ Consecuencia potencial</button>
-      <button class="btn sm ghost hide" id="ilus-regen" onclick="ilustrarHazard(_ilusLast.code, _ilusLast.mode, true)">↻ Regenerar</button>
-      <button class="btn sm ghost hide" id="ilus-dl" onclick="descargarIlustracion()">⬇️ Descargar</button>
-      <span id="ilus-estado" class="muted" style="font-size:13px"></span>
-    </div>
-    <div class="muted" style="font-size:12px;margin-top:4px">Para reuniones: convierte el reporte en un esquema claro. <b>Consecuencia potencial</b> muestra qué pudo pasar si no se controla (alta calidad). Se genera una vez y se guarda.</div>
-    <div id="ilus-wrap" style="margin-top:10px"></div>
-    <h3>Estatus</h3>
-    <div class="row">
-      <select id="m-status" style="flex:1">
-        <option ${h.estatus==='Abierto'?'selected':''}>Abierto</option>
-        <option ${h.estatus==='En proceso'?'selected':''}>En proceso</option>
-        <option ${h.estatus==='Cerrado'?'selected':''}>Cerrado</option>
-      </select>
-      <button class="btn sm" onclick="saveStatus('${h.hazard_code}')">Guardar</button>
-    </div>
+    ${bloqueIlustracion}
+    ${bloqueEstatus}
     <h3>Revisión del reporte</h3>
     <div id="m-revision"></div>
 
@@ -1246,21 +1305,11 @@ async function openHazard(code){
     <h3>Historial de acciones</h3>
     <div id="m-historial" class="muted" style="font-size:13px">Cargando…</div>
 
-    <h3>Evidencia fotográfica de cierre</h3>
-    <div class="row" style="align-items:center;gap:8px;flex-wrap:wrap">
-      <label class="btn sm" for="m-foto-cam">📷 Tomar foto</label>
-      <label class="btn sm ghost" for="m-foto-gal">🖼️ Elegir archivo</label>
-      <span id="m-foto-estado" class="muted" style="font-size:13px">${h.foto_cierre_sharepoint_url ? 'Ya tiene evidencia de cierre. Si subes otra, la reemplaza.' : 'La foto se guarda en SharePoint, en la carpeta del país y mes del hazard.'}</span>
-    </div>
-    <input type="file" id="m-foto-cam" class="hide" accept="image/*" capture="environment" onchange="subirFotoCierre('${h.hazard_code}','m-foto-cam')"/>
-    <input type="file" id="m-foto-gal" class="hide" accept="image/*" onchange="subirFotoCierre('${h.hazard_code}','m-foto-gal')"/>
+    ${bloqueFotoCierre}
 
     <h3>Seguimiento y acciones</h3>
     <div id="m-comments" class="muted">Cargando...</div>
-    <div class="row" style="margin-top:10px">
-      <input id="m-newcomment" placeholder="Agregar comentario o acción..." style="flex:1"/>
-      <button class="btn sm" onclick="addComment('${h.hazard_code}')">Añadir</button>
-    </div>`;
+    ${bloqueComentario}`;
   pintarRevision(h.hazard_code);
   pintarTiempos(h.hazard_code);
   document.getElementById('modal').classList.add('show');
@@ -1272,6 +1321,7 @@ async function openHazard(code){
 let _ilusSVG = {};
 let _ilusLast = { code:null, mode:'default' };
 async function ilustrarHazard(code, mode, force){
+  if(bloqueaSiLectura()) return;
   const h = HAZARDS.find(x=>x.hazard_code===code); if(!h) return;
   mode = (mode==='consequence') ? 'consequence' : 'default';
   const quality = (mode==='consequence') ? 'high' : 'normal';
@@ -1409,6 +1459,7 @@ function comprimirFotoPanel(file, maxLado = 1600, calidad = 0.7){
 
 // Sube la evidencia de cierre desde el seguimiento del panel
 async function subirFotoCierre(code, inputId){
+  if(bloqueaSiLectura()) return;
   const input = document.getElementById(inputId);
   const f = input && input.files ? input.files[0] : null;
   if(!f) return;
@@ -1463,8 +1514,12 @@ function pintarRevision(code){
   const cuando = r.revision_en ? new Date(r.revision_en).toLocaleString('es-MX') : '';
   const quien  = r.revision_por ? ` por nómina ${escapeHtml(r.revision_por)}` : '';
 
-  // Bloque con los dos botones (se reutiliza)
-  const acciones = `
+  // Bloque con los dos botones (se reutiliza).
+  // Un perfil de solo consulta no lo recibe: ve el estado, no las acciones.
+  const acciones = permisos().lectura ? `
+    <div class="muted" style="font-size:13px;margin-top:8px">
+      Tu perfil es de solo consulta: la aprobación o el rechazo los registra el HSE responsable.
+    </div>` : `
     <div style="margin-top:10px">
       <textarea id="m-motivo" placeholder="Motivo del rechazo (obligatorio para rechazar; el empleado lo verá en su celular)" style="min-height:70px"></textarea>
       <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
@@ -1514,6 +1569,7 @@ function pintarRevision(code){
 }
 
 async function revisar(code, revision){
+  if(bloqueaSiLectura()) return;
   const campoMotivo = document.getElementById('m-motivo');
   const motivo = (campoMotivo ? campoMotivo.value : '').trim();
   if(revision === 'Rechazado' && motivo.length < 10){
@@ -1543,7 +1599,10 @@ async function revisar(code, revision){
 }
 
 async function saveStatus(code){
-  const status=document.getElementById('m-status').value;
+  if(bloqueaSiLectura()) return;
+  const sel=document.getElementById('m-status');
+  if(!sel) return;
+  const status=sel.value;
   const d=await api('status',{code,status});
   if(d.ok){
     const h=HAZARDS.find(x=>x.hazard_code===code); if(h)h.estatus=status;
@@ -1557,7 +1616,9 @@ async function saveStatus(code){
 }
 
 async function addComment(code){
-  const comment=document.getElementById('m-newcomment').value.trim();
+  if(bloqueaSiLectura()) return;
+  const campo=document.getElementById('m-newcomment');
+  const comment=campo?campo.value.trim():'';
   if(!comment)return;
   const d=await api('comment',{code,comment});
   if(d.ok){
@@ -2511,10 +2572,11 @@ document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='
 
 // Restaurar sesión al cargar (refrescar la página ya no cierra sesión)
 // Sello de versión: sirve para saber, sin adivinar, qué archivo está cargado.
-console.log('%c Panel HSE v2026.09.17 ', 'background:#222953;color:#fff;font-weight:bold',
+console.log('%c Panel HSE v2026.10.27 ', 'background:#222953;color:#fff;font-weight:bold',
   '· filtro de riesgo:', typeof nivelDe === 'function' ? 'sí' : 'NO',
   '· bitácora:', typeof cargarHistorial === 'function' ? 'sí' : 'NO',
-  '· contadores:', typeof conteoAcciones === 'function' ? 'sí' : 'NO');
+  '· contadores:', typeof conteoAcciones === 'function' ? 'sí' : 'NO',
+  '· solo consulta:', typeof bloqueaSiLectura === 'function' ? 'sí' : 'NO');
 
 restaurarSesion();
 </script>

@@ -4,52 +4,70 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Panel HSE · SPIE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
+  /* Paleta SPIE · los 7 colores de marca. --navy2/--navy3 son tintes del
+     mismo azul, necesarios para hover y degradados. --amber solo se usa
+     para el riesgo medio, que la paleta no cubre. */
   :root{
-    --ink:#1a1f3d; --steel:#222953; --line:#dce0ea; --bg:#f4f6f9;
-    --amber:#cc1417; --red:#cc1417; --green:#1a8a4a; --muted:#6b728a; --white:#fff;
-    --spie:#222953; --spie-red:#cc1417;
+    --navy:#0F1E5A; --navy2:#1B2D72; --navy3:#3C4C8C;
+    --ink:#0F1E5A; --steel:#0F1E5A; --line:#E1E5EB; --bg:#F7F8FA;
+    --amber:#F19600; --red:#CC0000; --green:#2E7D32; --muted:#5A6470; --white:#FFFFFF;
+    --spie:#0F1E5A; --spie-red:#CC0000; --orange:#F19600; --orange2:#D88400;
+    --suave:#F7F8FA; --verde-suave:#E8F3E9; --rojo-suave:#FBEAEA; --ambar-suave:#FDF2E0;
+    /* Jost para títulos y marca (la misma de la app del empleado);
+       el texto corrido y las tablas usan una pila del sistema, que se lee
+       mejor en tamaños chicos y con mucho dato junto. */
+    --font-titulo:'Jost',system-ui,sans-serif;
+    --font-texto:'Segoe UI',system-ui,-apple-system,'Helvetica Neue',sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+  body{font-family:var(--font-texto);background:var(--bg);color:var(--ink);line-height:1.5}
+  h1,h2,h3,.brand,.navbtn,.ver,.btn,th{font-family:var(--font-titulo)}
+  h1{letter-spacing:-.01em}
+  th{letter-spacing:.03em}
   .hide{display:none!important}
   #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
   .card{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:32px;width:100%;max-width:380px;box-shadow:0 8px 30px rgba(10,61,98,.08)}
   .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px}
   .brand .mark{width:34px;height:34px;background:var(--steel);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--amber);font-weight:800;font-size:15px}
-  h1{font-size:19px;font-weight:700}
+  h1{font-size:20px;font-weight:700}
   .sub{color:var(--muted);font-size:13px;margin-bottom:22px}
   label{display:block;font-size:13px;font-weight:600;margin:14px 0 5px}
-  input,select,textarea{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;font-size:15px;font-family:inherit;background:#fbfcfd}
+  input,select,textarea{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;font-size:15px;font-family:inherit;background:#F7F8FA}
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--steel)}
   .btn{background:var(--steel);color:#fff;border:none;padding:12px 18px;border-radius:9px;font-size:15px;font-weight:600;cursor:pointer;width:100%;margin-top:18px}
-  .btn:hover{background:#08324f}
+  .btn:hover{background:#0F1E5A}
   .btn.sm{width:auto;padding:8px 14px;font-size:13px;margin:0}
   label.btn{display:inline-block;width:auto;text-align:center}
   .btn.ghost{background:transparent;color:var(--steel);border:1px solid var(--line)}
   .btn.danger{background:var(--red)}
-  .btn.danger:hover{background:#a5321f}
+  .btn.danger:hover{background:#A30000}
   .btn.green{background:var(--green)}
-  .btn.green:hover{background:#146c3a}
+  .btn.green:hover{background:#215C25}
   .err{color:var(--red);font-size:13px;margin-top:12px;display:none}
   .err.show{display:block}
-  header{background:var(--steel);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+  header{position:sticky;top:0;z-index:10;color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(100deg,#0B1746 0%,var(--navy) 38%,var(--navy2) 72%,var(--navy3) 100%);box-shadow:0 2px 14px rgba(11,23,70,.35)}
+  /* Filete naranja de la filial: separa el encabezado del contenido */
+  header::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,var(--orange) 0%,#FFB53D 50%,var(--orange) 100%)}
   header .who{font-size:13px;opacity:.9}
-  header .mark{width:30px;height:30px;background:rgba(255,255,255,.12);border-radius:7px;display:inline-flex;align-items:center;justify-content:center;color:var(--amber);font-weight:800;margin-right:10px}
+  header .mark{width:30px;height:30px;background:var(--orange);border-radius:7px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:800;margin-right:10px}
   .navbtn{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;margin:0}
-  .navbtn.active{background:var(--spie-red);color:#fff;border-color:var(--spie-red)}
+  .navbtn.active{background:var(--orange);color:#fff;border-color:var(--orange);box-shadow:0 2px 10px rgba(241,150,0,.4)}
   .wrap{max-width:1100px;margin:0 auto;padding:20px}
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
   .toolbar input,.toolbar select{width:auto;flex:1;min-width:130px}
   .stat{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
   .pill{background:#fff;border:1px solid var(--line);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600}
   .rev{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;white-space:nowrap;margin-top:4px}
-  .rev.pend{background:#f0f4f8;color:#5a6680;border:1px solid #d8e0ea}
-  .rev.apro{background:#e7f6ec;color:#12643a;border:1px solid #bfe3cd}
-  .rev.rech{background:#fdecea;color:#a5321f;border:1px solid #f5c6c0}
+  .rev.pend{background:#F7F8FA;color:#5A6470;border:1px solid #E1E5EB}
+  .rev.apro{background:#E8F3E9;color:#215C25;border:1px solid #BBD9BD}
+  .rev.rech{background:#FBEAEA;color:#A30000;border:1px solid #EFC2C2}
   .pill.click{cursor:pointer;transition:border-color .15s,background .15s}
-  .pill.click:hover{border-color:var(--steel);background:#f4f7fb}
-  .pill.on{background:#222953;border-color:#222953;color:#fff}
+  .pill.click:hover{border-color:var(--steel);background:#F7F8FA}
+  .pill.on{background:#0F1E5A;border-color:#0F1E5A;color:#fff}
   .pill.on b{color:#fff}
   .pill b{color:var(--steel)}
   .sub2{font-weight:600;font-size:11.5px;color:var(--muted);letter-spacing:.01em}
@@ -58,16 +76,16 @@
   /* Nivel de riesgo */
   .riesgo{display:inline-block;margin-top:3px;font-size:11px;font-weight:800;letter-spacing:.04em;
           text-transform:uppercase;border-radius:5px;padding:2px 7px;border:1px solid}
-  .riesgo.alto {color:#a32318;background:#fdecea;border-color:#f0b6ae}
-  .riesgo.medio{color:#8a5200;background:#fdf3e2;border-color:#f0d3a0}
-  .riesgo.bajo {color:#14663a;background:#e8f6ee;border-color:#a9dcc0}
+  .riesgo.alto {color:#A30000;background:#FBEAEA;border-color:#EFC2C2}
+  .riesgo.medio{color:#A36600;background:#FDF2E0;border-color:#F5CE8A}
+  .riesgo.bajo {color:#215C25;background:#E8F3E9;border-color:#BBD9BD}
   .pill.on .sub2{color:rgba(255,255,255,.8)}
   /* Bitácora del hazard */
   .hist{border-left:2px solid var(--line);margin:4px 0 0 6px;padding-left:14px}
   .hist .ev{position:relative;padding:9px 0}
   .hist .ev::before{content:'';position:absolute;left:-21px;top:14px;width:9px;height:9px;border-radius:50%;background:var(--steel);border:2px solid #fff}
-  .hist .ev.apro::before{background:var(--green,#1a8a4a)}
-  .hist .ev.rech::before{background:var(--red,#c0392b)}
+  .hist .ev.apro::before{background:var(--green,#2E7D32)}
+  .hist .ev.rech::before{background:var(--red,#CC0000)}
   .hist .ev .acc{font-weight:700;font-size:13.5px}
   .hist .ev .cuando{font-size:12.5px;color:var(--muted)}
   .hist .ev .lapso{font-size:12.5px;color:var(--steel);font-weight:600}
@@ -78,22 +96,22 @@
   .tmt .box .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
   .tmt .box .val{font-size:14px;font-weight:700;margin-top:2px}
   table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
-  th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:11px 12px;border-bottom:2px solid var(--line);background:#fafbfc}
+  th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:11px 12px;border-bottom:2px solid var(--line);background:#F7F8FA}
   td{padding:11px 12px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
   tr:last-child td{border-bottom:none}
-  tr.main:hover td{background:#fafcff;cursor:pointer}
+  tr.main:hover td{background:#F7F8FA;cursor:pointer}
   .tag{display:inline-block;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:600}
-  .tag.abierto{background:#fff3d6;color:#8a6d00}
-  .tag.cerrado{background:#daf5e5;color:var(--green)}
-  .tag.proceso{background:#e3edf7;color:var(--steel)}
-  .tag.activo{background:#daf5e5;color:var(--green)}
-  .tag.baja{background:#f6dcd8;color:var(--red)}
+  .tag.abierto{background:#FDF2E0;color:#A36600}
+  .tag.cerrado{background:#E8F3E9;color:var(--green)}
+  .tag.proceso{background:#E1E5EB;color:var(--steel)}
+  .tag.activo{background:#E8F3E9;color:var(--green)}
+  .tag.baja{background:#FBEAEA;color:var(--red)}
   .catcode{font-weight:700;color:var(--steel)}
   .seg{font-size:12.5px;color:var(--muted)}
   .seg .one{margin-bottom:2px}
   .seg .who{color:var(--ink);font-weight:600}
   .seg-toggle{color:var(--steel);cursor:pointer;font-weight:600;font-size:12.5px;background:none;border:none;padding:2px 0}
-  .seg-none{color:#aab4bd;font-size:12.5px}
+  .seg-none{color:#99A1AD;font-size:12.5px}
   .foto-ico{font-size:15px}
   .foto-ico.no{opacity:.25}
   .fotobox{margin-bottom:14px}
@@ -108,17 +126,18 @@
   .kv .k{color:var(--muted);padding:6px 0}
   .kv .v{padding:6px 0;font-weight:500}
   .x{cursor:pointer;color:var(--muted);font-size:22px;line-height:1;background:none;border:none}
-  .cmt{background:#fafbfc;border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:8px;font-size:13px}
+  .cmt{background:#F7F8FA;border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:8px;font-size:13px}
   .cmt .meta{color:var(--muted);font-size:12px;margin-bottom:3px}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .muted{color:var(--muted);font-size:13px}
+  .foto-mas{font-size:10px;font-weight:700;color:var(--navy);background:var(--suave);border:1px solid var(--line);border-radius:10px;padding:0 5px;margin-left:2px;vertical-align:middle}
   h3{font-size:15px;margin:18px 0 10px;font-weight:700}
   .acts{display:flex;gap:6px;flex-wrap:wrap}
   .mini{padding:5px 10px;font-size:12px;border-radius:7px;border:1px solid var(--line);background:#fff;cursor:pointer;font-weight:600;color:var(--steel)}
-  .mini:hover{background:#f2f6fa}
-  .mini.red{color:var(--red);border-color:#eecac3}
-  .mini.green{color:var(--green);border-color:#c4e8d3}
-  .bulk-help{background:#f6f9fc;border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.6}
+  .mini:hover{background:#F7F8FA}
+  .mini.red{color:var(--red);border-color:#EFC2C2}
+  .mini.green{color:var(--green);border-color:#BBD9BD}
+  .bulk-help{background:#F7F8FA;border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.6}
   .bulk-help code{background:#fff;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12px;color:var(--ink);display:inline-block;white-space:pre;font-family:'Courier New',monospace}
   .bulk-res{margin-top:12px;font-size:13px}
   .bulk-res .okc{color:var(--green);font-weight:700}
@@ -136,7 +155,7 @@
 <div id="login">
   <div class="card">
     <div class="brand"><img src="spie-logo.png" alt="SPIE Hazard" style="width:44px;height:44px;border-radius:9px"/><h1>Panel HSE</h1></div>
-    <p class="sub">Gestión de reportes · SPIE <span class="ver">v2026.10.27</span></p>
+    <p class="sub">Gestión de reportes · SPIE <span class="ver">v2026.10.28</span></p>
     <label>Usuario</label>
     <input id="l-user" autocomplete="username" placeholder="Nómina o usuario" onkeydown="loginEnter(event)"/>
     <label id="l-pass-lbl">Contraseña</label>
@@ -153,7 +172,7 @@
 
 <div id="app" class="hide">
   <header>
-    <div style="display:flex;align-items:center;gap:10px"><img src="spie-logo.png" alt="SPIE" style="width:30px;height:30px;border-radius:7px"/><b>Panel HSE</b> <span class="ver" title="Versión del panel">v2026.10.27</span></div>
+    <div style="display:flex;align-items:center;gap:10px"><img src="spie-logo.png" alt="SPIE" style="width:30px;height:30px;border-radius:7px"/><b>Panel HSE</b> <span class="ver" title="Versión del panel">v2026.10.28</span></div>
     <div class="row">
       <button class="navbtn active" id="nav-hazards" onclick="showView('hazards')">Hazards</button>
       <button class="navbtn" id="nav-jsa" onclick="showView('jsa')">JSA</button>
@@ -598,6 +617,32 @@ async function loadHazards(){
       (COMMENTS_BY_CODE[cm.hazard_code] = COMMENTS_BY_CODE[cm.hazard_code] || []).push(cm);
     }
   }
+  // Fotos ya en SharePoint. Vienen aparte porque la lista del panel la arma
+  // una función SQL que no incluye las columnas nuevas de fotos múltiples.
+  // Si panel-api todavía no tiene esta acción, simplemente no llegan y el
+  // panel se comporta como antes.
+  let _diagFotos = 'no respondió';
+  try{
+    const fo = await api('fotos');
+    _diagFotos = (fo && fo.ok && Array.isArray(fo.fotos))
+      ? `${fo.fotos.length} hazard(s), ${fo.fotos.filter(f=>(f.fotos_sharepoint_urls||[]).length).length} con fotos adicionales`
+      : `respondió sin lista (${JSON.stringify(fo).slice(0,80)})`;
+    if(fo && fo.ok && Array.isArray(fo.fotos)){
+      const porCodigo = {};
+      for(const f of fo.fotos) porCodigo[f.hazard_code] = f;
+      for(const h of HAZARDS){
+        const f = porCodigo[h.hazard_code];
+        if(!f) continue;
+        if(f.fotos_sharepoint_urls) h.fotos_sharepoint_urls = f.fotos_sharepoint_urls;
+        if(!h.foto_sharepoint_url && f.foto_sharepoint_url) h.foto_sharepoint_url = f.foto_sharepoint_url;
+        if(!h.foto_cierre_sharepoint_url && f.foto_cierre_sharepoint_url)
+          h.foto_cierre_sharepoint_url = f.foto_cierre_sharepoint_url;
+      }
+    }
+  }catch(e){ _diagFotos = 'error: ' + (e && e.message || e); }
+  console.log('%c fotos ', 'background:#0F1E5A;color:#fff', _diagFotos,
+    '· en pantalla con extras:', HAZARDS.filter(h=>(h.fotos_sharepoint_urls||[]).length).length);
+
   // Estado de aprobación/rechazo de cada hazard
   const rv = await api('revisiones');
   REVISIONES = {};
@@ -701,7 +746,7 @@ function renderJSA(){
   let list = q ? scoped.filter(j=>[j.folio,j.work_description,j.site,j.created_by,j.supervisor,(j.participants||[]).join(' '),(j.participant_names||[]).join(' ')].join(' ').toLowerCase().includes(q)) : scoped;
   // stats (del periodo/país seleccionado)
   const cnt = s=>scoped.filter(j=>j.status===s).length;
-  const chip = JSA_PERSON_FILTER ? `<span class="pill" style="background:#fde68a;cursor:pointer" onclick="clearPersonFilter()">👤 Nómina ${escapeHtml(JSA_PERSON_FILTER)} ✕</span>` : '';
+  const chip = JSA_PERSON_FILTER ? `<span class="pill" style="background:#F5CE8A;cursor:pointer" onclick="clearPersonFilter()">👤 Nómina ${escapeHtml(JSA_PERSON_FILTER)} ✕</span>` : '';
   document.getElementById('jsa-stats').innerHTML = chip +
     `<span class="pill">Total <b>${scoped.length}</b></span>`+
     `<span class="pill">Por aprobar <b>${cnt('enviado')}</b></span>`+
@@ -964,10 +1009,11 @@ function toggleSeg(id, btn){
 
 function fotosCell(h){
   const ev = h.foto_sharepoint_url ? '📷' : '';
+  const nExtras = [].concat(h.fotos_sharepoint_urls || h.fotos || h.fotos_urls || []).length;
   const ci = h.foto_cierre_sharepoint_url ? '🏁' : '';
   if(!ev && !ci) return '<span class="seg-none">—</span>';
   let out='';
-  if(ev) out += `<a href="${h.foto_sharepoint_url}" target="_blank" title="Foto de evidencia" onclick="event.stopPropagation()" class="foto-ico">📷</a> `;
+  if(ev) out += `<a href="${h.foto_sharepoint_url}" target="_blank" title="Foto de evidencia" onclick="event.stopPropagation()" class="foto-ico">📷</a>${nExtras ? `<span class="foto-mas" title="${nExtras+1} fotos de evidencia">+${nExtras}</span>` : ''} `;
   if(ci) out += `<a href="${h.foto_cierre_sharepoint_url}" target="_blank" title="Foto de cierre" onclick="event.stopPropagation()" class="foto-ico">🏁</a>`;
   return out;
 }
@@ -1219,9 +1265,22 @@ async function openHazard(code){
       </a>
     </div>`;
   };
+  // Fotos adicionales: el empleado puede mandar hasta 3. Se aceptan tanto
+  // una lista de URLs como una lista de objetos {url}. Si el hazard es de
+  // antes del cambio, simplemente no trae nada y se muestra como siempre.
+  const extras = []
+    .concat(h.fotos_sharepoint_urls || h.fotos || h.fotos_urls || [])
+    .map(f => (typeof f === 'string' ? f : (f && (f.url || f.sharepoint_url)) || ''))
+    .filter(u => u && u !== h.foto_sharepoint_url);
+
   const fotoEv = mkFoto(h.foto_sharepoint_url, 'Foto de evidencia');
+  const base = h.foto_sharepoint_url ? 1 : 0;   // numera a partir de la foto 1 si existe
+  const fotosExtra = extras.map((u,i) => mkFoto(u, `Foto de evidencia ${base+i+1}`)).join('');
   const fotoCi = mkFoto(h.foto_cierre_sharepoint_url, 'Foto de cierre');
-  const foto = (fotoEv || fotoCi) ? `<h3>Evidencia fotográfica</h3>${fotoEv}${fotoCi}` : '';
+  const nEv = (h.foto_sharepoint_url ? 1 : 0) + extras.length;
+  const tituloFotos = nEv > 1 ? `Evidencia fotográfica (${nEv} fotos)` : 'Evidencia fotográfica';
+  const foto = (fotoEv || fotosExtra || fotoCi)
+    ? `<h3>${tituloFotos}</h3>${fotoEv}${fotosExtra}${fotoCi}` : '';
   const catTxt = h.clasif_codigo ? `${h.clasif_codigo} · ${CAT_LABEL[h.clasif_codigo]||''}` : '';
 
   // ── Perfiles de solo consulta (Erick) ──
@@ -1482,7 +1541,7 @@ async function subirFotoCierre(code, inputId){
     if(h && d.sharepoint) h.foto_cierre_sharepoint_url = d.sharepoint;
     render();
 
-    if(d.aviso){ decir(d.aviso, '#b26a00'); }
+    if(d.aviso){ decir(d.aviso, '#A36600'); }
     else {
       decir('✓ Evidencia de cierre guardada en SharePoint.', 'var(--green)');
       openHazard(code);  // recarga el modal para mostrar la foto
@@ -1672,6 +1731,9 @@ async function exportCSV(){
     'Fecha cierre': h.fecha_cierre || '',
     'HSE': h.hse_name,
     'Foto evidencia (SharePoint)': h.foto_sharepoint_url || '',
+    'Fotos adicionales': [].concat(h.fotos_sharepoint_urls || h.fotos || h.fotos_urls || [])
+                           .map(f => typeof f === 'string' ? f : (f && f.url) || '')
+                           .filter(Boolean).join('  |  '),
     'Foto cierre (SharePoint)': h.foto_cierre_sharepoint_url || '',
     'Seguimiento (resumen)': h.seguimiento || ''
   }));
@@ -2183,11 +2245,11 @@ function gaugeHtml(pct){
   const META = 95;
   const p = Math.max(0, Math.min(100, pct));
   // Color por nivel
-  let color = '#c0392b';                 // rojo (<50)
-  if(p >= META) color = '#1a8a4a';        // verde (meta cumplida)
-  else if(p >= 75) color = '#4caf50';     // verde claro (cerca)
-  else if(p >= 50) color = '#f5a623';     // ámbar
-  else if(p >= 30) color = '#e67e22';     // naranja
+  let color = '#CC0000';                 // rojo (<50)
+  if(p >= META) color = '#2E7D32';        // verde (meta cumplida)
+  else if(p >= 75) color = '#2E7D32';     // verde claro (cerca)
+  else if(p >= 50) color = '#F19600';     // ámbar
+  else if(p >= 30) color = '#F19600';     // naranja
   const estadoTxt = p >= META ? 'Meta alcanzada' : `Faltan ${(META-p).toFixed(1)} pts para la meta`;
   return `
   <div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:16px;box-shadow:0 2px 10px rgba(34,41,83,.05)">
@@ -2197,16 +2259,16 @@ function gaugeHtml(pct){
     </div>
     <div style="position:relative;height:30px;margin:6px 0 4px">
       <!-- Riel -->
-      <div style="position:absolute;top:9px;left:0;right:0;height:14px;background:#e8edf3;border-radius:8px;overflow:hidden">
+      <div style="position:absolute;top:9px;left:0;right:0;height:14px;background:#E1E5EB;border-radius:8px;overflow:hidden">
         <!-- Relleno -->
         <div style="height:100%;width:${p}%;background:${color};border-radius:8px;transition:width .5s ease"></div>
       </div>
       <!-- Línea de meta al 95% -->
-      <div style="position:absolute;top:2px;left:${META}%;height:28px;width:3px;background:var(--spie,#222953);border-radius:2px" title="Meta 95%"></div>
-      <div style="position:absolute;top:-14px;left:${META}%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--spie,#222953);white-space:nowrap">META 95%</div>
+      <div style="position:absolute;top:2px;left:${META}%;height:28px;width:3px;background:var(--spie,#0F1E5A);border-radius:2px" title="Meta 95%"></div>
+      <div style="position:absolute;top:-14px;left:${META}%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--spie,#0F1E5A);white-space:nowrap">META 95%</div>
     </div>
     <!-- Escala -->
-    <div style="display:flex;justify-content:space-between;font-size:10px;color:#aab4bd;margin-top:2px">
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#99A1AD;margin-top:2px">
       <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
     </div>
     <div style="margin-top:10px;font-size:13px;color:${color};font-weight:700">${estadoTxt}</div>
@@ -2275,11 +2337,11 @@ function renderCumplimiento(){
   });
   const barras=[...porPais.entries()].sort((a,b)=>a[0]-b[0]).map(([id,r])=>{
     const p = r.total ? Math.round(1000*r.ok/r.total)/10 : 0;
-    const col = p>=95 ? '#1a8a4a' : p>=75 ? '#4caf50' : p>=50 ? '#f5a623' : p>=30 ? '#e67e22' : '#c0392b';
+    const col = p>=95 ? '#2E7D32' : p>=75 ? '#2E7D32' : p>=50 ? '#F19600' : p>=30 ? '#F19600' : '#CC0000';
     const activo = paisId===id;
-    return `<div onclick="filtrarCumplPais(${activo?"''":id})" title="Clic para filtrar" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;${activo?'background:#eef3fb;':''}">
+    return `<div onclick="filtrarCumplPais(${activo?"''":id})" title="Clic para filtrar" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;${activo?'background:#F7F8FA;':''}">
       <div style="flex:0 0 150px;font-size:13px;font-weight:${activo?'800':'600'};color:var(--ink)">${escapeHtml(r.nombre)}</div>
-      <div style="flex:1;height:10px;background:#e8edf3;border-radius:6px;overflow:hidden">
+      <div style="flex:1;height:10px;background:#E1E5EB;border-radius:6px;overflow:hidden">
         <div style="height:100%;width:${p}%;background:${col};border-radius:6px;transition:width .4s ease"></div>
       </div>
       <div style="flex:0 0 92px;text-align:right;font-size:13px;font-weight:700;color:${col}">${p}% <span class="muted" style="font-weight:500">(${r.ok}/${r.total})</span></div>
@@ -2327,11 +2389,11 @@ function renderCumplimiento(){
 
 // Color del nivel de cumplimiento (misma escala que el medidor en pantalla)
 function colorNivel(p){
-  if(p>=95) return '#1a8a4a';
-  if(p>=75) return '#4caf50';
-  if(p>=50) return '#f5a623';
-  if(p>=30) return '#e67e22';
-  return '#c0392b';
+  if(p>=95) return '#2E7D32';
+  if(p>=75) return '#2E7D32';
+  if(p>=50) return '#F19600';
+  if(p>=30) return '#F19600';
+  return '#CC0000';
 }
 
 // Dibuja el medidor (general + por país) en un canvas y lo devuelve como PNG.
@@ -2343,7 +2405,7 @@ function graficaCumplimientoPNG(resumen){
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const g = c.getContext('2d');
-  const INK='#222953', INK2='#5a6680', LINEA='#e8edf3';
+  const INK='#0F1E5A', INK2='#5A6470', LINEA='#E1E5EB';
   // Rectángulo redondeado propio (ctx.roundRect no existe en navegadores viejos)
   const rr=(x,y,w,h,r)=>{
     const rad=Math.min(r,h/2,w/2);
@@ -2385,7 +2447,7 @@ function graficaCumplimientoPNG(resumen){
   g.textAlign='left';
 
   // Escala y resumen numérico
-  g.fillStyle='#aab4bd'; g.font='12px Arial';
+  g.fillStyle='#99A1AD'; g.font='12px Arial';
   [0,25,50,75,100].forEach(v=>{
     g.textAlign = v===0?'left':(v===100?'right':'center');
     g.fillText(v+'%', bx + bw*v/100, by+bh+24);
@@ -2408,7 +2470,7 @@ function graficaCumplimientoPNG(resumen){
       g.fillStyle=LINEA; rr(x0,y+4,w0,14,7); g.fill();
       g.fillStyle=pc;    rr(x0,y+4,Math.max(3,w0*p.pct/100),14,7); g.fill();
       // Marca de meta en cada barra
-      g.strokeStyle='#c8d0dc'; g.lineWidth=2;
+      g.strokeStyle='#E1E5EB'; g.lineWidth=2;
       g.beginPath(); g.moveTo(x0+w0*0.95, y+1); g.lineTo(x0+w0*0.95, y+21); g.stroke();
       // Valor en texto (identidad nunca por color solo)
       g.fillStyle=INK; g.font='bold 15px Arial'; g.textAlign='right';
@@ -2572,7 +2634,7 @@ document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='
 
 // Restaurar sesión al cargar (refrescar la página ya no cierra sesión)
 // Sello de versión: sirve para saber, sin adivinar, qué archivo está cargado.
-console.log('%c Panel HSE v2026.10.27 ', 'background:#222953;color:#fff;font-weight:bold',
+console.log('%c Panel HSE v2026.10.28 ', 'background:#0F1E5A;color:#fff;font-weight:bold',
   '· filtro de riesgo:', typeof nivelDe === 'function' ? 'sí' : 'NO',
   '· bitácora:', typeof cargarHistorial === 'function' ? 'sí' : 'NO',
   '· contadores:', typeof conteoAcciones === 'function' ? 'sí' : 'NO',

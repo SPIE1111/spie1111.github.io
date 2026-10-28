@@ -172,6 +172,12 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .drop svg{width:30px;height:30px}
 .drop .t{font-weight:700;font-size:15.5px}
 .drop .d{font-size:12.5px;color:var(--ink2)}
+.pickers{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pickers .drop{padding:18px 10px}
+.drop.cam{background:var(--accent);border:2px solid var(--accent);color:#fff}
+.drop.cam .d{color:#cdeae7}
+.drop.cam:active{background:var(--accent-2)}
+.ph .src{position:absolute;bottom:26px;left:5px;font:700 9.5px var(--mono);padding:1px 5px;border-radius:3px;background:var(--accent);color:#fff}
 .tip{display:flex;gap:8px;font-size:12.5px;color:var(--ink2);margin:10px 2px 0}
 .tip b{color:var(--ink)}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
@@ -329,13 +335,21 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
     <div class="stepper"><span class="stp done"><b>✓</b>Datos</span><span class="stp-line"></span><span class="stp on"><b>2</b>Fotos</span><span class="stp-line"></span><span class="stp"><b>3</b>Enviar</span></div>
     <h2 class="title">Fotos de la actividad</h2>
     <p class="lead">Se revisan la fecha, la hora y la ubicación de cada foto.</p>
-    <label class="drop">
-      <input type="file" id="p-file" accept="image/jpeg,image/*" multiple/>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-9 8"/></svg>
-      <span class="t">Agregar fotos del carrete</span>
-      <span class="d">Puedes elegir varias a la vez</span>
-    </label>
-    <div class="tip">ℹ️ <span>Usa las fotos <b>originales</b>. Las reenviadas por WhatsApp pierden la fecha y la ubicación.</span></div>
+    <div class="pickers">
+      <label class="drop cam">
+        <input type="file" id="p-cam" accept="image/*" capture="environment"/>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>
+        <span class="t">Tomar foto</span>
+        <span class="d">Con fecha, hora y GPS del teléfono</span>
+      </label>
+      <label class="drop">
+        <input type="file" id="p-file" accept="image/jpeg,image/*" multiple/>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-9 8"/></svg>
+        <span class="t">Elegir del carrete</span>
+        <span class="d">Varias a la vez</span>
+      </label>
+    </div>
+    <div class="tip">ℹ️ <span>"Tomar foto" agrega una marca con el logo SPIE, fecha, hora y ubicación. Del carrete usa fotos <b>originales</b>: las editadas, recortadas o reenviadas se bloquean.</span></div>
     <div class="grid" id="p-grid"></div>
     <div class="count" id="p-count"></div>
     <div class="checks" id="p-alerts"></div>
@@ -458,6 +472,8 @@ const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>
 function show(id){
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===id));
   $('appbar').classList.toggle('show', id!=='v-login');
+  // El GPS solo se sigue en el paso de fotos (ahorra batería).
+  if(id==='v-photos') geoStart(); else geoStop();
   window.scrollTo(0,0);
 }
 let _tt;
@@ -520,8 +536,10 @@ function parseTiff(v, t){
   };
   const ptr = tag=> tag ? t+u32(tag.e+8) : null;
   const ifd0 = ifd(t+u32(t+4));
-  const out = { make:ascii(ifd0[0x010F]), model:ascii(ifd0[0x0110]) };
-  let dt = ascii(ifd0[0x0132]);
+  // Software y DateTime (fecha de modificación) delatan ediciones posteriores a la toma.
+  const out = { make:ascii(ifd0[0x010F]), model:ascii(ifd0[0x0110]), software:ascii(ifd0[0x0131]) };
+  const modDt = ascii(ifd0[0x0132]);
+  let dt = modDt;
   const exifPtr = ptr(ifd0[0x8769]);
   if(exifPtr){
     const ex = ifd(exifPtr);
@@ -529,9 +547,10 @@ function parseTiff(v, t){
     out.subsec = ascii(ex[0x9291]);
   }
   // "2026:10:27 14:05:33" → "2026-10-27T14:05:33"
-  if(dt && /^\d{4}:\d{2}:\d{2} \d{2}:\d{2}:\d{2}/.test(dt) && !dt.startsWith('0000')){
-    out.taken_at = dt.slice(0,10).replace(/:/g,'-')+'T'+dt.slice(11,19);
-  }
+  const iso = s => s && /^\d{4}:\d{2}:\d{2} \d{2}:\d{2}:\d{2}/.test(s) && !s.startsWith('0000')
+    ? s.slice(0,10).replace(/:/g,'-')+'T'+s.slice(11,19) : null;
+  out.taken_at = iso(dt);
+  out.modified_at = iso(modDt);
   const gpsPtr = ptr(ifd0[0x8825]);
   if(gpsPtr){
     const g = ifd(gpsPtr);
@@ -551,8 +570,43 @@ async function sha256Hex(buf){
   return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
+// Logo para la marca de agua (cacheado por el service worker → funciona sin señal).
+let _logo = null;
+function loadLogo(){
+  if(!_logo) _logo = new Promise(res=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>res(null); i.src='spie-logo.png'; });
+  return _logo;
+}
+
+// Franja inferior: logo SPIE en placa blanca + líneas de texto. Escala con la imagen.
+async function drawWatermark(ctx, W, H, lines){
+  const logo = await loadLogo();
+  try{ await document.fonts.load('600 20px "IBM Plex Sans"'); }catch(_e){}
+  const fs = Math.max(14, Math.round(Math.min(W,H)*0.03));
+  const pad = Math.round(fs*0.7), lineH = Math.round(fs*1.35);
+  const stripH = pad*2 + lineH*lines.length;
+  const y0 = H - stripH;
+  ctx.fillStyle = 'rgba(10,16,24,0.6)';
+  ctx.fillRect(0, y0, W, stripH);
+  let x = pad;
+  if(logo){
+    const ph = stripH - pad*2, inset = Math.round(ph*0.12);
+    const pw = Math.round((ph-inset*2)*logo.naturalWidth/logo.naturalHeight) + inset*2;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.roundRect(x, y0+pad, pw, ph, Math.round(ph*0.12)); ctx.fill();
+    ctx.drawImage(logo, x+inset, y0+pad+inset, pw-inset*2, ph-inset*2);
+    x += pw + pad;
+  }
+  ctx.fillStyle = '#fff';
+  ctx.textBaseline = 'alphabetic';
+  lines.forEach((t,i)=>{
+    ctx.font = `${i===0?700:500} ${fs}px "IBM Plex Sans", Arial, sans-serif`;
+    ctx.fillText(t, x, y0 + pad + lineH*i + fs);
+  });
+}
+
 // Comprime a JPEG (lado mayor ≤ MAX_SIDE). Respeta la orientación de la cámara.
-async function compress(file){
+// wm = líneas de la marca de agua (solo para fotos tomadas desde la app).
+async function compress(file, wm){
   let src, w, h, close=()=>{};
   try{
     src = await createImageBitmap(file, {imageOrientation:'from-image'});
@@ -566,8 +620,10 @@ async function compress(file){
   const k = Math.min(1, MAX_SIDE/Math.max(w,h));
   const c = document.createElement('canvas');
   c.width = Math.round(w*k); c.height = Math.round(h*k);
-  c.getContext('2d').drawImage(src,0,0,c.width,c.height);
+  const ctx = c.getContext('2d');
+  ctx.drawImage(src,0,0,c.width,c.height);
   close();
+  if(wm) await drawWatermark(ctx, c.width, c.height, wm);
   return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('No se pudo comprimir')),'image/jpeg',JPEG_Q));
 }
 const blobToB64 = b => new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(String(fr.result).split(',')[1]); fr.onerror=()=>rej(fr.error); fr.readAsDataURL(b); });
@@ -725,9 +781,22 @@ const FLAG_INFO = {
   fecha_distinta:  {lvl:'block', txt:'Se tomó en una fecha distinta a la de ejecución'},
   fuera_secuencia: {lvl:'warn',  txt:`Hora alejada (más de ${GAP_HOURS} h) del resto de las fotos`},
   ubicacion_lejana:{lvl:'warn',  txt:`Tomada a más de ${FAR_KM} km del resto de las fotos`},
-  sin_metadatos:   {lvl:'warn',  txt:'No tiene fecha ni hora en sus datos (¿reenviada o captura de pantalla?)'},
+  sin_metadatos:   {lvl:'block', txt:'No tiene fecha ni hora en sus datos (captura de pantalla, descargada o reenviada)'},
+  editada:         {lvl:'block', txt:'Fue editada o recortada con otra app después de tomarla'},
   sin_gps:         {lvl:'info',  txt:'No tiene ubicación GPS'},
 };
+
+// Una foto se considera editada si la guardó un editor conocido o si su fecha de
+// modificación se aleja más de 2 min de la fecha en que se tomó.
+const EDITOR_SW = /photoshop|lightroom|snapseed|gimp|picsart|canva|facetune|vsco|pixlr|photoroom|remini|lensa|meitu|airbrush|fotor|polarr|befunky|photo ?editor|editor de fotos/i;
+function isEdited(exif){
+  if(exif.software && EDITOR_SW.test(exif.software)) return true;
+  if(exif.taken_at && exif.modified_at){
+    return Math.abs(Date.parse(exif.modified_at+'Z') - Date.parse(exif.taken_at+'Z')) > 120e3;
+  }
+  return false;
+}
+const IS_ANDROID = /Android/i.test(navigator.userAgent);
 
 async function addFiles(files){
   err('p-err','');
@@ -745,9 +814,9 @@ async function addFiles(files){
       const used = await idbGet('hashes',sha);
       const blob = await compress(file);
       DRAFT.photos.push({
-        sha256:sha, original_name:file.name, size_bytes:file.size, blob, url:URL.createObjectURL(blob),
+        source:'carrete', sha256:sha, original_name:file.name, size_bytes:file.size, blob, url:URL.createObjectURL(blob),
         taken_at:exif.taken_at||null, subsec:exif.subsec||null, make:exif.make||null, model:exif.model||null,
-        gps_lat:exif.gps_lat??null, gps_lon:exif.gps_lon??null, used, flags:[],
+        gps_lat:exif.gps_lat??null, gps_lon:exif.gps_lon??null, gps_acc:null, edited:isEdited(exif), used, flags:[],
       });
     }catch(e){ console.warn(e); failed++; }
   }
@@ -759,6 +828,58 @@ async function addFiles(files){
   evaluatePhotos(); renderPhotos();
 }
 
+// ── "Tomar foto": cámara del teléfono + GPS del teléfono + marca de agua ──
+// La ubicación se sigue mientras el técnico está en el paso de fotos, para tener
+// una lectura reciente al disparar (el GPS funciona sin datos móviles).
+let GEO_WATCH = null, LASTFIX = null;
+const toFix = p => ({lat:+p.coords.latitude.toFixed(6), lon:+p.coords.longitude.toFixed(6), acc:Math.round(p.coords.accuracy), t:Date.now()});
+function geoStart(){
+  if(!navigator.geolocation || GEO_WATCH!==null) return;
+  GEO_WATCH = navigator.geolocation.watchPosition(p=>{ LASTFIX = toFix(p); }, ()=>{}, {enableHighAccuracy:true, maximumAge:30000, timeout:30000});
+}
+function geoStop(){ if(GEO_WATCH!==null){ navigator.geolocation.clearWatch(GEO_WATCH); GEO_WATCH = null; } }
+function freshFix(){
+  if(LASTFIX && Date.now()-LASTFIX.t < 120e3) return Promise.resolve(LASTFIX);
+  if(!navigator.geolocation) return Promise.resolve(null);
+  return new Promise(res=>navigator.geolocation.getCurrentPosition(p=>res(LASTFIX=toFix(p)), ()=>res(null), {enableHighAccuracy:true, timeout:12000, maximumAge:60000}));
+}
+const localIso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${d.toTimeString().slice(0,8)}`;
+
+async function addCameraPhoto(file){
+  err('p-err','');
+  if(DRAFT.photos.length >= MAX_PHOTOS){ err('p-err',`Máximo ${MAX_PHOTOS} fotos por actividad.`); return; }
+  const now = new Date();
+  busy('Guardando foto…');
+  try{
+    const buf = await file.arrayBuffer();
+    const exif = readExif(buf) || {};
+    // Algunos teléfonos dejan elegir una foto vieja desde la cámara: solo se aceptan fotos recién tomadas.
+    const exifAge = exif.taken_at ? Math.abs(now - new Date(exif.taken_at)) : 0;
+    const fileAge = file.lastModified ? Math.abs(now - file.lastModified) : 0;
+    if(exifAge > 5*60e3 || fileAge > 5*60e3){
+      err('p-err','Esa foto no se tomó en este momento. Para fotos anteriores usa "Elegir del carrete".');
+      return;
+    }
+    const fix = await freshFix();
+    const when = `${now.toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric'})} ${now.toTimeString().slice(0,8)}`;
+    const blob = await compress(file, [
+      when,
+      fix ? `${fix.lat.toFixed(5)}, ${fix.lon.toFixed(5)} (±${fix.acc} m)` : 'Ubicación no disponible',
+      `${SESSION.full_name} · ${SESSION.payroll_no}`,
+    ]);
+    const sha = await sha256Hex(await blob.arrayBuffer());
+    DRAFT.photos.push({
+      source:'camara', sha256:sha, original_name:file.name || `camara_${now.getTime()}.jpg`, size_bytes:blob.size, blob, url:URL.createObjectURL(blob),
+      taken_at:localIso(now), subsec:String(now.getMilliseconds()).padStart(3,'0'), make:exif.make||null, model:exif.model||null,
+      gps_lat:fix?.lat ?? null, gps_lon:fix?.lon ?? null, gps_acc:fix?.acc ?? null, edited:false, used:null, flags:[],
+    });
+    DRAFT.photos.sort((a,b)=>(a.taken_at||'9999').localeCompare(b.taken_at||'9999') || (a.subsec||'').localeCompare(b.subsec||''));
+    evaluatePhotos(); renderPhotos();
+    toast(fix ? '📷 Foto guardada con ubicación' : '📷 Foto guardada sin ubicación (revisa el GPS)');
+  }catch(e){ console.warn(e); err('p-err','No se pudo procesar la foto. Intenta de nuevo.'); }
+  finally{ busy(''); }
+}
+
 function evaluatePhotos(){
   const ph = DRAFT.photos, date = DRAFT.form.execution_date;
   const ts = p => p.taken_at ? Date.parse(p.taken_at+'Z') : null;
@@ -768,6 +889,7 @@ function evaluatePhotos(){
   for(const p of ph){
     const f = [];
     if(p.used) f.push('ya_usada');
+    if(p.edited) f.push('editada');
     if(!p.taken_at) f.push('sin_metadatos');
     else{
       if(p.taken_at.slice(0,10)!==date) f.push('fecha_distinta');
@@ -789,6 +911,7 @@ function renderPhotos(){
   $('p-grid').innerHTML = ph.map((p,i)=>`<div class="ph ${level(p)}">
       <img src="${p.url}" alt=""/>
       ${level(p)?`<span class="tag">${TAG[level(p)]}</span>`:''}
+      ${p.source==='camara'?'<span class="src">APP</span>':''}
       <button class="x" onclick="removePhoto(${i})" aria-label="Quitar foto">×</button>
       <div class="meta"><span>${String(i+1).padStart(2,'0')} · ${p.taken_at?esc(p.taken_at.slice(11,16)):'--:--'}</span><span class="gps">${p.gps_lat!=null?'GPS':'—'}</span></div>
     </div>`).join('');
@@ -802,8 +925,11 @@ function renderPhotos(){
     if(f==='ya_usada' && p.used) txt += ` en ${esc(p.used.folio||'otra actividad')}, turbina ${esc(p.used.turbine)}, ${esc(p.used.date)}`;
     lines.push(`<div class="chk ${fi.lvl}"><i>${TAG[fi.lvl]}</i><span>${txt}</span></div>`);
   }));
-  const noGps = ph.filter(p=>p.flags.includes('sin_gps')).length;
-  if(noGps) lines.push(`<div class="chk info"><i>INFO</i><span>${noGps} foto(s) sin ubicación GPS. Activa la ubicación en la cámara para poder validar el lugar.</span></div>`);
+  const noGps = src => ph.filter(p=>p.source===src && p.flags.includes('sin_gps')).length;
+  if(noGps('carrete')) lines.push(`<div class="chk info"><i>INFO</i><span>${noGps('carrete')} foto(s) del carrete sin ubicación. ${IS_ANDROID
+    ? 'Android no comparte la ubicación de las fotos del carrete con las apps, aunque la cámara la tenga activa. Para registrar el lugar usa <b>Tomar foto</b>.'
+    : 'Activa la ubicación en la app de cámara, o usa <b>Tomar foto</b>.'}</span></div>`);
+  if(noGps('camara')) lines.push(`<div class="chk info"><i>INFO</i><span>${noGps('camara')} foto(s) tomadas sin ubicación. Revisa que el GPS del teléfono esté encendido y que la app tenga permiso de ubicación.</span></div>`);
   $('p-alerts').innerHTML = lines.join('');
   $('p-clean').style.display = blocks ? 'flex' : 'none';
 }
@@ -844,7 +970,9 @@ async function saveDraft(){
       client_id:d.client_id, payroll_no:SESSION.payroll_no, created:Date.now(), form:d.form, device:d.device,
       photos:d.photos.map((p,i)=>({position:i+1, sha256:p.sha256, original_name:p.original_name, size_bytes:p.size_bytes,
         taken_at:p.taken_at, subsec:p.subsec, make:p.make, model:p.model, gps_lat:p.gps_lat, gps_lon:p.gps_lon,
-        flags:p.flags.filter(f=>f!=='sin_gps'), blob:p.blob, done:false})),
+        // origen_* y gps_precision_* viajan como etiquetas informativas (no son alertas)
+        flags:[...p.flags.filter(f=>f!=='sin_gps'), 'origen_'+p.source, ...(p.gps_acc!=null?['gps_precision_'+p.gps_acc+'m']:[])],
+        blob:p.blob, done:false})),
       server:null, lastError:null,
     });
     d.photos.forEach(p=>URL.revokeObjectURL(p.url));
@@ -945,6 +1073,7 @@ $('f-next').onclick = ()=>{
   show('v-photos');
 };
 $('p-file').onchange = async e=>{ const fs=e.target.files; if(fs?.length) await addFiles(fs); e.target.value=''; };
+$('p-cam').onchange = async e=>{ const f=e.target.files?.[0]; if(f) await addCameraPhoto(f); e.target.value=''; };
 $('p-clean').onclick = ()=>{
   DRAFT.photos.filter(p=>level(p)==='block').forEach(p=>URL.revokeObjectURL(p.url));
   DRAFT.photos = DRAFT.photos.filter(p=>level(p)!=='block');

@@ -5,7 +5,7 @@
 //  - Otros recursos (íconos, fuentes): CACHE-FIRST
 // Sube la versión para forzar actualización total.
 // ════════════════════════════════════════════
-const CACHE = 'palas-spie-v5';
+const CACHE = 'palas-spie-v6';
 const CORE = [
   './',
   './index.html',

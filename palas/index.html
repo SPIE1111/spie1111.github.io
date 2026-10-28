@@ -278,6 +278,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
       <span class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
       <span><span class="t">Nueva actividad</span><span class="d">Datos de la pala + fotos del carrete</span></span>
     </button>
+    <div id="h-draft"></div>
     <div class="list-h"><h3>Pendientes de envío</h3><span class="n" id="h-pend-n"></span></div>
     <div class="list" id="h-pend"></div>
     <div class="list-h"><h3>Enviadas</h3><span class="n" id="h-hist-n"></span></div>
@@ -324,7 +325,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
     <div class="err" id="f-err"></div>
   </div>
   <div class="actions"><div class="wrap">
-    <button class="btn sec" id="f-cancel">Cancelar</button>
+    <button class="btn sec" id="f-cancel">Salir</button>
     <button class="btn" id="f-next">Siguiente: fotos</button>
   </div></div>
 </section>
@@ -474,6 +475,7 @@ function show(id){
   $('appbar').classList.toggle('show', id!=='v-login');
   // El GPS solo se sigue en el paso de fotos (ahorra batería).
   if(id==='v-photos') geoStart(); else geoStop();
+  if(DRAFT && STEP_NAME[id]){ DRAFT.step = id; persistDraft(true); }
   window.scrollTo(0,0);
 }
 let _tt;
@@ -671,6 +673,7 @@ async function goHome(){
   $('h-nom').textContent = SESSION.payroll_no;
   showOffline();
   show('v-home');
+  await renderDraftCard();
   await renderLists();
   syncOutbox();
 }
@@ -726,22 +729,82 @@ function fillParks(country, value){
   fillSelect($('f-parque'), parks.map(p=>({v:p.id,t:p.name.replace(/^P\.E\.\s*/,'')})), country?'Elige…':'Primero el país', value);
 }
 
-function newActivity(){
-  DRAFT = { client_id: crypto.randomUUID(), form:{}, photos:[], device:null };
+// Llena el formulario (vacío para una actividad nueva, o con los datos de un borrador).
+function prepareForm(f = {}){
   const techs = CATALOG?.technologies?.length ? CATALOG.technologies : TECH_DEFAULT;
-  fillSelect($('f-tec'), techs.map(t=>({v:t,t})), 'Elige…');
+  fillSelect($('f-tec'), techs.map(t=>({v:t,t})), 'Elige…', f.technology || '');
   const countries = [...new Set((CATALOG?.parks||[]).map(p=>p.country))];
-  fillSelect($('f-pais'), countries.map(c=>({v:c,t:c})), 'Elige…', countries.length===1?countries[0]:'');
-  fillParks($('f-pais').value);
-  for(const id of ['f-turb','f-pala','f-serie','f-act','f-com']) $(id).value='';
-  $('f-fecha').value = today(); $('f-fecha').max = today();
+  const country = f.country || (countries.length===1 ? countries[0] : '');
+  fillSelect($('f-pais'), countries.map(c=>({v:c,t:c})), 'Elige…', country);
+  fillParks(country, f.park_id!=null ? String(f.park_id) : '');
+  const vals = {'f-turb':f.turbine, 'f-pala':f.blade_id, 'f-serie':f.blade_serial, 'f-act':f.activity, 'f-com':f.comments};
+  for(const [id,v] of Object.entries(vals)) $(id).value = v || '';
+  $('f-fecha').value = f.execution_date || today(); $('f-fecha').max = today();
   document.querySelectorAll('#v-form .invalid').forEach(e=>e.classList.remove('invalid'));
   err('f-err','');
+}
+
+function newActivity(){
+  DRAFT = { client_id: crypto.randomUUID(), form:{}, photos:[], device:null, step:'v-form' };
+  prepareForm();
   // Ubicación del teléfono (funciona sin señal con el GPS). No bloquea.
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(p=>{ if(DRAFT) DRAFT.device={lat:+p.coords.latitude.toFixed(6),lon:+p.coords.longitude.toFixed(6)}; },()=>{},{enableHighAccuracy:true,timeout:15000,maximumAge:600000});
   }
   show('v-form');
+}
+
+// ── Borrador guardado en el teléfono ──
+// Si la app se cierra (o Android la cierra al abrir la cámara), la actividad en
+// curso se recupera: datos del formulario, fotos ya procesadas y el paso.
+const draftKey = () => 'draft_' + SESSION.payroll_no;
+const STEP_NAME = {'v-form':'Datos', 'v-photos':'Fotos', 'v-review':'Enviar'};
+let _persistT = null;
+function persistDraft(now, extra = {}){
+  if(!DRAFT || !SESSION) return;
+  clearTimeout(_persistT);
+  const d = DRAFT, key = draftKey();
+  const run = ()=> idbPut('meta', {k:key, v:{
+    client_id:d.client_id, fields:readForm(), form:d.form, device:d.device, step:d.step || 'v-form',
+    photos:d.photos.map(({url, ...p})=>p), saved:Date.now(), ...extra,
+  }}).catch(e=>console.warn('No se guardó el borrador', e));
+  if(now) run(); else _persistT = setTimeout(run, 400);
+}
+async function savedDraft(){ return SESSION ? await metaGet(draftKey()) : null; }
+async function clearSavedDraft(){ clearTimeout(_persistT); if(SESSION) await idbDel('meta', draftKey()); }
+
+async function resumeDraft(rec){
+  DRAFT = { client_id:rec.client_id, form:rec.form || {}, device:rec.device || null, step:rec.step || 'v-form',
+    photos:(rec.photos || []).map(p=>({...p, url:URL.createObjectURL(p.blob)})) };
+  prepareForm(rec.fields || {});
+  if(DRAFT.step !== 'v-form' && !DRAFT.form?.technology) DRAFT.form = readForm();
+  evaluatePhotos(); renderPhotos();
+  if(DRAFT.step === 'v-review') renderReview();
+  show(DRAFT.step);
+}
+async function resumeSaved(){ const rec = await savedDraft(); if(rec) resumeDraft(rec); }
+async function discardSaved(){
+  if(!confirm('¿Descartar la actividad sin terminar? Se pierden sus datos y fotos.')) return;
+  await clearSavedDraft(); renderDraftCard();
+}
+function timeAgo(ts){
+  const m = Math.round((Date.now()-ts)/60000);
+  return m < 1 ? 'hace un momento' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m/60)} h` : `hace ${Math.round(m/1440)} d`;
+}
+async function renderDraftCard(){
+  const rec = await savedDraft();
+  if(!rec){ $('h-draft').innerHTML = ''; return; }
+  const f = rec.fields || {};
+  $('h-draft').innerHTML = `<div class="list-h"><h3>Actividad sin terminar</h3><span class="n">${esc(timeAgo(rec.saved))}</span></div>
+    <div class="list"><div class="row pend">
+      <div class="park">${esc(shortPark(f.park_name)) || 'Sin parque'}</div>
+      <div class="spec">${esc(f.turbine || '—')} · PALA ${esc(f.blade_id || '—')} · ${esc(f.blade_serial || '—')}</div>
+      <div class="chips"><span class="chip w">Paso: ${STEP_NAME[rec.step] || 'Datos'}</span><span class="chip">${(rec.photos||[]).length} foto(s)</span></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn sm" onclick="resumeSaved()">Continuar</button>
+        <button class="btn sm sec" onclick="discardSaved()">Descartar</button>
+      </div>
+    </div></div>`;
 }
 
 function readForm(){
@@ -932,6 +995,7 @@ function renderPhotos(){
   if(noGps('camara')) lines.push(`<div class="chk info"><i>INFO</i><span>${noGps('camara')} foto(s) tomadas sin ubicación. Revisa que el GPS del teléfono esté encendido y que la app tenga permiso de ubicación.</span></div>`);
   $('p-alerts').innerHTML = lines.join('');
   $('p-clean').style.display = blocks ? 'flex' : 'none';
+  persistDraft(true);   // cada foto agregada o quitada queda guardada en el teléfono
 }
 
 function removePhoto(i){
@@ -977,6 +1041,7 @@ async function saveDraft(){
     });
     d.photos.forEach(p=>URL.revokeObjectURL(p.url));
     DRAFT = null;
+    await clearSavedDraft();   // ya está en el outbox
     toast(navigator.onLine ? 'Guardada. Enviando…' : 'Guardada sin conexión. Se enviará al volver la señal.');
     goHome();
   }catch(e){
@@ -1061,11 +1126,26 @@ async function sendOne(it){
 $('l-btn').onclick = doLogin;
 $('l-nom').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
 $('h-out').onclick = logout;
-$('h-new').onclick = ()=>{ if(!CATALOG){ toast('Conéctate a internet una vez para cargar los parques.'); return; } newActivity(); };
+$('h-new').onclick = async ()=>{
+  if(!CATALOG){ toast('Conéctate a internet una vez para cargar los parques.'); return; }
+  if(await savedDraft()){
+    if(!confirm('Tienes una actividad sin terminar. ¿Descartarla y empezar una nueva?')) return;
+    await clearSavedDraft();
+  }
+  newActivity();
+};
 $('f-pais').onchange = ()=>fillParks($('f-pais').value);
 document.querySelectorAll('#v-form input, #v-form select, #v-form textarea').forEach(el=>
-  el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ if(el.value.trim()) el.classList.remove('invalid'); }));
-$('f-cancel').onclick = ()=>{ DRAFT=null; goHome(); };
+  el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ if(el.value.trim()) el.classList.remove('invalid'); persistDraft(); }));
+// "Salir" no borra nada: la actividad queda en Inicio como "sin terminar".
+$('f-cancel').onclick = ()=>{
+  persistDraft(true, {exited:true});
+  DRAFT.photos.forEach(p=>URL.revokeObjectURL(p.url));
+  DRAFT = null; goHome();
+};
+// Al salir de la app (cambiar de app, abrir la cámara, apagar pantalla) se guarda al instante.
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') persistDraft(true); });
+window.addEventListener('pagehide', ()=>persistDraft(true));
 $('f-next').onclick = ()=>{
   const f = validateForm(); if(!f) return;
   DRAFT.form = f;
@@ -1093,7 +1173,13 @@ window.addEventListener('offline',showOffline);
 // Arranque: si hay sesión guardada, entrar directo (también sin señal)
 (async()=>{
   SESSION = await metaGet('session');
-  if(SESSION){ await loadCatalog(); goHome(); }
+  if(SESSION){
+    await loadCatalog();
+    await goHome();
+    // Si la app se cerró a media actividad (no por "Salir"), volver directo a donde iba.
+    const rec = await savedDraft();
+    if(rec && !rec.exited && CATALOG){ await resumeDraft(rec); toast('Recuperamos la actividad que tenías en curso.'); }
+  }
 })();
 </script>
 </body>

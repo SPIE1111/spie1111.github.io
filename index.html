@@ -14,7 +14,7 @@
 
 <link rel="manifest" href="manifest.json"/>
 
-<meta name="theme-color" content="#0a3d62"/>
+<meta name="theme-color" content="#0F1E5A"/>
 
 <link rel="apple-touch-icon" href="icon-192.png"/>
 
@@ -50,29 +50,39 @@
 
 :root{
 
-  --navy:#0f1e5a;
+  /* Paleta SPIE · los 7 colores de marca, más dos tintes derivados del azul
+     para degradados y estados (no son colores nuevos: son el mismo azul
+     aclarado, necesarios para que el botón no desaparezca sobre el fondo). */
 
-  --cyan:#00A8E8;
+  --navy:#0F1E5A;
 
-  --cyan2:#0090cc;
+  --navy2:#1B2D72;
 
-  --white:#ffffff;
+  --navy3:#3C4C8C;
 
-  --card:#ffffff;
+  --cyan:#0F1E5A;      /* acción principal */
 
-  --border:#d0d8e8;
+  --cyan2:#1B2D72;
 
-  --text:#0a1540;
+  --white:#FFFFFF;
 
-  --text2:#5a6680;
+  --card:#FFFFFF;
 
-  --text3:#8a96b0;
+  --bg:#F7F8FA;
 
-  --red:#e53535;
+  --border:#E1E5EB;
 
-  --amber:#f5a623;
+  --text:#0F1E5A;
 
-  --green:#27ae60;
+  --text2:#5A6470;
+
+  --text3:#99A1AD;
+
+  --red:#D32F2F;
+
+  --amber:#C77700;
+
+  --green:#2E7D32;
 
   --r:16px;
 
@@ -80,13 +90,13 @@
 
   --font:'Jost',sans-serif;
 
-  --shadow:0 6px 28px rgba(0,0,0,0.16);
+  --shadow:0 6px 28px rgba(15,30,90,0.14);
 
 }
 
 /* ── BASE ── */
 
-html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;background:#0d1f4e;min-height:100vh}
+html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;background:#0F1E5A;min-height:100vh}
 
 /* ── FONDO ESTÁTICO ── */
 
@@ -96,7 +106,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
   position:relative;
 
-  background-color:#0d1f4e;
+  background-color:#0F1E5A;
 
 }
 
@@ -144,7 +154,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 /* ── OFFLINE BAR ── */
 
-.offline-bar{background:rgba(255,184,0,0.1);border-bottom:1px solid rgba(255,184,0,0.2);padding:6px 16px;font-size:11px;color:#FFB800;font-weight:700;display:none;align-items:center;gap:6px}
+.offline-bar{background:rgba(255,184,0,0.1);border-bottom:1px solid rgba(255,184,0,0.2);padding:6px 16px;font-size:11px;color:#C77700;font-weight:700;display:none;align-items:center;gap:6px}
 
 .offline-bar.show{display:flex}
 
@@ -158,11 +168,11 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .inp,.sel,.ta{width:100%;height:48px;border-radius:var(--rs);border:1.5px solid var(--border);padding:0 14px;font-family:var(--font);font-size:14px;color:var(--text);background:#fff;outline:none;transition:border-color .2s,box-shadow .2s;-webkit-appearance:none}
 
-.inp:focus,.sel:focus,.ta:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,168,232,0.10)}
+.inp:focus,.sel:focus,.ta:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(15,30,90,0.10)}
 
 .inp::placeholder{color:var(--text3)}
 
-.inp:disabled,.sel:disabled{background:#f0f4f8;opacity:.7;cursor:not-allowed}
+.inp:disabled,.sel:disabled{background:#F7F8FA;opacity:.7;cursor:not-allowed}
 
 .ta{height:auto;min-height:100px;padding:12px 14px;resize:vertical;line-height:1.6}
 
@@ -174,9 +184,9 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 /* ── BUTTONS ── */
 
-.btn-cyan{width:100%;background:var(--cyan);color:#fff;border:none;border-radius:var(--rs);font-family:var(--font);font-size:15px;font-weight:800;padding:15px;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(0,168,232,0.3);letter-spacing:.02em}
+.btn-cyan{width:100%;background:var(--cyan);color:#fff;border:none;border-radius:var(--rs);font-family:var(--font);font-size:15px;font-weight:800;padding:15px;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(15,30,90,0.3);letter-spacing:.02em}
 
-.btn-cyan:hover{background:var(--cyan2);transform:translateY(-1px);box-shadow:0 6px 22px rgba(0,168,232,0.4)}
+.btn-cyan:hover{background:var(--cyan2);transform:translateY(-1px);box-shadow:0 6px 22px rgba(15,30,90,0.4)}
 
 .btn-cyan:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
 
@@ -202,13 +212,13 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .ls-c{width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,0.6);background:rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;font-family:var(--font);transition:all .3s;flex-shrink:0}
 
-.ls-c.active{background:var(--cyan);border-color:var(--cyan);color:#fff;box-shadow:0 0 14px rgba(0,168,232,0.5)}
+.ls-c.active{background:var(--cyan);border-color:var(--cyan);color:#fff;box-shadow:0 0 14px rgba(15,30,90,0.5)}
 
-.ls-c.done{background:#3db87a;border-color:#3db87a;color:#fff}
+.ls-c.done{background:#2E7D32;border-color:#2E7D32;color:#fff}
 
 .ls-line{flex:1;height:2px;background:rgba(255,255,255,0.25);margin:0 6px;border-radius:2px}
 
-.ls-line.done{background:#3db87a}
+.ls-line.done{background:#2E7D32}
 
 /* Card login */
 
@@ -220,7 +230,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 /* Parque box */
 
-.lp-box{display:flex;align-items:center;gap:12px;background:#eef4fb;border:1.5px solid #b8d0e8;border-radius:var(--rs);padding:12px 14px;margin-top:4px}
+.lp-box{display:flex;align-items:center;gap:12px;background:#F7F8FA;border:1.5px solid #E1E5EB;border-radius:var(--rs);padding:12px 14px;margin-top:4px}
 
 .lp-lbl{font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
 
@@ -228,9 +238,9 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 /* HSE box */
 
-.lh-box{display:flex;align-items:flex-start;gap:12px;background:rgba(0,168,232,0.06);border:1.5px solid rgba(0,168,232,0.2);border-radius:var(--rs);padding:12px 14px;margin-top:10px}
+.lh-box{display:flex;align-items:flex-start;gap:12px;background:rgba(15,30,90,0.06);border:1.5px solid rgba(15,30,90,0.2);border-radius:var(--rs);padding:12px 14px;margin-top:10px}
 
-.lh-icon{width:36px;height:36px;background:rgba(0,168,232,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;border:1px solid rgba(0,168,232,0.2)}
+.lh-icon{width:36px;height:36px;background:rgba(15,30,90,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;border:1px solid rgba(15,30,90,0.2)}
 
 .lh-tag{font-size:9px;color:var(--text2);font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
 
@@ -278,9 +288,9 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .fs-c{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,0.28);background:transparent;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:rgba(255,255,255,0.4);transition:all .3s}
 
-.fs-c.active{background:var(--cyan);border-color:var(--cyan);color:#fff;box-shadow:0 0 12px rgba(0,168,232,0.45)}
+.fs-c.active{background:var(--cyan);border-color:var(--cyan);color:#fff;box-shadow:0 0 12px rgba(15,30,90,0.45)}
 
-.fs-c.done{background:#3db87a;border-color:#3db87a;color:#fff}
+.fs-c.done{background:#2E7D32;border-color:#2E7D32;color:#fff}
 
 .fs-lbl{font-size:8px;color:rgba(255,255,255,0.38);text-transform:uppercase;letter-spacing:.05em;font-weight:700;white-space:nowrap}
 
@@ -290,7 +300,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .fs-line{flex:1;height:2px;background:rgba(255,255,255,0.16);margin:0 4px 12px;border-radius:2px;transition:background .3s}
 
-.fs-line.done{background:#3db87a}
+.fs-line.done{background:#2E7D32}
 
 /* Scroll del form */
 
@@ -308,7 +318,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 /* Empleado tag */
 
-.emp-tag{display:flex;align-items:center;gap:12px;background:#eef4fb;border:1.5px solid #b8d0e8;border-radius:var(--rs);padding:12px 14px}
+.emp-tag{display:flex;align-items:center;gap:12px;background:#F7F8FA;border:1.5px solid #E1E5EB;border-radius:var(--rs);padding:12px 14px}
 
 .emp-tag-lbl{font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
 
@@ -316,9 +326,9 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 /* HSE badge */
 
-.hse-box{display:flex;align-items:flex-start;gap:12px;background:rgba(0,168,232,0.06);border:1.5px solid rgba(0,168,232,0.2);border-radius:var(--rs);padding:12px 14px;margin-top:4px}
+.hse-box{display:flex;align-items:flex-start;gap:12px;background:rgba(15,30,90,0.06);border:1.5px solid rgba(15,30,90,0.2);border-radius:var(--rs);padding:12px 14px;margin-top:4px}
 
-.hse-icon{width:34px;height:34px;background:rgba(0,168,232,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.hse-icon{width:34px;height:34px;background:rgba(15,30,90,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
 
 .hse-tag{font-size:9px;color:var(--text2);font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
 
@@ -330,7 +340,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
 
-.kpi-box{background:#f0f4fa;border:1.5px solid #d0d8e8;border-radius:var(--rs);padding:12px 14px}
+.kpi-box{background:#F7F8FA;border:1.5px solid #E1E5EB;border-radius:var(--rs);padding:12px 14px}
 
 .kpi-l{font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
 
@@ -338,7 +348,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 /* Auto label */
 
-.auto-lbl{font-size:12px;color:#1a8a4a;font-weight:700;margin-top:6px;display:flex;align-items:center;gap:4px}
+.auto-lbl{font-size:12px;color:#2E7D32;font-weight:700;margin-top:6px;display:flex;align-items:center;gap:4px}
 
 .hint{font-size:12px;color:var(--text2);margin-top:5px}
 
@@ -348,9 +358,9 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .tipo-btn{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:16px 8px;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;transition:background .15s,outline-color .15s;outline:2px solid transparent;outline-offset:-1px;min-height:90px;box-sizing:border-box}
 
-.tipo-btn:hover{background:#f0f8fd}
+.tipo-btn:hover{background:#F7F8FA}
 
-.tipo-btn.sel{background:rgba(0,168,232,0.07);outline-color:var(--cyan)}
+.tipo-btn.sel{background:rgba(15,30,90,0.07);outline-color:var(--cyan)}
 
 .tipo-icon{font-size:28px;line-height:1}
 
@@ -362,13 +372,13 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .risk-list-wrap{border:1.5px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}
 
-.risk-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #eef2f8;cursor:pointer;transition:background .12s}
+.risk-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #F7F8FA;cursor:pointer;transition:background .12s}
 
 .risk-row:last-child{border-bottom:none}
 
-.risk-row:hover{background:#f5f8ff}
+.risk-row:hover{background:#F7F8FA}
 
-.risk-row.open,.risk-row.has-sel{background:#f0f6ff}
+.risk-row.open,.risk-row.has-sel{background:#F7F8FA}
 
 .risk-em{font-size:16px;width:20px;text-align:center;flex-shrink:0}
 
@@ -382,19 +392,19 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .risk-row.open .risk-chev{transform:rotate(180deg)}
 
-.risk-sub{display:none;background:#f5f8ff;padding:10px 14px 14px;border-bottom:1px solid #eef2f8}
+.risk-sub{display:none;background:#F7F8FA;padding:10px 14px 14px;border-bottom:1px solid #F7F8FA}
 
 .risk-sub.open{display:block}
 
 .risk-pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 
-.risk-pill{background:transparent;border:1.5px solid rgba(0,168,232,0.3);border-radius:20px;padding:5px 13px;font-size:12px;color:#0060a0;cursor:pointer;font-weight:700;transition:all .15s;font-family:var(--font)}
+.risk-pill{background:transparent;border:1.5px solid rgba(15,30,90,0.3);border-radius:20px;padding:5px 13px;font-size:12px;color:#0F1E5A;cursor:pointer;font-weight:700;transition:all .15s;font-family:var(--font)}
 
-.risk-pill:hover{background:rgba(0,168,232,0.08);border-color:var(--cyan)}
+.risk-pill:hover{background:rgba(15,30,90,0.08);border-color:var(--cyan)}
 
 .risk-pill.sel{background:var(--cyan);color:#fff;border-color:var(--cyan)}
 
-.risk-sel-tag{display:flex;align-items:center;gap:8px;background:rgba(0,168,232,0.08);border:1px solid rgba(0,168,232,0.2);border-radius:20px;padding:5px 13px;font-size:12px;color:var(--cyan2);margin-top:10px;font-weight:700;flex-wrap:wrap}
+.risk-sel-tag{display:flex;align-items:center;gap:8px;background:rgba(15,30,90,0.08);border:1px solid rgba(15,30,90,0.2);border-radius:20px;padding:5px 13px;font-size:12px;color:var(--cyan2);margin-top:10px;font-weight:700;flex-wrap:wrap}
 
 .risk-sel-tag button{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0;margin-left:2px}
 
@@ -404,7 +414,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .nivel-btn{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:18px 8px;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;transition:background .15s;outline:2px solid transparent;outline-offset:-1px;min-height:90px;box-sizing:border-box}
 
-.nivel-btn:hover{background:#f5f8ff}
+.nivel-btn:hover{background:#F7F8FA}
 
 .nivel-dot{width:30px;height:30px;border-radius:50%;display:block}
 
@@ -428,7 +438,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .viol-btn{background:#fff;border:1.5px solid var(--border);border-radius:var(--rs);padding:14px;cursor:pointer;font-family:var(--font);font-size:15px;font-weight:800;color:var(--text);text-align:center;transition:background .15s;outline:2px solid transparent;outline-offset:-1px;box-sizing:border-box}
 
-.viol-btn:hover{background:#f5f8ff}
+.viol-btn:hover{background:#F7F8FA}
 
 .viol-btn.si.sel{background:rgba(229,53,53,.05);color:var(--red);outline-color:var(--red)}
 
@@ -436,11 +446,11 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 /* ══ FOTO ══ */
 
-.photo-box{display:flex;align-items:center;gap:14px;background:#f8faff;border:1.5px dashed #c0cce0;border-radius:var(--rs);padding:18px 16px;cursor:pointer;transition:border-color .15s,background .15s}
+.photo-box{display:flex;align-items:center;gap:14px;background:#F7F8FA;border:1.5px dashed #E1E5EB;border-radius:var(--rs);padding:18px 16px;cursor:pointer;transition:border-color .15s,background .15s}
 
-.photo-box:hover{border-color:var(--cyan);background:#eef8fd}
+.photo-box:hover{border-color:var(--cyan);background:#F7F8FA}
 
-.photo-box.has{border-color:var(--cyan);background:#eef8fd;border-style:solid}
+.photo-box.has{border-color:var(--cyan);background:#F7F8FA;border-style:solid}
 
 .photo-icon{font-size:26px;flex-shrink:0}
 
@@ -458,7 +468,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .status-btn{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:18px 12px;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;transition:background .15s;outline:2px solid transparent;outline-offset:-1px;min-height:90px;box-sizing:border-box}
 
-.status-btn:hover{background:#f5f8ff}
+.status-btn:hover{background:#F7F8FA}
 
 .status-dot{width:24px;height:24px;border-radius:50%;background:var(--red);box-shadow:0 2px 8px rgba(229,53,53,.2)}
 
@@ -478,9 +488,9 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .resumen-wrap{border:1.5px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;margin-top:6px}
 
-.resumen-titulo{padding:12px 16px;font-size:14px;font-weight:800;color:var(--text);border-bottom:1px solid #eef2f8}
+.resumen-titulo{padding:12px 16px;font-size:14px;font-weight:800;color:var(--text);border-bottom:1px solid #F7F8FA}
 
-.sum-row{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 16px;border-bottom:1px solid #f0f4f8;gap:16px}
+.sum-row{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 16px;border-bottom:1px solid #F7F8FA;gap:16px}
 
 .sum-row:last-child{border-bottom:none}
 
@@ -490,9 +500,9 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 /* ══ SUCCESS ══ */
 
-.suc-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center;gap:12px;background:#eef2f7}
+.suc-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center;gap:12px;background:#F7F8FA}
 
-.suc-check-circle{width:72px;height:72px;background:transparent;border:3px solid #27ae60;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;color:#27ae60;font-weight:800;animation:pop .45s cubic-bezier(.34,1.56,.64,1)}
+.suc-check-circle{width:72px;height:72px;background:transparent;border:3px solid #2E7D32;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;color:#2E7D32;font-weight:800;animation:pop .45s cubic-bezier(.34,1.56,.64,1)}
 
 @keyframes pop{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
 
@@ -500,9 +510,9 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .suc-pill{background:var(--cyan);color:#fff;border-radius:20px;padding:5px 20px;font-size:17px;font-weight:800;display:inline-block}
 
-.suc-notif-box{font-size:13px;color:#0a1540;line-height:1.6;background:#fff;border:1.5px solid #d0d8e8;border-radius:var(--rs);padding:12px 16px;width:100%;max-width:340px;text-align:center;font-weight:500}
+.suc-notif-box{font-size:13px;color:#0F1E5A;line-height:1.6;background:#fff;border:1.5px solid #E1E5EB;border-radius:var(--rs);padding:12px 16px;width:100%;max-width:340px;text-align:center;font-weight:500}
 
-.suc-guard{font-size:13px;color:#27ae60;font-weight:600;display:flex;align-items:center;gap:6px}
+.suc-guard{font-size:13px;color:#2E7D32;font-weight:600;display:flex;align-items:center;gap:6px}
 
 /* ══ HOME ══ */
 
@@ -556,7 +566,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .online-dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:pulse 2.5s infinite}
 
-.offline-dot{background:#FFB800 !important;box-shadow:0 0 8px #FFB800 !important}
+.offline-dot{background:#C77700 !important;box-shadow:0 0 8px #C77700 !important}
 
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
@@ -590,9 +600,9 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 }
 
-.inicio-btn-cam{background:rgba(0,168,232,0.18);border-color:rgba(0,168,232,0.5)}
+.inicio-btn-cam{background:rgba(15,30,90,0.18);border-color:rgba(15,30,90,0.5)}
 
-.inicio-btn-cam:hover{background:rgba(0,168,232,0.3);transform:translateY(-2px)}
+.inicio-btn-cam:hover{background:rgba(15,30,90,0.3);transform:translateY(-2px)}
 
 .inicio-btn-reg:hover{background:rgba(255,255,255,0.2);transform:translateY(-2px)}
 
@@ -604,7 +614,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .inicio-preview-wrap{background:rgba(255,255,255,0.1);border-radius:14px;padding:16px;width:100%;max-width:400px;text-align:center}
 
-.inicio-preview-lbl{font-size:13px;color:#3db87a;font-weight:700;margin-top:8px}
+.inicio-preview-lbl{font-size:13px;color:#2E7D32;font-weight:700;margin-top:8px}
 
 /* ══ PHOTO BOX CON OPCIONES CÁMARA/GALERÍA ════════════ */
 
@@ -612,7 +622,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .photo-btn-cam,.photo-btn-gal{
 
-  background:#f0f4fa;border:1.5px solid var(--border);border-radius:var(--rs);
+  background:#F7F8FA;border:1.5px solid var(--border);border-radius:var(--rs);
 
   padding:14px 10px;cursor:pointer;text-align:center;display:flex;
 
@@ -620,11 +630,11 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 }
 
-.photo-btn-cam{background:rgba(0,168,232,0.06);border-color:rgba(0,168,232,0.3)}
+.photo-btn-cam{background:rgba(15,30,90,0.06);border-color:rgba(15,30,90,0.3)}
 
-.photo-btn-cam:hover{background:rgba(0,168,232,0.12)}
+.photo-btn-cam:hover{background:rgba(15,30,90,0.12)}
 
-.photo-btn-gal:hover{background:#e4ecf7;border-color:var(--cyan)}
+.photo-btn-gal:hover{background:#F7F8FA;border-color:var(--cyan)}
 
 .photo-btn-icon{font-size:24px}
 
@@ -633,6 +643,26 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 .photo-preview{margin-top:8px;border-radius:var(--rs);overflow:hidden;border:1.5px solid var(--cyan)}
 
 .photo-preview img{width:100%;display:block;max-height:160px;object-fit:cover}
+
+.hdr-ver{font-size:9.5px;font-weight:700;letter-spacing:.06em;color:rgba(255,255,255,.6);margin-left:8px;font-family:var(--font)}
+
+.lbl-opt{font-weight:600;font-size:11px;color:var(--text3);margin-left:4px;text-transform:none;letter-spacing:0}
+
+.fotos-gal{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+
+.fotos-gal:empty{display:none}
+
+.fotos-gal .mini{position:relative;border-radius:var(--rs);overflow:hidden;border:1.5px solid var(--cyan);background:#fff}
+
+.fotos-gal .mini img{width:100%;height:84px;object-fit:cover;display:block}
+
+.fotos-gal .mini .num{position:absolute;left:5px;top:5px;background:rgba(0,0,0,.55);color:#fff;font-size:10px;font-weight:800;border-radius:20px;padding:1px 7px;font-family:var(--font)}
+
+.fotos-gal .mini .quita{position:absolute;right:4px;top:4px;width:22px;height:22px;border:none;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:13px;line-height:1;cursor:pointer;font-family:var(--font);display:flex;align-items:center;justify-content:center}
+
+.fotos-estado{font-size:11px;color:var(--text2);margin-top:6px;font-family:var(--font)}
+
+.fotos-estado:empty{display:none}
 
 .photo-change{font-size:11px;color:var(--cyan2);font-weight:600;cursor:pointer;margin-top:5px;background:none;border:none;font-family:var(--font)}
 
@@ -652,7 +682,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
       <div class="hdr-icon">🛡️</div>
 
-      <span class="hdr-name">HAZARD HSE</span>
+      <span class="hdr-name">HAZARD HSE</span><span class="hdr-ver" title="Versión de la app">v2026.10.27</span>
 
     </div>
 
@@ -768,7 +798,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
                onkeydown="if(event.key==='Enter'){event.preventDefault();doLogin();}" />
 
-        <div id="l-nomina-estado" style="display:none;font-size:12.5px;margin-top:6px;color:#6b728a"></div>
+        <div id="l-nomina-estado" style="display:none;font-size:12.5px;margin-top:6px;color:#5A6470"></div>
 
       </div>
 
@@ -833,11 +863,11 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
       </div>
 
       <div id="l-hse-select-wrap" style="display:none;margin-top:12px">
-        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:#1a1f3d">Selecciona tu HSE responsable *</label>
-        <select id="l-hse-select" style="width:100%;padding:11px 13px;border:1.5px solid #cc1417;border-radius:9px;font-size:15px;background:#fff">
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:#0F1E5A">Selecciona tu HSE responsable *</label>
+        <select id="l-hse-select" style="width:100%;padding:11px 13px;border:1.5px solid #D32F2F;border-radius:9px;font-size:15px;background:#fff">
           <option value="">— Elige tu HSE —</option>
         </select>
-        <p style="font-size:12px;color:#6b728a;margin-top:5px">Como reportas en campo, indica a qué HSE debe llegar tu reporte.</p>
+        <p style="font-size:12px;color:#5A6470;margin-top:5px">Como reportas en campo, indica a qué HSE debe llegar tu reporte.</p>
       </div>
 
       <div class="login-err" id="login-err">Selecciona tu país y nombre para continuar.</div>
@@ -931,7 +961,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
       <div class="kpi"><div class="kpi-n">47</div><div class="kpi-l">Acum. 2025</div></div>
 
-      <div class="kpi"><div class="kpi-n" style="color:#FF6B35">3</div><div class="kpi-l">Pendientes</div></div>
+      <div class="kpi"><div class="kpi-n" style="color:#C77700">3</div><div class="kpi-l">Pendientes</div></div>
 
     </div>
 
@@ -1129,7 +1159,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
         <div id="parque-auto-wrap" style="display:none">
 
-          <input class="inp" id="parque-auto-val" readonly style="color:#0a1540;font-weight:600;background:#fff" value="—"/>
+          <input class="inp" id="parque-auto-val" readonly style="color:#0F1E5A;font-weight:600;background:#fff" value="—"/>
 
         </div>
 
@@ -1328,7 +1358,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
       <div class="field">
 
-        <label class="lbl">📸 Foto de Evidencia del Riesgo</label>
+        <label class="lbl">📸 Fotos de Evidencia del Riesgo <span class="lbl-opt">hasta 3</span></label>
 
         <div class="photo-btns">
 
@@ -1350,17 +1380,17 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
         </div>
 
-        <input type="file" id="fi1-cam" accept="image/*" capture="environment" style="display:none" onchange="onPhoto2('pb1','fi1-cam','pt1')"/>
+        <!-- La cámara agrega de una en una; la galería permite elegir varias de golpe -->
 
-        <input type="file" id="fi1-gal" accept="image/*,video/*" style="display:none" onchange="onPhoto2('pb1','fi1-gal','pt1')"/>
+        <input type="file" id="fi1-cam" accept="image/*" capture="environment" style="display:none" onchange="onFotosEvidencia('fi1-cam')"/>
 
-        <div id="pb1" class="photo-preview" style="display:none">
+        <input type="file" id="fi1-gal" accept="image/*" multiple style="display:none" onchange="onFotosEvidencia('fi1-gal')"/>
 
-          <img id="pt1-img" src="" alt="Evidencia"/>
+        <div id="fotos-gal" class="fotos-gal"></div>
 
-          <label class="photo-change" onclick="clearPhoto('pb1','pt1-img','fi1-cam','fi1-gal')">🗑️ Cambiar foto</label>
+        <p id="fotos-estado" class="fotos-estado"></p>
 
-        </div>
+        <!-- Se conservan para compatibilidad: siempre guardan la foto 1 -->
 
         <input type="hidden" id="fi1-data"/>
 
@@ -1606,13 +1636,13 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
       <div class="dk"><div class="dk-i">📊</div><div class="dk-n">47</div><div class="dk-l">Total</div></div>
 
-      <div class="dk"><div class="dk-i">🔴</div><div class="dk-n" style="color:#FF6B35">18</div><div class="dk-l">Abiertos</div></div>
+      <div class="dk"><div class="dk-i">🔴</div><div class="dk-n" style="color:#C77700">18</div><div class="dk-l">Abiertos</div></div>
 
       <div class="dk"><div class="dk-i">✅</div><div class="dk-n" style="color:var(--green)">29</div><div class="dk-l">Cerrados</div></div>
 
-      <div class="dk"><div class="dk-i">⚠️</div><div class="dk-n" style="color:#FF4D4D">5</div><div class="dk-l">Riesgo Alto</div></div>
+      <div class="dk"><div class="dk-i">⚠️</div><div class="dk-n" style="color:#D32F2F">5</div><div class="dk-l">Riesgo Alto</div></div>
 
-      <div class="dk"><div class="dk-i">🟡</div><div class="dk-n" style="color:#FFB800">14</div><div class="dk-l">Riesgo Medio</div></div>
+      <div class="dk"><div class="dk-i">🟡</div><div class="dk-n" style="color:#C77700">14</div><div class="dk-l">Riesgo Medio</div></div>
 
       <div class="dk"><div class="dk-i">🟢</div><div class="dk-n" style="color:var(--green)">28</div><div class="dk-l">Riesgo Bajo</div></div>
 
@@ -1634,15 +1664,15 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
       <div class="th"><span>ID</span><span>Empleado / Parque</span><span>Nivel</span><span>Días</span></div>
 
-      <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-047</span><div><div style="font-size:11px;font-weight:500">ERVIN GARCIA</div><div style="font-size:10px;color:var(--text3)">P.E. El Cortijo</div></div><span class="badge alto">Alto</span><span style="color:#FF4D4D;font-weight:700;font-size:11px">3d ⚠️</span></div>
+      <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-047</span><div><div style="font-size:11px;font-weight:500">ERVIN GARCIA</div><div style="font-size:10px;color:var(--text3)">P.E. El Cortijo</div></div><span class="badge alto">Alto</span><span style="color:#D32F2F;font-weight:700;font-size:11px">3d ⚠️</span></div>
 
       <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-046</span><div><div style="font-size:11px;font-weight:500">LUIS RAMIREZ</div><div style="font-size:10px;color:var(--text3)">P.E. Pier II</div></div><span class="badge medio">Medio</span><span class="badge cerrado">✅</span></div>
 
-      <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-045</span><div><div style="font-size:11px;font-weight:500">CARLOS PIÑON</div><div style="font-size:10px;color:var(--text3)">P.E. Santiago Eolo</div></div><span class="badge alto">Alto</span><span style="color:#FF4D4D;font-weight:700;font-size:11px">8d ⚠️</span></div>
+      <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-045</span><div><div style="font-size:11px;font-weight:500">CARLOS PIÑON</div><div style="font-size:10px;color:var(--text3)">P.E. Santiago Eolo</div></div><span class="badge alto">Alto</span><span style="color:#D32F2F;font-weight:700;font-size:11px">8d ⚠️</span></div>
 
       <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-044</span><div><div style="font-size:11px;font-weight:500">IVAN NOVELO</div><div style="font-size:10px;color:var(--text3)">P.E. Eólica del Sur</div></div><span class="badge bajo">Bajo</span><span class="badge cerrado">✅</span></div>
 
-      <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-043</span><div><div style="font-size:11px;font-weight:500">DIEGO VITALI</div><div style="font-size:10px;color:var(--text3)">P.E. Pintado</div></div><span class="badge medio">Medio</span><span style="color:#FFB800;font-weight:700;font-size:11px">7d</span></div>
+      <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-043</span><div><div style="font-size:11px;font-weight:500">DIEGO VITALI</div><div style="font-size:10px;color:var(--text3)">P.E. Pintado</div></div><span class="badge medio">Medio</span><span style="color:#C77700;font-weight:700;font-size:11px">7d</span></div>
 
     </div>
 
@@ -1944,7 +1974,7 @@ function _estadoNomina(txt,tipo){
   if(!el) return;
   if(!txt){ el.style.display='none'; el.textContent=''; return; }
   el.textContent=txt;
-  el.style.color = tipo==='ok' ? '#1a7f37' : (tipo==='err' ? '#cc1417' : '#6b728a');
+  el.style.color = tipo==='ok' ? '#2E7D32' : (tipo==='err' ? '#D32F2F' : '#5A6470');
   el.style.display='block';
 }
 
@@ -1971,11 +2001,11 @@ function _pintarSelectorHse(opciones){
     const opt=this.options[this.selectedIndex];
     if(this.value){
       _empValidado._hse={nombre:opt.getAttribute('data-nombre'),email:this.value};
-      this.style.borderColor='#1a7f37';
+      this.style.borderColor='#2E7D32';
       _loginErrClear();                 // al elegir HSE se limpia cualquier aviso
     }else{
       _empValidado._hse=null;
-      this.style.borderColor='#cc1417';
+      this.style.borderColor='#D32F2F';
     }
   };
   if(hseFijo) hseFijo.style.display='none'; // el HSE lo define el selector
@@ -2204,7 +2234,7 @@ function pintarBotonAvisos(){
   if(!cont) return;
   if(!pushDisponible() || Notification.permission === 'denied'){ cont.style.display='none'; return; }
   if(Notification.permission === 'granted'){
-    cont.innerHTML = '<div style="font-size:12px;color:#27ae60;font-weight:600">🔔 Avisos activados en este celular</div>';
+    cont.innerHTML = '<div style="font-size:12px;color:#2E7D32;font-weight:600">🔔 Avisos activados en este celular</div>';
   } else {
     cont.innerHTML = '<button class="btn-cyan" style="padding:12px;font-size:14px" onclick="activarAvisos(this)">🔔 Activar avisos en este celular</button>' +
       '<div style="font-size:11px;color:var(--text2);margin-top:5px">Te avisamos cuando tu HSE revise tus reportes, aunque la app esté cerrada.</div>';
@@ -2308,21 +2338,21 @@ function pintarAvisos(){
   cont.innerHTML = lista.map(a=>{
     const fecha = a.revision_en ? new Date(a.revision_en).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '';
     if(a.revision === 'Aprobado'){
-      return `<div style="background:rgba(255,255,255,0.97);border-radius:14px;padding:16px;margin-bottom:10px;border-left:5px solid #27ae60">
-        <div style="font-size:13px;font-weight:800;color:#1a8a4a">✓ REPORTE APROBADO</div>
-        <div style="font-size:17px;font-weight:800;color:#0a1540;margin:4px 0">${a.hazard_code}</div>
-        <div style="font-size:12px;color:#5a6680">${escapeAviso(a.parque||'')} · ${fecha}</div>
-        <div style="font-size:13px;color:#0a1540;margin-top:8px">Gracias por reportar. Tu hazard quedó registrado y cuenta para tu cumplimiento.</div>
+      return `<div style="background:rgba(255,255,255,0.97);border-radius:14px;padding:16px;margin-bottom:10px;border-left:5px solid #2E7D32">
+        <div style="font-size:13px;font-weight:800;color:#2E7D32">✓ REPORTE APROBADO</div>
+        <div style="font-size:17px;font-weight:800;color:#0F1E5A;margin:4px 0">${a.hazard_code}</div>
+        <div style="font-size:12px;color:#5A6470">${escapeAviso(a.parque||'')} · ${fecha}</div>
+        <div style="font-size:13px;color:#0F1E5A;margin-top:8px">Gracias por reportar. Tu hazard quedó registrado y cuenta para tu cumplimiento.</div>
         <button class="btn-cyan" style="margin-top:10px;padding:11px" onclick="cerrarAviso('${a.hazard_code}')">Entendido</button>
       </div>`;
     }
-    return `<div style="background:rgba(255,255,255,0.97);border-radius:14px;padding:16px;margin-bottom:10px;border-left:5px solid #e53535">
-      <div style="font-size:13px;font-weight:800;color:#cc1417">✕ REPORTE RECHAZADO</div>
-      <div style="font-size:17px;font-weight:800;color:#0a1540;margin:4px 0">${a.hazard_code}</div>
-      <div style="font-size:12px;color:#5a6680">${escapeAviso(a.parque||'')} · ${fecha}</div>
-      <div style="background:#fdecea;border-radius:9px;padding:10px 12px;margin-top:8px">
-        <div style="font-size:11px;font-weight:800;color:#a5321f;text-transform:uppercase;letter-spacing:.05em">Motivo</div>
-        <div style="font-size:13px;color:#0a1540;margin-top:3px">${escapeAviso(a.revision_motivo||'')}</div>
+    return `<div style="background:rgba(255,255,255,0.97);border-radius:14px;padding:16px;margin-bottom:10px;border-left:5px solid #D32F2F">
+      <div style="font-size:13px;font-weight:800;color:#D32F2F">✕ REPORTE RECHAZADO</div>
+      <div style="font-size:17px;font-weight:800;color:#0F1E5A;margin:4px 0">${a.hazard_code}</div>
+      <div style="font-size:12px;color:#5A6470">${escapeAviso(a.parque||'')} · ${fecha}</div>
+      <div style="background:#FBEAEA;border-radius:9px;padding:10px 12px;margin-top:8px">
+        <div style="font-size:11px;font-weight:800;color:#D32F2F;text-transform:uppercase;letter-spacing:.05em">Motivo</div>
+        <div style="font-size:13px;color:#0F1E5A;margin-top:3px">${escapeAviso(a.revision_motivo||'')}</div>
       </div>
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="btn-cyan" style="flex:1;padding:11px" onclick="corregirHazard('${a.hazard_code}')">Corregir ahora</button>
@@ -2498,7 +2528,7 @@ async function doLogin(){
     const selWrap=document.getElementById('l-hse-select-wrap');
     const selHse =document.getElementById('l-hse-select');
     if(selWrap) selWrap.style.display='block';
-    if(selHse){ selHse.style.borderColor='#cc1417'; try{ selHse.focus(); selHse.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_e){} }
+    if(selHse){ selHse.style.borderColor='#D32F2F'; try{ selHse.focus(); selHse.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_e){} }
     return;
   }
 
@@ -2651,9 +2681,13 @@ function goForm(){
 
   // Reset fotos
 
+  FOTOS.evidencias = [];
+
   FOTOS.evidencia = null;
 
   FOTOS.cierre    = null;
+
+  if(typeof sincronizaEvidencias === 'function') sincronizaEvidencias();
 
   ['pb1','pb2'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
 
@@ -2731,15 +2765,16 @@ function goForm(){
 
   if(FOTO_PREVIA){
 
-    FOTOS.evidencia = FOTO_PREVIA;
+    // Entra como la primera de la lista; puede agregar más en el formulario
+    if(!FOTOS.evidencias.some(f => f.base64 === FOTO_PREVIA.base64)){
 
-    const imgEl = document.getElementById('pt1-img');
+      FOTOS.evidencias.unshift(FOTO_PREVIA);
 
-    if(imgEl){ imgEl.src = 'data:'+FOTO_PREVIA.mime+';base64,'+FOTO_PREVIA.base64; }
+      FOTOS.evidencias = FOTOS.evidencias.slice(0, MAX_FOTOS);
 
-    const prev = document.getElementById('pb1');
+    }
 
-    if(prev){ prev.style.display = 'block'; }
+    sincronizaEvidencias();
 
     FOTO_PREVIA = null; // Consumida
 
@@ -2811,20 +2846,20 @@ async function onPaisCampoChange(){
 
   const badge=document.getElementById('hse-badge-wrap');
 
-  // La elección del empleado MANDA. Si al identificarse eligió su HSE
-  // responsable, el país no debe cambiárselo: antes lo sobreescribía y
-  // el reporte terminaba llegándole a otra persona.
+  // El HSE del PADRÓN manda. Viene asignado al validar la nómina y el
+  // país no debe cambiarlo: antes lo sobreescribía y el reporte terminaba
+  // llegándole a otra persona.
   const elegido = (typeof _empValidado !== 'undefined' && _empValidado && _empValidado._hse) ? _empValidado._hse : null;
 
   if(elegido && elegido.email){
 
-    SESSION.hse = { nombre: elegido.nombre, email: elegido.email, label: 'HSE que elegiste' };
+    SESSION.hse = { nombre: elegido.nombre, email: elegido.email, label: 'HSE asignado' };
 
     const n=document.getElementById('hse-nombre'); if(n) n.textContent = elegido.nombre;
 
     const e=document.getElementById('hse-email');  if(e) e.textContent = elegido.email;
 
-    const l=document.getElementById('hse-label');  if(l) l.textContent = 'HSE que elegiste';
+    const l=document.getElementById('hse-label');  if(l) l.textContent = 'HSE asignado';
 
     if(badge) badge.style.display='block';
 
@@ -2922,7 +2957,7 @@ function _faltante(id, msg){
   if(el){
     try{ el.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_e){}
     const prev=el.style.borderColor;
-    el.style.borderColor='#e53535';
+    el.style.borderColor='#D32F2F';
     setTimeout(()=>{ el.style.borderColor=prev||''; }, 2500);
   }
   alert(msg);
@@ -3043,10 +3078,86 @@ function selViol(val){
 
 // Almacén global de imágenes en base64
 
-const FOTOS = { evidencia: null, cierre: null };
+const MAX_FOTOS = 3;   // tope de fotos de evidencia por hazard
 
-// Nueva función con botones cámara/galería separados
+// evidencias = la lista (hasta MAX_FOTOS). evidencia = siempre la primera,
+// porque el resto de la app y el servidor la siguen leyendo con ese nombre.
+const FOTOS = { evidencias: [], evidencia: null, cierre: null };
 
+// Mantiene evidencia = evidencias[0] y repinta la galería
+function sincronizaEvidencias(){
+  FOTOS.evidencia = FOTOS.evidencias.length ? FOTOS.evidencias[0] : null;
+  const d = (id,v) => { const el=document.getElementById(id); if(el) el.value = v; };
+  d('fi1-data', FOTOS.evidencia ? FOTOS.evidencia.base64 : '');
+  d('fi1-mime', FOTOS.evidencia ? FOTOS.evidencia.mime   : '');
+  d('fi1-name', FOTOS.evidencia ? (FOTOS.evidencia.nombre||'') : '');
+  pintarGaleriaEvidencias();
+}
+
+function pintarGaleriaEvidencias(){
+  const cont = document.getElementById('fotos-gal');
+  const estado = document.getElementById('fotos-estado');
+  if(cont){
+    cont.innerHTML = FOTOS.evidencias.map((f,i)=>`
+      <div class="mini">
+        <img src="data:${f.mime};base64,${f.base64}" alt="Evidencia ${i+1}"/>
+        <span class="num">${i+1}</span>
+        <button type="button" class="quita" onclick="quitarFotoEvidencia(${i})" title="Quitar esta foto">✕</button>
+      </div>`).join('');
+  }
+  if(estado){
+    const n = FOTOS.evidencias.length;
+    estado.textContent = n === 0 ? ''
+      : n >= MAX_FOTOS ? `${n} de ${MAX_FOTOS} fotos · ya llegaste al máximo`
+      : `${n} de ${MAX_FOTOS} fotos · puedes agregar ${MAX_FOTOS - n} más`;
+  }
+}
+
+function quitarFotoEvidencia(i){
+  FOTOS.evidencias.splice(i,1);
+  sincronizaEvidencias();
+}
+
+// Agrega fotos a la lista: de la cámara llega una, de la galería pueden
+// llegar varias. Si se pasan del tope, se toman las que caben y se avisa.
+async function onFotosEvidencia(inputId){
+  const input = document.getElementById(inputId);
+  const files = input && input.files ? Array.from(input.files) : [];
+  if(!files.length) return;
+
+  const libres = MAX_FOTOS - FOTOS.evidencias.length;
+  if(libres <= 0){
+    alert(`Ya tienes ${MAX_FOTOS} fotos. Quita alguna si quieres cambiarla.`);
+    input.value = '';
+    return;
+  }
+
+  const estado = document.getElementById('fotos-estado');
+  if(estado) estado.textContent = 'Preparando fotos…';
+
+  const aceptadas = files.filter(f => f.type.startsWith('image/'));
+  const rechazadas = files.length - aceptadas.length;
+  const tomar = aceptadas.slice(0, libres);
+  const sobran = aceptadas.length - tomar.length;
+
+  for(const f of tomar){
+    try{
+      const foto = await comprimirFoto(f);
+      FOTOS.evidencias.push({ base64: foto.base64, mime: foto.mime, nombre: foto.nombre });
+    }catch(_e){
+      alert('Una de las fotos no se pudo preparar. Inténtalo otra vez.');
+    }
+  }
+
+  input.value = '';   // permite volver a elegir el mismo archivo
+  sincronizaEvidencias();
+
+  if(rechazadas > 0) alert('Solo se aceptan imágenes. Se omitieron los archivos que no lo eran.');
+  else if(sobran > 0) alert(`El máximo son ${MAX_FOTOS} fotos. Se agregaron las primeras ${tomar.length}.`);
+}
+
+// Foto de CIERRE (sigue siendo una sola). La evidencia del riesgo ya no
+// pasa por aquí: tiene su propia lista en onFotosEvidencia().
 async function onPhoto2(previewId, inputId, imgElemId) {
 
   const f = document.getElementById(inputId).files[0];
@@ -3057,27 +3168,13 @@ async function onPhoto2(previewId, inputId, imgElemId) {
 
   const b64 = foto.base64, mime = foto.mime, name = foto.nombre;
 
-  if(previewId === 'pb1'){
+  document.getElementById('fi2-data').value = b64;
 
-    document.getElementById('fi1-data').value = b64;
+  document.getElementById('fi2-mime').value = mime;
 
-    document.getElementById('fi1-mime').value = mime;
+  document.getElementById('fi2-name').value = name;
 
-    document.getElementById('fi1-name').value = name;
-
-    FOTOS.evidencia = { base64: b64, mime, nombre: name };
-
-  } else {
-
-    document.getElementById('fi2-data').value = b64;
-
-    document.getElementById('fi2-mime').value = mime;
-
-    document.getElementById('fi2-name').value = name;
-
-    FOTOS.cierre = { base64: b64, mime, nombre: name };
-
-  }
+  FOTOS.cierre = { base64: b64, mime, nombre: name };
 
   const imgEl = document.getElementById(imgElemId+'-img');
 
@@ -3103,9 +3200,7 @@ function clearPhoto(previewId, imgElemId, camId, galId){
 
   const g = document.getElementById(galId); if(g) g.value='';
 
-  if(previewId==='pb1'){ FOTOS.evidencia=null; document.getElementById('fi1-data').value=''; document.getElementById('fi1-mime').value=''; document.getElementById('fi1-name').value=''; }
-
-  else { FOTOS.cierre=null; document.getElementById('fi2-data').value=''; document.getElementById('fi2-mime').value=''; document.getElementById('fi2-name').value=''; }
+  { FOTOS.cierre=null; document.getElementById('fi2-data').value=''; document.getElementById('fi2-mime').value=''; document.getElementById('fi2-name').value=''; }
 
 }
 
@@ -3567,9 +3662,16 @@ async function submitForm(){
 
     // Fotos (base64)
 
+    // Foto 1: igual que siempre, para no romper nada de lo que ya existe
     FotoEvidencia:  FOTOS.evidencia ? FOTOS.evidencia.base64  : null,
 
     FotoEvidenciaMime: FOTOS.evidencia ? FOTOS.evidencia.mime : null,
+
+    // La lista completa (incluida la 1). El servidor la usa cuando esté listo;
+    // mientras tanto la ignora y la foto 1 sigue llegando como hoy.
+    FotosEvidencia: FOTOS.evidencias.map(f => ({ base64: f.base64, mime: f.mime, nombre: f.nombre || '' })),
+
+    FotosEvidenciaTotal: FOTOS.evidencias.length,
 
     FotoCierre:     FOTOS.cierre    ? FOTOS.cierre.base64    : null,
 
@@ -3598,7 +3700,8 @@ async function submitForm(){
           fecha_cierre:     payload.FechaCierre
         },
         foto_base64: FOTOS.evidencia ? FOTOS.evidencia.base64 : null,
-        foto_mime:   FOTOS.evidencia ? FOTOS.evidencia.mime   : null
+        foto_mime:   FOTOS.evidencia ? FOTOS.evidencia.mime   : null,
+        fotos:       payload.FotosEvidencia
       });
       if(!d.ok) throw new Error(d.error||'No se pudo enviar la corrección.');
 
@@ -3810,4 +3913,11 @@ init();
 
 </div></body>
 
-</div></div></body></html>
+</div></div></body>
+<script>
+// Sello de versión: sirve para saber, sin adivinar, qué archivo está cargado.
+console.log('%c Hazard HSE v2026.10.27 ', 'background:#0F1E5A;color:#fff;font-weight:bold',
+  '· fotos múltiples:', typeof onFotosEvidencia === 'function' ? ('sí, hasta '+MAX_FOTOS) : 'NO',
+  '· paleta SPIE:', getComputedStyle(document.documentElement).getPropertyValue('--navy').trim());
+</script>
+</html>

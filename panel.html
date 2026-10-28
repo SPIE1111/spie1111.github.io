@@ -207,9 +207,8 @@
         <option value="medio">Medio</option>
         <option value="bajo">Bajo</option>
       </select>
-      <select id="fHse" onchange="render()" title="Filtrar por el HSE responsable">
-        <option value="">Todos los HSE</option>
-      </select>
+      <button id="btnMios" class="btn sm ghost hide" onclick="toggleMisAsignados()"
+              title="Ver solo los hazards de la gente que tengo asignada">Solo mis asignados</button>
       <select id="fRevision" onchange="render()">
         <option value="">Revisión</option>
         <option value="Pendiente">Por revisar</option>
@@ -682,23 +681,36 @@ function buildPaisFilter(){
   sel.classList.toggle('hide', paises.length<2);
 }
 
-// El selector de HSE se arma con los responsables presentes en SUS hazards.
-// A un HSE que solo ve lo suyo le sale un único valor, así que se oculta;
-// a Daniel, que ve los cuatro países, le permite separar a su gente de
-// la de los demás.
+// Daniel es el único con vista general, y necesita poder aislar a su
+// propia gente. Es un botón que solo aparece para él: no muestra una
+// lista de HSE, porque los nombres de los demás no tienen por qué verse.
+let SOLO_MIOS = false;
+
 function buildHseFilter(){
-  const sel = document.getElementById('fHse');
-  if(!sel) return;
-  const nombres = [...new Set((HAZARDS||[]).map(h=>h.hse_name).filter(Boolean))].sort();
-  const actual = sel.value;
-  const mio = (SESSION && SESSION.full_name) ? SESSION.full_name.trim().toUpperCase() : '';
-  sel.innerHTML = '<option value="">Todos los HSE</option>' +
-    nombres.map(n=>{
-      const propio = n.trim().toUpperCase() === mio;
-      return `<option value="${escapeHtml(n)}">${escapeHtml(n)}${propio ? ' — mis asignados' : ''}</option>`;
-    }).join('');
-  sel.value = actual;
-  sel.classList.toggle('hide', nombres.length < 2);
+  const btn = document.getElementById('btnMios');
+  if(!btn) return;
+  const general = SESSION && SESSION.role === 'admin';
+  btn.classList.toggle('hide', !general);
+  if(!general && SOLO_MIOS){ SOLO_MIOS = false; }
+  pintarBotonMios();
+}
+
+function pintarBotonMios(){
+  const btn = document.getElementById('btnMios');
+  if(!btn) return;
+  btn.textContent = SOLO_MIOS ? 'Viendo solo mis asignados' : 'Solo mis asignados';
+  btn.classList.toggle('ghost', !SOLO_MIOS);
+}
+
+function toggleMisAsignados(){
+  SOLO_MIOS = !SOLO_MIOS;
+  pintarBotonMios();
+  render();
+}
+
+// El nombre del HSE de la sesión, para comparar contra el del hazard
+function miNombreHse(){
+  return (SESSION && SESSION.full_name ? SESSION.full_name : '').trim().toUpperCase();
 }
 
 function buildCategoryFilter(){
@@ -1096,11 +1108,11 @@ function aplicarFiltros(lista){
   const fp = (document.getElementById('fPais')||{}).value || '';
   const fr = (document.getElementById('fRevision')||{}).value || '';
   const fg = (document.getElementById('fRiesgo')||{}).value || '';
-  const fh = (document.getElementById('fHse')||{}).value || '';
+  const mio = SOLO_MIOS ? miNombreHse() : '';
   return (lista||[]).filter(h=>{
     if(fr && revisionDe(h.hazard_code) !== fr) return false;
     if(fg && nivelDe(h) !== fg) return false;
-    if(fh && (h.hse_name||'') !== fh) return false;
+    if(mio && String(h.hse_name||'').trim().toUpperCase() !== mio) return false;
     const txt = `${h.hazard_code} ${h.employee_name} ${h.parque} ${h.tipo_riesgo}`.toLowerCase();
     return (!q || txt.includes(q))
         && (!fe || (h.estatus||'').includes(fe))
@@ -1130,7 +1142,7 @@ function limpiarFiltros(){
   const pa=document.getElementById('fPais'); if(pa) pa.value='';
   const rv=document.getElementById('fRevision'); if(rv) rv.value='';
   const rg=document.getElementById('fRiesgo'); if(rg) rg.value='';
-  const hs=document.getElementById('fHse'); if(hs) hs.value='';
+  SOLO_MIOS=false; pintarBotonMios();
   render();
 }
 
@@ -1149,9 +1161,8 @@ function filtroTexto(){
   const fp=(document.getElementById('fPais')||{}).value||'';
   const fr=(document.getElementById('fRevision')||{}).value||'';
   const fg=(document.getElementById('fRiesgo')||{}).value||'';
-  const fh=(document.getElementById('fHse')||{}).value||'';
   if(fp) partes.push(fp);
-  if(fh) partes.push('HSE: '+fh);
+  if(SOLO_MIOS) partes.push('solo mis asignados');
   if(fg) partes.push('riesgo '+fg);
   if(fr) partes.push(fr==='Pendiente'?'por revisar':fr.toLowerCase()+'s');
   if(fe) partes.push(fe);
@@ -1802,7 +1813,7 @@ async function exportCSV(){
   const fe=document.getElementById('fEstatus').value||'';
   const fp=((document.getElementById('fPais')||{}).value||'').toLowerCase().replace(/\s+/g,'-');
   const fg=((document.getElementById('fRiesgo')||{}).value||'');
-  const fh=((document.getElementById('fHse')||{}).value||'').toLowerCase().replace(/\s+/g,'-');
+  const fh=SOLO_MIOS ? 'mis-asignados' : '';
   const suf=[fm, fp, fh, fg?('riesgo-'+fg):'', fe.toLowerCase().replace(/\s+/g,'-')].filter(Boolean).join('_');
   XLSX.writeFile(wb, `hazards_${suf||new Date().toISOString().slice(0,10)}.xlsx`);
 }

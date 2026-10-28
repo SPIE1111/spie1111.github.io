@@ -130,6 +130,9 @@
   .cmt .meta{color:var(--muted);font-size:12px;margin-bottom:3px}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .muted{color:var(--muted);font-size:13px}
+  .verComo-sel{width:auto;max-width:210px;padding:6px 10px;border-radius:8px;font-size:13px;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.3);margin:0}
+  .verComo-sel option{color:var(--ink);background:#fff}
+  .verComo-aviso{background:var(--ambar-suave);border-bottom:2px solid var(--orange);padding:10px 20px;font-size:13.5px;color:var(--ink);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
   .foto-mas{font-size:10px;font-weight:700;color:var(--navy);background:var(--suave);border:1px solid var(--line);border-radius:10px;padding:0 5px;margin-left:2px;vertical-align:middle}
   h3{font-size:15px;margin:18px 0 10px;font-weight:700}
   .acts{display:flex;gap:6px;flex-wrap:wrap}
@@ -178,12 +181,15 @@
       <button class="navbtn" id="nav-jsa" onclick="showView('jsa')">JSA</button>
       <button class="navbtn hide" id="nav-emp" onclick="showView('emp')">Empleados</button>
       <button class="navbtn hide" id="nav-cumpl" onclick="showView('cumpl')">Cumplimiento</button>
+      <select id="verComo" class="hide verComo-sel" onchange="verComo(this.value)" title="Revisar el panel como otro perfil (solo consulta)"></select>
       <span class="who" id="who"></span>
       <button class="btn sm ghost" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="logout()">Salir</button>
     </div>
   </header>
 
   <!-- VISTA HAZARDS -->
+  <div id="verComo-aviso" class="verComo-aviso hide"></div>
+
   <div class="wrap" id="view-hazards">
     <div class="stat" id="stats"></div>
     <div class="toolbar">
@@ -441,7 +447,7 @@ async function api(action, extra={}){
   const r = await fetch(`${SUPABASE_URL}/functions/v1/panel-api`,{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
-    body:JSON.stringify({action, user:SESSION?.username||document.getElementById('l-user').value.trim(), ...extra})
+    body:JSON.stringify({action, user:usuarioDeLaConsulta(action), ...extra})
   });
   return r.json();
 }
@@ -478,6 +484,62 @@ function loginEnter(ev){
   if(ev.key === 'Enter'){ ev.preventDefault(); doLogin(); }
 }
 
+// ═══════════ VER EL PANEL COMO OTRO PERFIL ═══════════
+// Sirve para que un administrador revise qué ve cada HSE sin tener que
+// pedirle su contraseña (que no se puede recuperar: está cifrada).
+// Es SOLO LECTURA: mientras se revisa otro perfil no se puede aprobar,
+// rechazar, comentar ni cambiar estatus, para no dejar su nombre en
+// movimientos que no hizo.
+let VER_COMO   = null;   // username que se está revisando
+let PERFIL_VISTO = null; // sus permisos, para pintar el panel igual que él
+let PERFILES   = [];
+
+function esAdminReal(){ return SESSION && SESSION.role === 'admin'; }
+
+// El login y la contraseña SIEMPRE van con el usuario real
+function usuarioDeLaConsulta(action){
+  const propias = ['login','set-password','perfiles'];
+  if (VER_COMO && !propias.includes(action)) return VER_COMO;
+  return SESSION?.username || document.getElementById('l-user').value.trim();
+}
+
+async function cargarPerfiles(){
+  if (!esAdminReal()) return;
+  try{
+    const d = await api('perfiles');
+    if (!d.ok) return;
+    PERFILES = d.perfiles || [];
+    const sel = document.getElementById('verComo');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Ver como…</option>' +
+      PERFILES.filter(p => p.username !== SESSION.username)
+        .map(p => `<option value="${escapeHtml(p.username)}">${escapeHtml(p.full_name)}</option>`).join('');
+    sel.classList.remove('hide');
+  }catch(_e){}
+}
+
+async function verComo(username){
+  VER_COMO = username || null;
+  PERFIL_VISTO = username ? PERFILES.find(p => p.username === username) : null;
+  const aviso = document.getElementById('verComo-aviso');
+  if (aviso){
+    aviso.classList.toggle('hide', !VER_COMO);
+    if (PERFIL_VISTO){
+      aviso.innerHTML = `Estás viendo el panel como <b>${escapeHtml(PERFIL_VISTO.full_name)}</b> ` +
+        `(${escapeHtml(PERFIL_VISTO.username)}) · solo consulta` +
+        ` <button class="btn sm ghost" onclick="salirDeVerComo()">Volver a mi panel</button>`;
+    }
+  }
+  entrarAlPanel();
+  await abrirVistaInicial();
+}
+
+function salirDeVerComo(){
+  const sel = document.getElementById('verComo');
+  if (sel) sel.value = '';
+  verComo('');
+}
+
 // ═══════════ PERMISOS POR USUARIO ═══════════
 // Cada usuario trae desde la base qué pestañas puede ver. Ya no depende
 // de ser "admin": Rosa puede ver Cumplimiento sin ver Empleados, y Erick
@@ -488,6 +550,16 @@ function loginEnter(ev){
 const SOLO_LECTURA_FIJOS = ['1183'];   // Erick Guerrero
 
 function permisos(){
+  // Revisando otro perfil: se pintan SUS pestañas, pero sin poder editar
+  if (VER_COMO && PERFIL_VISTO){
+    return {
+      hazards: !!PERFIL_VISTO.ver_hazards,
+      jsa:     !!PERFIL_VISTO.ver_jsa,
+      emp:     false,
+      cumpl:   !!PERFIL_VISTO.ver_cumplimiento,
+      lectura: true
+    };
+  }
   const s = SESSION || {};
   const lectura = (s.solo_lectura === undefined)
     ? SOLO_LECTURA_FIJOS.includes(String(s.username || ''))
@@ -525,10 +597,12 @@ function entrarAlPanel(){
   document.getElementById('app').classList.remove('hide');
 
   const P = permisos();
-  const etiqueta = P.lectura ? 'Solo consulta'
+  const etiqueta = VER_COMO ? 'viendo otro perfil'
+                 : P.lectura ? 'Solo consulta'
                  : SESSION.role==='admin' ? 'Administrador'
                  : (SESSION.country_code || 'Consulta');
   document.getElementById('who').textContent=`${SESSION.full_name} · ${etiqueta}`;
+  cargarPerfiles();
 
   // Cada pestaña se muestra solo si el usuario tiene ese permiso
   document.getElementById('nav-hazards').classList.toggle('hide', !P.hazards);
@@ -1487,7 +1561,7 @@ async function cargarHistorial(code){
 async function loadComments(code){
   const d=await api('get-comments',{code});
   const el=document.getElementById('m-comments');
-  if(!d.ok||!d.comments.length){el.innerHTML='<span class="muted">Sin comentarios aún.</span>';return;}
+  if(!d.ok||!Array.isArray(d.comments)||!d.comments.length){el.innerHTML='<span class="muted">Sin comentarios aún.</span>';return;}
   el.innerHTML=d.comments.map((c,i)=>
     `<div class="cmt"><div class="meta"><b>${i+1}.</b> Nómina ${escapeHtml(c.author)} · ${new Date(c.at).toLocaleString('es-MX')}</div>${escapeHtml(c.comment)}</div>`
   ).join('');
@@ -2638,7 +2712,8 @@ console.log('%c Panel HSE v2026.10.28 ', 'background:#0F1E5A;color:#fff;font-wei
   '· filtro de riesgo:', typeof nivelDe === 'function' ? 'sí' : 'NO',
   '· bitácora:', typeof cargarHistorial === 'function' ? 'sí' : 'NO',
   '· contadores:', typeof conteoAcciones === 'function' ? 'sí' : 'NO',
-  '· solo consulta:', typeof bloqueaSiLectura === 'function' ? 'sí' : 'NO');
+  '· solo consulta:', typeof bloqueaSiLectura === 'function' ? 'sí' : 'NO',
+  '· ver como:', typeof verComo === 'function' ? 'sí' : 'NO');
 
 restaurarSesion();
 </script>

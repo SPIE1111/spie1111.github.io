@@ -220,6 +220,27 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 92px);transform:translateX(-50%) translateY(30px);opacity:0;background:var(--ink);color:#fff;padding:11px 16px;border-radius:var(--r);
   font-size:14px;max-width:92vw;width:max-content;transition:transform .2s,opacity .2s;z-index:99;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+/* ── VISOR DE FOTOS ── */
+.ph img,.thumbs img{cursor:zoom-in}
+.thumbs img{width:64px;height:64px}
+.viewer{position:fixed;inset:0;z-index:97;background:#0b1118;display:none;flex-direction:column;color:#fff}
+.viewer.show{display:flex}
+.vw-top{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 10px) 12px 10px}
+.vw-top .t{flex:1;font:600 14px var(--mono)}
+.vw-btn{width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,.12);color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.vw-stage{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;touch-action:pan-x pan-y pinch-zoom}
+.vw-stage img{max-width:100%;max-height:100%;object-fit:contain;display:block;user-select:none}
+.vw-stage.zoom{display:block}
+.vw-stage.zoom img{max-width:none;max-height:none;width:250%}
+.vw-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:64px;border:none;background:rgba(0,0,0,.35);color:#fff;font-size:30px;cursor:pointer}
+.vw-nav.prev{left:0;border-radius:0 8px 8px 0}
+.vw-nav.next{right:0;border-radius:8px 0 0 8px}
+.vw-nav[disabled]{opacity:.2}
+.vw-info{padding:10px 14px calc(env(safe-area-inset-bottom) + 14px);font-size:13px;line-height:1.5;background:#121a23;border-top:1px solid #243140}
+.vw-info .m{font:500 12.5px var(--mono);color:#b9c3cf}
+.vw-info .a{margin-top:6px;padding:6px 8px;border-radius:4px;font-size:12.5px}
+.vw-info .a.block{background:#5a1d19;color:#ffd7d3}
+.vw-info .a.warn{background:#4d3600;color:#ffe2a6}
 .busy{position:fixed;inset:0;background:rgba(22,32,43,.6);display:none;align-items:center;justify-content:center;z-index:98}
 .busy.show{display:flex}
 .busy .box{background:var(--surface);border-radius:var(--r);padding:18px 22px;font-weight:600;display:flex;align-items:center;gap:12px}
@@ -379,6 +400,17 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
   </div></div>
 </section>
 
+<div class="viewer" id="viewer" role="dialog" aria-label="Ver foto">
+  <div class="vw-top">
+    <span class="t" id="vw-title"></span>
+    <button class="vw-btn" id="vw-zoom" aria-label="Acercar">🔍</button>
+    <button class="vw-btn" id="vw-close" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="vw-stage" id="vw-stage"><img id="vw-img" alt=""/></div>
+  <button class="vw-nav prev" id="vw-prev" aria-label="Anterior">‹</button>
+  <button class="vw-nav next" id="vw-next" aria-label="Siguiente">›</button>
+  <div class="vw-info" id="vw-info"></div>
+</div>
 <div class="busy" id="busy"><div class="box"><span class="spin"></span><span id="busy-t">Procesando…</span></div></div>
 <div class="toast" id="toast"></div>
 
@@ -972,7 +1004,7 @@ function renderPhotos(){
   const ph = DRAFT.photos;
   const TAG = {block:'BLOQ', warn:'REVISAR'};
   $('p-grid').innerHTML = ph.map((p,i)=>`<div class="ph ${level(p)}">
-      <img src="${p.url}" alt=""/>
+      <img src="${p.url}" alt="Foto ${i+1}" onclick="openViewer(${i})"/>
       ${level(p)?`<span class="tag">${TAG[level(p)]}</span>`:''}
       ${p.source==='camara'?'<span class="src">APP</span>':''}
       <button class="x" onclick="removePhoto(${i})" aria-label="Quitar foto">×</button>
@@ -1021,7 +1053,7 @@ function renderReview(){
     kv('Actividad', esc(f.activity), 'txt') +
     kv('Comentarios', esc(f.comments), 'txt') +
     kv('Fotos', ph.length, 'mono') +
-    `<div class="thumbs">${ph.map(p=>`<img src="${p.url}" alt=""/>`).join('')}</div>`;
+    `<div class="thumbs">${ph.map((p,i)=>`<img src="${p.url}" alt="Foto ${i+1}" onclick="openViewer(${i})"/>`).join('')}</div>`;
   $('r-alerts').innerHTML = warn ? `<div class="chk warn"><i>REVISAR</i><span>${warn} foto(s) se enviarán marcadas para revisión del supervisor.</span></div>` : '';
   err('r-err','');
 }
@@ -1167,6 +1199,51 @@ $('p-next').onclick = ()=>{
 };
 $('r-back').onclick = ()=>show('v-photos');
 $('r-send').onclick = saveDraft;
+
+// ── Visor de fotos (paso de fotos y resumen) ──
+// Se abre empujando un estado al historial, así el botón "atrás" del teléfono lo cierra.
+let VW_I = -1;
+function renderViewer(){
+  const ph = DRAFT?.photos || [], p = ph[VW_I];
+  if(!p) return closeViewer();
+  $('vw-stage').classList.remove('zoom');
+  $('vw-img').src = p.url;
+  $('vw-title').textContent = `Foto ${String(VW_I+1).padStart(2,'0')} de ${ph.length}`;
+  $('vw-prev').disabled = VW_I===0; $('vw-next').disabled = VW_I===ph.length-1;
+  const alerts = p.flags.filter(f=>FLAG_INFO[f].lvl!=='info').map(f=>`<div class="a ${FLAG_INFO[f].lvl}">${FLAG_INFO[f].txt}</div>`).join('');
+  $('vw-info').innerHTML = `<div><b>${p.source==='camara'?'Tomada con la app':'Del carrete'}</b> · ${esc(fmtTaken(p.taken_at))}</div>
+    <div class="m">${p.gps_lat!=null ? `GPS ${p.gps_lat.toFixed(5)}, ${p.gps_lon.toFixed(5)}${p.gps_acc!=null?` (±${p.gps_acc} m)`:''}` : 'Sin ubicación GPS'}${p.model?` · ${esc(p.model)}`:''}</div>${alerts}`;
+}
+function openViewer(i){
+  if(!DRAFT?.photos[i]) return;
+  VW_I = i; renderViewer();
+  $('viewer').classList.add('show');
+  history.pushState({viewer:true}, '');
+}
+function closeViewer(fromPop){
+  if(!$('viewer').classList.contains('show')) return;
+  $('viewer').classList.remove('show'); VW_I = -1;
+  if(!fromPop && history.state?.viewer) history.back();
+}
+function stepViewer(d){ const n = VW_I + d; if(DRAFT?.photos[n]){ VW_I = n; renderViewer(); } }
+$('vw-close').onclick = ()=>closeViewer();
+$('vw-prev').onclick = ()=>stepViewer(-1);
+$('vw-next').onclick = ()=>stepViewer(1);
+$('vw-zoom').onclick = ()=>$('vw-stage').classList.toggle('zoom');
+$('vw-img').addEventListener('dblclick', ()=>$('vw-stage').classList.toggle('zoom'));
+window.addEventListener('popstate', ()=>closeViewer(true));
+document.addEventListener('keydown', e=>{
+  if(!$('viewer').classList.contains('show')) return;
+  if(e.key==='Escape') closeViewer(); else if(e.key==='ArrowLeft') stepViewer(-1); else if(e.key==='ArrowRight') stepViewer(1);
+});
+// Deslizar a los lados cambia de foto (solo sin zoom, para no pelear con el desplazamiento).
+let _sx = null;
+$('vw-stage').addEventListener('touchstart', e=>{ _sx = e.touches.length===1 ? e.touches[0].clientX : null; }, {passive:true});
+$('vw-stage').addEventListener('touchend', e=>{
+  if(_sx===null || $('vw-stage').classList.contains('zoom')) return;
+  const dx = e.changedTouches[0].clientX - _sx; _sx = null;
+  if(Math.abs(dx) > 60) stepViewer(dx < 0 ? 1 : -1);
+});
 window.addEventListener('online',()=>{ showOffline(); syncOutbox(); });
 window.addEventListener('offline',showOffline);
 

@@ -50,19 +50,28 @@
 
 :root{
 
-  /* Paleta SPIE · los 7 colores de marca, más dos tintes derivados del azul
-     para degradados y estados (no son colores nuevos: son el mismo azul
-     aclarado, necesarios para que el botón no desaparezca sobre el fondo). */
+  /* ── Identidad SPIE (manual de marca) ──
+     P 281  #0F1E5A  azul del grupo
+     P 1795 #CC0000  rojo del grupo
+     1375 C #F19600  naranja: el color de NUESTRA filial, el acento
+     Tipografía corporativa: Jost (Arial como única alternativa aprobada)
+     --navy2/3 son el mismo azul aclarado, para degradados y estados.
+     El verde es el único color funcional fuera del manual: hace falta
+     para el semáforo de riesgo, que el manual no cubre. */
 
   --navy:#0F1E5A;
 
-  --navy2:#1B2D72;
+  --navy2:#16286E;
 
-  --navy3:#3C4C8C;
+  --navy3:#1E3488;
+
+  --orange:#F19600;
+
+  --orange2:#D88400;
 
   --cyan:#0F1E5A;      /* acción principal */
 
-  --cyan2:#1B2D72;
+  --cyan2:#16286E;
 
   --white:#FFFFFF;
 
@@ -78,9 +87,9 @@
 
   --text3:#99A1AD;
 
-  --red:#D32F2F;
+  --red:#CC0000;
 
-  --amber:#C77700;
+  --amber:#F19600;
 
   --green:#2E7D32;
 
@@ -88,7 +97,7 @@
 
   --rs:10px;
 
-  --font:'Jost',sans-serif;
+  --font:'Jost','Arial',sans-serif;
 
   --shadow:0 6px 28px rgba(15,30,90,0.14);
 
@@ -144,17 +153,23 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 /* ── HEADER ── */
 
-.hdr{height:56px;background:rgba(15,30,90,0.9);backdrop-filter:blur(12px);display:flex;align-items:center;padding:0 18px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.08)}
+.hdr{position:relative;height:60px;background:linear-gradient(100deg,#0B1746 0%,var(--navy) 38%,var(--navy2) 72%,var(--navy3) 100%);display:flex;align-items:center;padding:0 18px;flex-shrink:0;box-shadow:0 2px 14px rgba(11,23,70,.38)}
+
+/* Filete naranja de la filial: separa el encabezado del contenido
+   para que no se pierda entre los botones. */
+.hdr::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,var(--orange) 0%,#FFB53D 50%,var(--orange) 100%)}
 
 .hdr-logo{display:flex;align-items:center;gap:10px}
 
-.hdr-icon{width:32px;height:32px;background:var(--cyan);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.hdr-icon{width:34px;height:34px;background:var(--orange);border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 2px 8px rgba(241,150,0,.45)}
+
+.hdr-icon .ic{width:19px;height:19px}
 
 .hdr-name{font-size:15px;font-weight:800;color:#fff;letter-spacing:.05em}
 
 /* ── OFFLINE BAR ── */
 
-.offline-bar{background:rgba(255,184,0,0.1);border-bottom:1px solid rgba(255,184,0,0.2);padding:6px 16px;font-size:11px;color:#C77700;font-weight:700;display:none;align-items:center;gap:6px}
+.offline-bar{background:rgba(255,184,0,0.1);border-bottom:1px solid rgba(255,184,0,0.2);padding:6px 16px;font-size:11px;color:#F19600;font-weight:700;display:none;align-items:center;gap:6px}
 
 .offline-bar.show{display:flex}
 
@@ -212,7 +227,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .ls-c{width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,0.6);background:rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;font-family:var(--font);transition:all .3s;flex-shrink:0}
 
-.ls-c.active{background:var(--cyan);border-color:var(--cyan);color:#fff;box-shadow:0 0 14px rgba(15,30,90,0.5)}
+.ls-c.active{background:var(--orange);border-color:var(--orange);color:#fff;box-shadow:0 0 16px rgba(241,150,0,.55)}
 
 .ls-c.done{background:#2E7D32;border-color:#2E7D32;color:#fff}
 
@@ -566,7 +581,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .online-dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:pulse 2.5s infinite}
 
-.offline-dot{background:#C77700 !important;box-shadow:0 0 8px #C77700 !important}
+.offline-dot{background:#F19600 !important;box-shadow:0 0 8px #F19600 !important}
 
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
@@ -582,7 +597,11 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .inicio-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;gap:16px}
 
-.inicio-logo{font-size:56px;animation:pop .5s cubic-bezier(.34,1.56,.64,1)}
+.inicio-btn-icon .ic{width:30px;height:30px;color:var(--orange);stroke-width:1.6}
+
+.inicio-logo{animation:pop .5s cubic-bezier(.34,1.56,.64,1);color:#fff;filter:drop-shadow(0 4px 14px rgba(0,0,0,.35))}
+
+.inicio-logo .ic{width:64px;height:64px;stroke-width:1.3}
 
 .inicio-title{font-size:26px;font-weight:800;color:#fff;text-align:center;letter-spacing:-.01em}
 
@@ -646,6 +665,10 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 .hdr-ver{font-size:9.5px;font-weight:700;letter-spacing:.06em;color:rgba(255,255,255,.6);margin-left:8px;font-family:var(--font)}
 
+.ic{width:1.05em;height:1.05em;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;fill:none;vertical-align:-.17em;flex-shrink:0}
+
+.ic-lg{width:1.6em;height:1.6em}
+
 .lbl-opt{font-weight:600;font-size:11px;color:var(--text3);margin-left:4px;text-transform:none;letter-spacing:0}
 
 .fotos-gal{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
@@ -670,7 +693,25 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
 </head>
 
-<body><div class="app-bg"><div id="app">
+<body>
+<!-- Iconos de interfaz: un solo trazo, heredan el color del texto.
+     Sustituyen a los emojis en los controles de la app. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<g id="i-escudo"><path d="M12 2.6 4.6 5.8v5.5c0 4.6 3.1 8.6 7.4 9.9 4.3-1.3 7.4-5.3 7.4-9.9V5.8L12 2.6Z"/><path d="m8.7 11.9 2.3 2.4 4.3-4.6"/></g>
+<g id="i-camara"><path d="M3.2 8.2h3l1.4-2.2h6.8l1.4 2.2h3a1.4 1.4 0 0 1 1.4 1.4v8.2a1.4 1.4 0 0 1-1.4 1.4H3.2a1.4 1.4 0 0 1-1.4-1.4V9.6a1.4 1.4 0 0 1 1.4-1.4Z"/><circle cx="12" cy="13.5" r="3.4"/></g>
+<g id="i-imagen"><rect x="2.8" y="4.6" width="18.4" height="14.8" rx="2"/><circle cx="8.3" cy="9.8" r="1.7"/><path d="m3.4 17.3 5-4.7 3.4 3.1 3.6-3.6 5.2 5"/></g>
+<g id="i-bote"><path d="M4.5 6.6h15M9.8 6.6V4.4h4.4v2.2M6.6 6.6l.9 13a1.4 1.4 0 0 0 1.4 1.3h6.2a1.4 1.4 0 0 0 1.4-1.3l.9-13"/><path d="M10.2 10.4v6.6M13.8 10.4v6.6"/></g>
+<g id="i-enviar"><path d="M21.4 2.6 10.6 13.4M21.4 2.6l-6.9 18.8-3.9-8-8-3.9 18.8-6.9Z"/></g>
+<g id="i-campana"><path d="M18.3 8.9a6.3 6.3 0 1 0-12.6 0c0 7.3-2.7 9.4-2.7 9.4h18s-2.7-2.1-2.7-9.4Z"/><path d="M13.9 21.4a2.2 2.2 0 0 1-3.8 0"/></g>
+<g id="i-sinsenal"><path d="M2 2 22 22"/><path d="M5 12.6a11 11 0 0 1 4-2.5M1.4 8.8a16 16 0 0 1 4.6-2.9M18.9 12.4a11 11 0 0 0-3.5-2.3M22.6 8.8a16 16 0 0 0-6.4-3.6M8.6 16.2a6 6 0 0 1 6.6-.5"/><path d="M12 20h.01"/></g>
+<g id="i-alerta"><path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9.4v4.2M12 17.6h.01"/></g>
+<g id="i-check"><path d="m4.5 12.6 5 5 10-11"/></g>
+<g id="i-equis"><path d="M5.5 5.5 18.5 18.5M18.5 5.5 5.5 18.5"/></g>
+<g id="i-doc"><path d="M14.2 2.8H6.6a2 2 0 0 0-2 2v14.4a2 2 0 0 0 2 2h10.8a2 2 0 0 0 2-2V8l-5.2-5.2Z"/><path d="M14.2 2.8V8h5.2M8.4 13h7.2M8.4 16.6h7.2"/></g>
+<g id="i-bandera"><path d="M4.6 15.2s1-1 3.7-1 4.4 2 7.1 2 3.7-1 3.7-1V4.4s-1 1-3.7 1-4.4-2-7.1-2-3.7 1-3.7 1Z"/><path d="M4.6 21.4V4.4"/></g>
+<g id="i-refrescar"><path d="M2.8 11.3a9.2 9.2 0 0 1 15.6-5.1l2.8 2.6"/><path d="M21.2 3.4v5.4h-5.4"/><path d="M21.2 12.7a9.2 9.2 0 0 1-15.6 5.1l-2.8-2.6"/><path d="M2.8 20.6v-5.4h5.4"/></g>
+</defs></svg>
+<div class="app-bg"><div id="app">
 
 <!-- ══════════ LOGIN ══════════ -->
 
@@ -680,9 +721,9 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
     <div class="hdr-logo">
 
-      <div class="hdr-icon">🛡️</div>
+      <div class="hdr-icon"><svg class="ic"><use href="#i-escudo"/></svg></div>
 
-      <span class="hdr-name">HAZARD HSE</span><span class="hdr-ver" title="Versión de la app">v2026.10.27</span>
+      <span class="hdr-name">HAZARD HSE</span><span class="hdr-ver" title="Versión de la app">v2026.10.28</span>
 
     </div>
 
@@ -690,7 +731,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
   <div class="inicio-body">
 
-    <div class="inicio-logo">🛡️</div>
+    <div class="inicio-logo"><svg class="ic ic-logo"><use href="#i-escudo"/></svg></div>
 
     <div class="inicio-title">Registrar Hazard</div>
 
@@ -700,7 +741,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
       <label class="inicio-btn-cam" for="inicio-fi">
 
-        <span class="inicio-btn-icon">📷</span>
+        <span class="inicio-btn-icon"><svg class="ic"><use href="#i-camara"/></svg></span>
 
         <span class="inicio-btn-title">Tomar foto ahora</span>
 
@@ -710,7 +751,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
       <button class="inicio-btn-reg" onclick="setScreen('screen-login')">
 
-        <span class="inicio-btn-icon">📝</span>
+        <span class="inicio-btn-icon"><svg class="ic"><use href="#i-doc"/></svg></span>
 
         <span class="inicio-btn-title">Iniciar registro</span>
 
@@ -748,7 +789,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
     <div class="hdr-logo">
 
-      <div class="hdr-icon">🛡️</div>
+      <div class="hdr-icon"><svg class="ic"><use href="#i-escudo"/></svg></div>
 
       <span class="hdr-name">HAZARD HSE</span>
 
@@ -864,7 +905,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
       <div id="l-hse-select-wrap" style="display:none;margin-top:12px">
         <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:#0F1E5A">Selecciona tu HSE responsable *</label>
-        <select id="l-hse-select" style="width:100%;padding:11px 13px;border:1.5px solid #D32F2F;border-radius:9px;font-size:15px;background:#fff">
+        <select id="l-hse-select" style="width:100%;padding:11px 13px;border:1.5px solid #CC0000;border-radius:9px;font-size:15px;background:#fff">
           <option value="">— Elige tu HSE —</option>
         </select>
         <p style="font-size:12px;color:#5A6470;margin-top:5px">Como reportas en campo, indica a qué HSE debe llegar tu reporte.</p>
@@ -892,7 +933,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 <div class="screen" id="screen-avisos">
   <div class="hdr">
     <div class="hdr-logo">
-      <div class="hdr-icon">🛡️</div>
+      <div class="hdr-icon"><svg class="ic"><use href="#i-escudo"/></svg></div>
       <span class="hdr-name">HAZARD HSE</span>
     </div>
   </div>
@@ -961,7 +1002,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
       <div class="kpi"><div class="kpi-n">47</div><div class="kpi-l">Acum. 2025</div></div>
 
-      <div class="kpi"><div class="kpi-n" style="color:#C77700">3</div><div class="kpi-l">Pendientes</div></div>
+      <div class="kpi"><div class="kpi-n" style="color:#F19600">3</div><div class="kpi-l">Pendientes</div></div>
 
     </div>
 
@@ -1003,7 +1044,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
     <div class="hdr-logo">
 
-      <div class="hdr-icon">🛡️</div>
+      <div class="hdr-icon"><svg class="ic"><use href="#i-escudo"/></svg></div>
 
       <span class="hdr-name">HAZARD HSE</span>
 
@@ -1358,13 +1399,13 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
       <div class="field">
 
-        <label class="lbl">📸 Fotos de Evidencia del Riesgo <span class="lbl-opt">hasta 3</span></label>
+        <label class="lbl"><svg class="ic"><use href="#i-camara"/></svg> Fotos de Evidencia del Riesgo <span class="lbl-opt">hasta 3</span></label>
 
         <div class="photo-btns">
 
           <label class="photo-btn-cam" for="fi1-cam">
 
-            <span class="photo-btn-icon">📷</span>
+            <span class="photo-btn-icon"><svg class="ic ic-lg"><use href="#i-camara"/></svg></span>
 
             <span class="photo-btn-lbl">Tomar foto</span>
 
@@ -1372,7 +1413,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
           <label class="photo-btn-gal" for="fi1-gal">
 
-            <span class="photo-btn-icon">🖼️</span>
+            <span class="photo-btn-icon"><svg class="ic ic-lg"><use href="#i-imagen"/></svg></span>
 
             <span class="photo-btn-lbl">Elegir de galería</span>
 
@@ -1516,7 +1557,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
             <label class="photo-btn-cam" for="fi2-cam">
 
-              <span class="photo-btn-icon">📷</span>
+              <span class="photo-btn-icon"><svg class="ic ic-lg"><use href="#i-camara"/></svg></span>
 
               <span class="photo-btn-lbl">Tomar foto</span>
 
@@ -1524,7 +1565,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
             <label class="photo-btn-gal" for="fi2-gal">
 
-              <span class="photo-btn-icon">🖼️</span>
+              <span class="photo-btn-icon"><svg class="ic ic-lg"><use href="#i-imagen"/></svg></span>
 
               <span class="photo-btn-lbl">Elegir de galería</span>
 
@@ -1540,7 +1581,7 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
             <img id="pt2-img" src="" alt="Evidencia cierre"/>
 
-            <label class="photo-change" onclick="clearPhoto('pb2','pt2-img','fi2-cam','fi2-gal')">🗑️ Cambiar foto</label>
+            <label class="photo-change" onclick="clearPhoto('pb2','pt2-img','fi2-cam','fi2-gal')"><svg class="ic"><use href="#i-bote"/></svg> Cambiar foto</label>
 
           </div>
 
@@ -1636,13 +1677,13 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
       <div class="dk"><div class="dk-i">📊</div><div class="dk-n">47</div><div class="dk-l">Total</div></div>
 
-      <div class="dk"><div class="dk-i">🔴</div><div class="dk-n" style="color:#C77700">18</div><div class="dk-l">Abiertos</div></div>
+      <div class="dk"><div class="dk-i">🔴</div><div class="dk-n" style="color:#F19600">18</div><div class="dk-l">Abiertos</div></div>
 
       <div class="dk"><div class="dk-i">✅</div><div class="dk-n" style="color:var(--green)">29</div><div class="dk-l">Cerrados</div></div>
 
-      <div class="dk"><div class="dk-i">⚠️</div><div class="dk-n" style="color:#D32F2F">5</div><div class="dk-l">Riesgo Alto</div></div>
+      <div class="dk"><div class="dk-i">⚠️</div><div class="dk-n" style="color:#CC0000">5</div><div class="dk-l">Riesgo Alto</div></div>
 
-      <div class="dk"><div class="dk-i">🟡</div><div class="dk-n" style="color:#C77700">14</div><div class="dk-l">Riesgo Medio</div></div>
+      <div class="dk"><div class="dk-i">🟡</div><div class="dk-n" style="color:#F19600">14</div><div class="dk-l">Riesgo Medio</div></div>
 
       <div class="dk"><div class="dk-i">🟢</div><div class="dk-n" style="color:var(--green)">28</div><div class="dk-l">Riesgo Bajo</div></div>
 
@@ -1664,15 +1705,15 @@ html,body{font-family:var(--font);font-size:15px;line-height:1.6;-webkit-font-sm
 
       <div class="th"><span>ID</span><span>Empleado / Parque</span><span>Nivel</span><span>Días</span></div>
 
-      <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-047</span><div><div style="font-size:11px;font-weight:500">ERVIN GARCIA</div><div style="font-size:10px;color:var(--text3)">P.E. El Cortijo</div></div><span class="badge alto">Alto</span><span style="color:#D32F2F;font-weight:700;font-size:11px">3d ⚠️</span></div>
+      <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-047</span><div><div style="font-size:11px;font-weight:500">ERVIN GARCIA</div><div style="font-size:10px;color:var(--text3)">P.E. El Cortijo</div></div><span class="badge alto">Alto</span><span style="color:#CC0000;font-weight:700;font-size:11px">3d ⚠️</span></div>
 
       <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-046</span><div><div style="font-size:11px;font-weight:500">LUIS RAMIREZ</div><div style="font-size:10px;color:var(--text3)">P.E. Pier II</div></div><span class="badge medio">Medio</span><span class="badge cerrado">✅</span></div>
 
-      <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-045</span><div><div style="font-size:11px;font-weight:500">CARLOS PIÑON</div><div style="font-size:10px;color:var(--text3)">P.E. Santiago Eolo</div></div><span class="badge alto">Alto</span><span style="color:#D32F2F;font-weight:700;font-size:11px">8d ⚠️</span></div>
+      <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-045</span><div><div style="font-size:11px;font-weight:500">CARLOS PIÑON</div><div style="font-size:10px;color:var(--text3)">P.E. Santiago Eolo</div></div><span class="badge alto">Alto</span><span style="color:#CC0000;font-weight:700;font-size:11px">8d ⚠️</span></div>
 
       <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-044</span><div><div style="font-size:11px;font-weight:500">IVAN NOVELO</div><div style="font-size:10px;color:var(--text3)">P.E. Eólica del Sur</div></div><span class="badge bajo">Bajo</span><span class="badge cerrado">✅</span></div>
 
-      <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-043</span><div><div style="font-size:11px;font-weight:500">DIEGO VITALI</div><div style="font-size:10px;color:var(--text3)">P.E. Pintado</div></div><span class="badge medio">Medio</span><span style="color:#C77700;font-weight:700;font-size:11px">7d</span></div>
+      <div class="tr"><span style="color:var(--text2);font-size:10px;font-family:var(--font)">H-2025-043</span><div><div style="font-size:11px;font-weight:500">DIEGO VITALI</div><div style="font-size:10px;color:var(--text3)">P.E. Pintado</div></div><span class="badge medio">Medio</span><span style="color:#F19600;font-weight:700;font-size:11px">7d</span></div>
 
     </div>
 
@@ -1778,6 +1819,9 @@ function setScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classLi
 // ── PANTALLA INICIO ──────────────────────────────────────────
 
 // Guarda foto tomada desde la pantalla de inicio
+
+const BTN_ENVIAR  = '<svg class="ic"><use href="#i-enviar"/></svg>&nbsp;&nbsp;Enviar Hazard';
+const BTN_OFFLINE = '<svg class="ic"><use href="#i-sinsenal"/></svg>&nbsp;&nbsp;Guardar offline';
 
 let FOTO_PREVIA = null;
 
@@ -1974,7 +2018,7 @@ function _estadoNomina(txt,tipo){
   if(!el) return;
   if(!txt){ el.style.display='none'; el.textContent=''; return; }
   el.textContent=txt;
-  el.style.color = tipo==='ok' ? '#2E7D32' : (tipo==='err' ? '#D32F2F' : '#5A6470');
+  el.style.color = tipo==='ok' ? '#2E7D32' : (tipo==='err' ? '#CC0000' : '#5A6470');
   el.style.display='block';
 }
 
@@ -2005,7 +2049,7 @@ function _pintarSelectorHse(opciones){
       _loginErrClear();                 // al elegir HSE se limpia cualquier aviso
     }else{
       _empValidado._hse=null;
-      this.style.borderColor='#D32F2F';
+      this.style.borderColor='#CC0000';
     }
   };
   if(hseFijo) hseFijo.style.display='none'; // el HSE lo define el selector
@@ -2346,12 +2390,12 @@ function pintarAvisos(){
         <button class="btn-cyan" style="margin-top:10px;padding:11px" onclick="cerrarAviso('${a.hazard_code}')">Entendido</button>
       </div>`;
     }
-    return `<div style="background:rgba(255,255,255,0.97);border-radius:14px;padding:16px;margin-bottom:10px;border-left:5px solid #D32F2F">
-      <div style="font-size:13px;font-weight:800;color:#D32F2F">✕ REPORTE RECHAZADO</div>
+    return `<div style="background:rgba(255,255,255,0.97);border-radius:14px;padding:16px;margin-bottom:10px;border-left:5px solid #CC0000">
+      <div style="font-size:13px;font-weight:800;color:#CC0000">✕ REPORTE RECHAZADO</div>
       <div style="font-size:17px;font-weight:800;color:#0F1E5A;margin:4px 0">${a.hazard_code}</div>
       <div style="font-size:12px;color:#5A6470">${escapeAviso(a.parque||'')} · ${fecha}</div>
-      <div style="background:#FBEAEA;border-radius:9px;padding:10px 12px;margin-top:8px">
-        <div style="font-size:11px;font-weight:800;color:#D32F2F;text-transform:uppercase;letter-spacing:.05em">Motivo</div>
+      <div style="background:#FBE9E9;border-radius:9px;padding:10px 12px;margin-top:8px">
+        <div style="font-size:11px;font-weight:800;color:#CC0000;text-transform:uppercase;letter-spacing:.05em">Motivo</div>
         <div style="font-size:13px;color:#0F1E5A;margin-top:3px">${escapeAviso(a.revision_motivo||'')}</div>
       </div>
       <div style="display:flex;gap:8px;margin-top:10px">
@@ -2528,7 +2572,7 @@ async function doLogin(){
     const selWrap=document.getElementById('l-hse-select-wrap');
     const selHse =document.getElementById('l-hse-select');
     if(selWrap) selWrap.style.display='block';
-    if(selHse){ selHse.style.borderColor='#D32F2F'; try{ selHse.focus(); selHse.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_e){} }
+    if(selHse){ selHse.style.borderColor='#CC0000'; try{ selHse.focus(); selHse.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_e){} }
     return;
   }
 
@@ -2943,7 +2987,7 @@ function updateStep(){
 
   const nb=document.getElementById('btn-next');
 
-  nb.innerHTML=STEP===3?(navigator.onLine?'✈️ &nbsp;Enviar Hazard':'📵 Guardar offline'):'Siguiente →';
+  nb.innerHTML=STEP===3?(navigator.onLine?BTN_ENVIAR:BTN_OFFLINE):'Siguiente →';
 
   document.getElementById('form-scroll').scrollTop=0;
 
@@ -2957,7 +3001,7 @@ function _faltante(id, msg){
   if(el){
     try{ el.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_e){}
     const prev=el.style.borderColor;
-    el.style.borderColor='#D32F2F';
+    el.style.borderColor='#CC0000';
     setTimeout(()=>{ el.style.borderColor=prev||''; }, 2500);
   }
   alert(msg);
@@ -3102,7 +3146,7 @@ function pintarGaleriaEvidencias(){
       <div class="mini">
         <img src="data:${f.mime};base64,${f.base64}" alt="Evidencia ${i+1}"/>
         <span class="num">${i+1}</span>
-        <button type="button" class="quita" onclick="quitarFotoEvidencia(${i})" title="Quitar esta foto">✕</button>
+        <button type="button" class="quita" onclick="quitarFotoEvidencia(${i})" title="Quitar esta foto"><svg class="ic"><use href="#i-equis"/></svg></button>
       </div>`).join('');
   }
   if(estado){
@@ -3468,7 +3512,15 @@ async function sendToSupabase(payload) {
 
   if (resp.ok && data.ok) return data.hazard_code || null;  // código real del servidor
 
-  throw new Error(data.error || `HTTP ${resp.status}`);
+  // La base bloquea registrar si hay un rechazo sin corregir. No es una
+  // falla de conexión: NO debe guardarse en la cola de pendientes, porque
+  // reintentaría para siempre. Se marca para tratarlo aparte.
+  const err = new Error(data.error || `HTTP ${resp.status}`);
+  if (resp.status === 409 && data.bloqueado) {
+    err.bloqueado = true;
+    err.hazardPendiente = data.hazard_pendiente || null;
+  }
+  throw err;
 
 }
 
@@ -3724,7 +3776,7 @@ async function submitForm(){
       return;
     }catch(err){
       alert('No se pudo enviar la corrección: '+err.message+'\nRevisa tu conexión e inténtalo otra vez.');
-      btn.disabled=false; btn.innerHTML='✈️ &nbsp;Enviar Hazard';
+      btn.disabled=false; btn.innerHTML=BTN_ENVIAR;
       return;
     }
   }
@@ -3772,6 +3824,20 @@ async function submitForm(){
     } catch(err) {
 
       console.error('Error guardando en Supabase:', err);
+
+      // Rechazo sin corregir: el reporte NO se guarda ni se encola.
+      // Se le explica y se le ofrece ir directo a la corrección.
+      if (err && err.bloqueado) {
+        const cod = err.hazardPendiente;
+        alert(err.message + (cod ? '\n\nTe llevo a corregirlo.' : ''));
+        btn.disabled = false;
+        btn.innerHTML = BTN_ENVIAR;
+        if (cod && typeof corregirHazard === 'function') {
+          try { await corregirHazard(cod); return; } catch(_e) {}
+        }
+        pintarBotonAvisos();
+        return;
+      }
 
       await idbSave(payload);
 
@@ -3916,7 +3982,7 @@ init();
 </div></div></body>
 <script>
 // Sello de versión: sirve para saber, sin adivinar, qué archivo está cargado.
-console.log('%c Hazard HSE v2026.10.27 ', 'background:#0F1E5A;color:#fff;font-weight:bold',
+console.log('%c Hazard HSE v2026.10.28 ', 'background:#0F1E5A;color:#fff;font-weight:bold',
   '· fotos múltiples:', typeof onFotosEvidencia === 'function' ? ('sí, hasta '+MAX_FOTOS) : 'NO',
   '· paleta SPIE:', getComputedStyle(document.documentElement).getPropertyValue('--navy').trim());
 </script>

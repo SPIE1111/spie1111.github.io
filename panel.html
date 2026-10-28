@@ -58,7 +58,10 @@
   .navbtn.active{background:var(--orange);color:#fff;border-color:var(--orange);box-shadow:0 2px 10px rgba(241,150,0,.4)}
   .wrap{max-width:1100px;margin:0 auto;padding:20px}
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
-  .toolbar input,.toolbar select{width:auto;flex:1;min-width:130px}
+  .toolbar input,.toolbar select{width:auto;flex:0 1 auto;min-width:0}
+  .toolbar select{min-width:max-content;padding-right:34px}
+  .toolbar input[type="month"]{min-width:170px}
+  .toolbar #q{flex:1 1 240px;min-width:200px}
   .stat{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
   .pill{background:#fff;border:1px solid var(--line);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600}
   .rev{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;white-space:nowrap;margin-top:4px}
@@ -130,9 +133,6 @@
   .cmt .meta{color:var(--muted);font-size:12px;margin-bottom:3px}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .muted{color:var(--muted);font-size:13px}
-  .verComo-sel{width:auto;max-width:210px;padding:6px 10px;border-radius:8px;font-size:13px;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.3);margin:0}
-  .verComo-sel option{color:var(--ink);background:#fff}
-  .verComo-aviso{background:var(--ambar-suave);border-bottom:2px solid var(--orange);padding:10px 20px;font-size:13.5px;color:var(--ink);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
   .foto-mas{font-size:10px;font-weight:700;color:var(--navy);background:var(--suave);border:1px solid var(--line);border-radius:10px;padding:0 5px;margin-left:2px;vertical-align:middle}
   h3{font-size:15px;margin:18px 0 10px;font-weight:700}
   .acts{display:flex;gap:6px;flex-wrap:wrap}
@@ -181,15 +181,12 @@
       <button class="navbtn" id="nav-jsa" onclick="showView('jsa')">JSA</button>
       <button class="navbtn hide" id="nav-emp" onclick="showView('emp')">Empleados</button>
       <button class="navbtn hide" id="nav-cumpl" onclick="showView('cumpl')">Cumplimiento</button>
-      <select id="verComo" class="hide verComo-sel" onchange="verComo(this.value)" title="Revisar el panel como otro perfil (solo consulta)"></select>
       <span class="who" id="who"></span>
       <button class="btn sm ghost" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="logout()">Salir</button>
     </div>
   </header>
 
   <!-- VISTA HAZARDS -->
-  <div id="verComo-aviso" class="verComo-aviso hide"></div>
-
   <div class="wrap" id="view-hazards">
     <div class="stat" id="stats"></div>
     <div class="toolbar">
@@ -209,6 +206,9 @@
         <option value="alto">Alto</option>
         <option value="medio">Medio</option>
         <option value="bajo">Bajo</option>
+      </select>
+      <select id="fHse" onchange="render()" title="Filtrar por el HSE responsable">
+        <option value="">Todos los HSE</option>
       </select>
       <select id="fRevision" onchange="render()">
         <option value="">Revisión</option>
@@ -484,60 +484,10 @@ function loginEnter(ev){
   if(ev.key === 'Enter'){ ev.preventDefault(); doLogin(); }
 }
 
-// ═══════════ VER EL PANEL COMO OTRO PERFIL ═══════════
-// Sirve para que un administrador revise qué ve cada HSE sin tener que
-// pedirle su contraseña (que no se puede recuperar: está cifrada).
-// Es SOLO LECTURA: mientras se revisa otro perfil no se puede aprobar,
-// rechazar, comentar ni cambiar estatus, para no dejar su nombre en
-// movimientos que no hizo.
-let VER_COMO   = null;   // username que se está revisando
-let PERFIL_VISTO = null; // sus permisos, para pintar el panel igual que él
-let PERFILES   = [];
-
-function esAdminReal(){ return SESSION && SESSION.role === 'admin'; }
-
-// El login y la contraseña SIEMPRE van con el usuario real
-function usuarioDeLaConsulta(action){
-  const propias = ['login','set-password','perfiles'];
-  if (VER_COMO && !propias.includes(action)) return VER_COMO;
+// El usuario con el que se consultan los datos. El login y la creación
+// de contraseña van siempre con lo que se teclea en la pantalla de acceso.
+function usuarioDeLaConsulta(_action){
   return SESSION?.username || document.getElementById('l-user').value.trim();
-}
-
-async function cargarPerfiles(){
-  if (!esAdminReal()) return;
-  try{
-    const d = await api('perfiles');
-    if (!d.ok) return;
-    PERFILES = d.perfiles || [];
-    const sel = document.getElementById('verComo');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">Ver como…</option>' +
-      PERFILES.filter(p => p.username !== SESSION.username)
-        .map(p => `<option value="${escapeHtml(p.username)}">${escapeHtml(p.full_name)}</option>`).join('');
-    sel.classList.remove('hide');
-  }catch(_e){}
-}
-
-async function verComo(username){
-  VER_COMO = username || null;
-  PERFIL_VISTO = username ? PERFILES.find(p => p.username === username) : null;
-  const aviso = document.getElementById('verComo-aviso');
-  if (aviso){
-    aviso.classList.toggle('hide', !VER_COMO);
-    if (PERFIL_VISTO){
-      aviso.innerHTML = `Estás viendo el panel como <b>${escapeHtml(PERFIL_VISTO.full_name)}</b> ` +
-        `(${escapeHtml(PERFIL_VISTO.username)}) · solo consulta` +
-        ` <button class="btn sm ghost" onclick="salirDeVerComo()">Volver a mi panel</button>`;
-    }
-  }
-  entrarAlPanel();
-  await abrirVistaInicial();
-}
-
-function salirDeVerComo(){
-  const sel = document.getElementById('verComo');
-  if (sel) sel.value = '';
-  verComo('');
 }
 
 // ═══════════ PERMISOS POR USUARIO ═══════════
@@ -550,16 +500,6 @@ function salirDeVerComo(){
 const SOLO_LECTURA_FIJOS = ['1183'];   // Erick Guerrero
 
 function permisos(){
-  // Revisando otro perfil: se pintan SUS pestañas, pero sin poder editar
-  if (VER_COMO && PERFIL_VISTO){
-    return {
-      hazards: !!PERFIL_VISTO.ver_hazards,
-      jsa:     !!PERFIL_VISTO.ver_jsa,
-      emp:     false,
-      cumpl:   !!PERFIL_VISTO.ver_cumplimiento,
-      lectura: true
-    };
-  }
   const s = SESSION || {};
   const lectura = (s.solo_lectura === undefined)
     ? SOLO_LECTURA_FIJOS.includes(String(s.username || ''))
@@ -597,12 +537,10 @@ function entrarAlPanel(){
   document.getElementById('app').classList.remove('hide');
 
   const P = permisos();
-  const etiqueta = VER_COMO ? 'viendo otro perfil'
-                 : P.lectura ? 'Solo consulta'
+  const etiqueta = P.lectura ? 'Solo consulta'
                  : SESSION.role==='admin' ? 'Administrador'
                  : (SESSION.country_code || 'Consulta');
   document.getElementById('who').textContent=`${SESSION.full_name} · ${etiqueta}`;
-  cargarPerfiles();
 
   // Cada pestaña se muestra solo si el usuario tiene ese permiso
   document.getElementById('nav-hazards').classList.toggle('hide', !P.hazards);
@@ -726,6 +664,7 @@ async function loadHazards(){
   await cargarTiempos();
   buildCategoryFilter();
   buildPaisFilter();
+  buildHseFilter();
   render();
 }
 
@@ -741,6 +680,25 @@ function buildPaisFilter(){
   sel.value=actual;
   // Si solo hay un país, el filtro no aporta: se oculta
   sel.classList.toggle('hide', paises.length<2);
+}
+
+// El selector de HSE se arma con los responsables presentes en SUS hazards.
+// A un HSE que solo ve lo suyo le sale un único valor, así que se oculta;
+// a Daniel, que ve los cuatro países, le permite separar a su gente de
+// la de los demás.
+function buildHseFilter(){
+  const sel = document.getElementById('fHse');
+  if(!sel) return;
+  const nombres = [...new Set((HAZARDS||[]).map(h=>h.hse_name).filter(Boolean))].sort();
+  const actual = sel.value;
+  const mio = (SESSION && SESSION.full_name) ? SESSION.full_name.trim().toUpperCase() : '';
+  sel.innerHTML = '<option value="">Todos los HSE</option>' +
+    nombres.map(n=>{
+      const propio = n.trim().toUpperCase() === mio;
+      return `<option value="${escapeHtml(n)}">${escapeHtml(n)}${propio ? ' — mis asignados' : ''}</option>`;
+    }).join('');
+  sel.value = actual;
+  sel.classList.toggle('hide', nombres.length < 2);
 }
 
 function buildCategoryFilter(){
@@ -1138,9 +1096,11 @@ function aplicarFiltros(lista){
   const fp = (document.getElementById('fPais')||{}).value || '';
   const fr = (document.getElementById('fRevision')||{}).value || '';
   const fg = (document.getElementById('fRiesgo')||{}).value || '';
+  const fh = (document.getElementById('fHse')||{}).value || '';
   return (lista||[]).filter(h=>{
     if(fr && revisionDe(h.hazard_code) !== fr) return false;
     if(fg && nivelDe(h) !== fg) return false;
+    if(fh && (h.hse_name||'') !== fh) return false;
     const txt = `${h.hazard_code} ${h.employee_name} ${h.parque} ${h.tipo_riesgo}`.toLowerCase();
     return (!q || txt.includes(q))
         && (!fe || (h.estatus||'').includes(fe))
@@ -1170,6 +1130,7 @@ function limpiarFiltros(){
   const pa=document.getElementById('fPais'); if(pa) pa.value='';
   const rv=document.getElementById('fRevision'); if(rv) rv.value='';
   const rg=document.getElementById('fRiesgo'); if(rg) rg.value='';
+  const hs=document.getElementById('fHse'); if(hs) hs.value='';
   render();
 }
 
@@ -1188,7 +1149,9 @@ function filtroTexto(){
   const fp=(document.getElementById('fPais')||{}).value||'';
   const fr=(document.getElementById('fRevision')||{}).value||'';
   const fg=(document.getElementById('fRiesgo')||{}).value||'';
+  const fh=(document.getElementById('fHse')||{}).value||'';
   if(fp) partes.push(fp);
+  if(fh) partes.push('HSE: '+fh);
   if(fg) partes.push('riesgo '+fg);
   if(fr) partes.push(fr==='Pendiente'?'por revisar':fr.toLowerCase()+'s');
   if(fe) partes.push(fe);
@@ -1839,7 +1802,8 @@ async function exportCSV(){
   const fe=document.getElementById('fEstatus').value||'';
   const fp=((document.getElementById('fPais')||{}).value||'').toLowerCase().replace(/\s+/g,'-');
   const fg=((document.getElementById('fRiesgo')||{}).value||'');
-  const suf=[fm, fp, fg?('riesgo-'+fg):'', fe.toLowerCase().replace(/\s+/g,'-')].filter(Boolean).join('_');
+  const fh=((document.getElementById('fHse')||{}).value||'').toLowerCase().replace(/\s+/g,'-');
+  const suf=[fm, fp, fh, fg?('riesgo-'+fg):'', fe.toLowerCase().replace(/\s+/g,'-')].filter(Boolean).join('_');
   XLSX.writeFile(wb, `hazards_${suf||new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
@@ -2713,7 +2677,7 @@ console.log('%c Panel HSE v2026.10.28 ', 'background:#0F1E5A;color:#fff;font-wei
   '· bitácora:', typeof cargarHistorial === 'function' ? 'sí' : 'NO',
   '· contadores:', typeof conteoAcciones === 'function' ? 'sí' : 'NO',
   '· solo consulta:', typeof bloqueaSiLectura === 'function' ? 'sí' : 'NO',
-  '· ver como:', typeof verComo === 'function' ? 'sí' : 'NO');
+  '· filtro HSE:', typeof buildHseFilter === 'function' ? 'sí' : 'NO');
 
 restaurarSesion();
 </script>

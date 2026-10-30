@@ -507,6 +507,26 @@ async function idbAll(store){
 const metaGet = async k => (await idbGet('meta',k))?.v ?? null;
 const metaSet = (k,v) => idbPut('meta',{k,v});
 
+// Reinicio único de datos locales cuando se limpia la base (fin de una etapa de pruebas).
+// Borra historial, fotos ya usadas, envíos pendientes y borradores; conserva sesión y catálogos.
+// Para volver a limpiar todos los teléfonos, sube DATA_EPOCH.
+const DATA_EPOCH = 2;
+async function resetLocalDataIfNeeded(){
+  if((await metaGet('data_epoch')) === DATA_EPOCH) return;
+  const db = await idbOpen();
+  await new Promise(res=>{
+    const tx = db.transaction(['history','hashes','outbox','meta'],'readwrite');
+    for(const s of ['history','hashes','outbox']) tx.objectStore(s).clear();
+    tx.objectStore('meta').openCursor().onsuccess = e=>{
+      const c = e.target.result; if(!c) return;
+      if(String(c.key).startsWith('draft_')) c.delete();
+      c.continue();
+    };
+    tx.oncomplete = res; tx.onerror = res;
+  });
+  await metaSet('data_epoch', DATA_EPOCH);
+}
+
 // ════════════════════════════════════════════
 // UTILIDADES
 // ════════════════════════════════════════════
@@ -1296,6 +1316,7 @@ window.addEventListener('offline',showOffline);
 
 // Arranque: si hay sesión guardada, entrar directo (también sin señal)
 (async()=>{
+  await resetLocalDataIfNeeded();
   SESSION = await metaGet('session');
   if(SESSION){
     await loadCatalog();

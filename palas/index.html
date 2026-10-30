@@ -116,6 +116,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .invalid{border-color:var(--bad)!important;background:var(--bad-soft)!important}
 #l-nom{font:600 24px var(--mono);letter-spacing:4px;text-align:center;padding:14px}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+/* Prefijo fijo (WTG, BLADE_, SN_) pegado al campo: el técnico solo escribe el número */
+.pre{display:flex;align-items:stretch;border:1.5px solid var(--line);border-radius:var(--r);background:#fbfcfd;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.pre span{display:flex;align-items:center;padding:0 0 0 12px;font:600 16px var(--mono);color:var(--ink3);user-select:none}
+.pre input{border:none!important;box-shadow:none!important;background:transparent!important;padding-left:2px;min-width:0}
+.pre:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:#fff}
+.pre:has(.invalid){border-color:var(--bad);background:var(--bad-soft)}
+.hint{font-size:12px;color:var(--ink3);margin-top:10px;word-break:break-all}
 @media (max-width:440px){.cols{grid-template-columns:1fr}}
 
 /* ── BOTONES ── */
@@ -316,8 +323,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 
     <div class="group">
       <div class="group-h">Equipo</div>
-      <label class="req" for="f-tec">Tecnología</label>
-      <select id="f-tec"></select>
+      <div class="cols">
+        <div><label class="req" for="f-tec">Tecnología</label><select id="f-tec"></select></div>
+        <div><label class="req" for="f-mod">Modelo de turbina</label><input type="text" id="f-mod" class="up" maxlength="40" list="dl-mod" placeholder="V112" autocomplete="off"/><datalist id="dl-mod"></datalist></div>
+      </div>
       <div class="cols">
         <div><label class="req" for="f-pais">País</label><select id="f-pais"></select></div>
         <div><label class="req" for="f-parque">Parque / proyecto</label><select id="f-parque"></select></div>
@@ -326,12 +335,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 
     <div class="group">
       <div class="group-h">Pala</div>
-      <label class="req" for="f-turb">Número o nombre de turbina</label>
-      <input type="text" id="f-turb" class="up" maxlength="40" placeholder="WTG-12"/>
+      <label class="req" for="f-turb">Número de turbina</label>
+      <div class="pre"><span>WTG</span><input type="text" id="f-turb" class="up" maxlength="30" placeholder="012" autocomplete="off"/></div>
       <div class="cols">
-        <div><label class="req" for="f-pala">Identificación de pala</label><input type="text" id="f-pala" class="up" maxlength="40" placeholder="A / B / C"/></div>
-        <div><label class="req" for="f-serie">Número de serie</label><input type="text" id="f-serie" class="up" maxlength="60" placeholder="SN-00000"/></div>
+        <div><label class="req" for="f-pala">Identificación de pala</label><div class="pre"><span>BLADE_</span><input type="text" id="f-pala" class="up" maxlength="20" placeholder="A" autocomplete="off"/></div></div>
+        <div><label class="req" for="f-serie">Número de serie</label><div class="pre"><span>SN_</span><input type="text" id="f-serie" class="up" maxlength="50" placeholder="123456" autocomplete="off"/></div></div>
       </div>
+      <div class="hint mono" id="f-ruta"></div>
     </div>
 
     <div class="group">
@@ -761,17 +771,49 @@ function fillParks(country, value){
   fillSelect($('f-parque'), parks.map(p=>({v:p.id,t:p.name.replace(/^P\.E\.\s*/,'')})), country?'Elige…':'Primero el país', value);
 }
 
+// Modelos sugeridos por tecnología (se puede escribir otro).
+const MODELS = {
+  Vestas:  ['V90','V100','V110','V112','V117','V120','V126','V136','V150','V162'],
+  Gamesa:  ['G58','G80','G87','G90','G97','G114','G132','SG 2.6-114','SG 3.4-132','SG 5.0-145'],
+  Acciona: ['AW77','AW82','AW100','AW116','AW125','AW132'],
+  GE:      ['GE 1.5','GE 1.6-100','GE 1.7-100','GE 2.5-116','GE 2.7-116','GE 3.6-137'],
+};
+function fillModels(){ $('dl-mod').innerHTML = (MODELS[$('f-tec').value] || []).map(m=>`<option value="${m}">`).join(''); }
+
+// Nombres normalizados (iguales a los de la función blade-api). Nunca se duplica el prefijo:
+// "12" / "wtg-12" / "WTG 012" → "WTG012";  "Blade A" → "A";  "sn-123456" → "123456".
+function normTurbine(s){
+  let r = String(s ?? '').toUpperCase().trim().replace(/^WTG[\s\-_.]*/,'').replace(/[\s\-_.]+/g,'');
+  if(/^\d+$/.test(r)) r = r.padStart(3,'0');
+  return r ? 'WTG'+r : '';
+}
+const stripPrefix = (s, re) => String(s ?? '').toUpperCase().trim().replace(re,'').replace(/\s+/g,'');
+const normBlade = s => stripPrefix(s, /^(BLADE|PALA)[\s\-_.]*/);
+const normSerial = s => stripPrefix(s, /^SN[\s\-_.]*/);
+
+// Muestra debajo del bloque "Pala" cómo quedará la carpeta en SharePoint.
+function updateRuta(){
+  const f = readForm();
+  const parts = [f.technology, f.turbine_model, shortPark(f.park_name), f.turbine,
+    f.blade_id && 'BLADE_'+f.blade_id, f.blade_serial && 'SN_'+f.blade_serial, f.execution_date].filter(Boolean);
+  $('f-ruta').textContent = parts.length ? '📁 ' + parts.join(' / ') : '';
+}
+
 // Llena el formulario (vacío para una actividad nueva, o con los datos de un borrador).
 function prepareForm(f = {}){
   const techs = CATALOG?.technologies?.length ? CATALOG.technologies : TECH_DEFAULT;
   fillSelect($('f-tec'), techs.map(t=>({v:t,t})), 'Elige…', f.technology || '');
+  fillModels();
+  $('f-mod').value = f.turbine_model || '';
   const countries = [...new Set((CATALOG?.parks||[]).map(p=>p.country))];
   const country = f.country || (countries.length===1 ? countries[0] : '');
   fillSelect($('f-pais'), countries.map(c=>({v:c,t:c})), 'Elige…', country);
   fillParks(country, f.park_id!=null ? String(f.park_id) : '');
-  const vals = {'f-turb':f.turbine, 'f-pala':f.blade_id, 'f-serie':f.blade_serial, 'f-act':f.activity, 'f-com':f.comments};
+  // En los campos con prefijo fijo solo se muestra la parte que escribe el técnico.
+  const vals = {'f-turb':String(f.turbine||'').replace(/^WTG/,''), 'f-pala':f.blade_id, 'f-serie':f.blade_serial, 'f-act':f.activity, 'f-com':f.comments};
   for(const [id,v] of Object.entries(vals)) $(id).value = v || '';
   $('f-fecha').value = f.execution_date || today(); $('f-fecha').max = today();
+  updateRuta();
   document.querySelectorAll('#v-form .invalid').forEach(e=>e.classList.remove('invalid'));
   err('f-err','');
 }
@@ -842,11 +884,11 @@ async function renderDraftCard(){
 function readForm(){
   const park = (CATALOG?.parks||[]).find(p=>String(p.id)===$('f-parque').value);
   return {
-    technology: $('f-tec').value, country: $('f-pais').value,
+    technology: $('f-tec').value, turbine_model: $('f-mod').value.trim().toUpperCase(), country: $('f-pais').value,
     park_id: park?.id ?? null, park_name: park?.name ?? '',
-    turbine: $('f-turb').value.trim().toUpperCase(),
-    blade_id: $('f-pala').value.trim().toUpperCase(),
-    blade_serial: $('f-serie').value.trim().toUpperCase(),
+    turbine: normTurbine($('f-turb').value),
+    blade_id: normBlade($('f-pala').value),
+    blade_serial: normSerial($('f-serie').value),
     execution_date: $('f-fecha').value,
     activity: $('f-act').value.trim(),
     comments: $('f-com').value.trim(),
@@ -855,7 +897,7 @@ function readForm(){
 
 function validateForm(){
   const f = readForm();
-  const req = {'f-tec':f.technology,'f-pais':f.country,'f-parque':f.park_id,'f-turb':f.turbine,'f-pala':f.blade_id,'f-serie':f.blade_serial,'f-fecha':f.execution_date,'f-act':f.activity,'f-com':f.comments};
+  const req = {'f-tec':f.technology,'f-mod':f.turbine_model,'f-pais':f.country,'f-parque':f.park_id,'f-turb':f.turbine,'f-pala':f.blade_id,'f-serie':f.blade_serial,'f-fecha':f.execution_date,'f-act':f.activity,'f-com':f.comments};
   let first = null;
   for(const [id,v] of Object.entries(req)){
     const bad = !v; $(id).classList.toggle('invalid',bad);
@@ -1044,11 +1086,11 @@ function renderReview(){
   const warn = ph.filter(p=>level(p)==='warn').length;
   const kv = (k,v,cls='') => `<dl class="kv"><dt>${k}</dt><dd class="${cls}">${v}</dd></dl>`;
   $('r-sum').innerHTML =
-    kv('Tecnología', esc(f.technology)) +
+    kv('Tecnología', `${esc(f.technology)} · <span class="mono">${esc(f.turbine_model)}</span>`) +
     kv('Parque', `${esc(shortPark(f.park_name))} <span style="color:var(--ink3);font-weight:500">· ${esc(f.country)}</span>`) +
     kv('Turbina', esc(f.turbine), 'mono') +
-    kv('Pala', esc(f.blade_id), 'mono') +
-    kv('Serie', esc(f.blade_serial), 'mono') +
+    kv('Pala', 'BLADE_'+esc(f.blade_id), 'mono') +
+    kv('Serie', 'SN_'+esc(f.blade_serial), 'mono') +
     kv('Fecha', esc(f.execution_date), 'mono') +
     kv('Actividad', esc(f.activity), 'txt') +
     kv('Comentarios', esc(f.comments), 'txt') +
@@ -1168,7 +1210,12 @@ $('h-new').onclick = async ()=>{
 };
 $('f-pais').onchange = ()=>fillParks($('f-pais').value);
 document.querySelectorAll('#v-form input, #v-form select, #v-form textarea').forEach(el=>
-  el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ if(el.value.trim()) el.classList.remove('invalid'); persistDraft(); }));
+  el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ if(el.value.trim()) el.classList.remove('invalid'); updateRuta(); persistDraft(); }));
+$('f-tec').addEventListener('change', fillModels);
+// Al salir del campo se deja el valor limpio: si escribieron "WTG-12" queda "012" junto al prefijo fijo.
+$('f-turb').addEventListener('change', ()=>{ $('f-turb').value = normTurbine($('f-turb').value).replace(/^WTG/,''); updateRuta(); });
+$('f-pala').addEventListener('change', ()=>{ $('f-pala').value = normBlade($('f-pala').value); updateRuta(); });
+$('f-serie').addEventListener('change', ()=>{ $('f-serie').value = normSerial($('f-serie').value); updateRuta(); });
 // "Salir" no borra nada: la actividad queda en Inicio como "sin terminar".
 $('f-cancel').onclick = ()=>{
   persistDraft(true, {exited:true});

@@ -158,7 +158,7 @@
 <div id="login">
   <div class="card">
     <div class="brand"><img src="spie-logo.png" alt="SPIE Hazard" style="width:44px;height:44px;border-radius:9px"/><h1>Panel HSE</h1></div>
-    <p class="sub">Gestión de reportes · SPIE <span class="ver">v2026.10.28</span></p>
+    <p class="sub">Gestión de reportes · SPIE <span class="ver">v2026.11.03</span></p>
     <label>Usuario</label>
     <input id="l-user" autocomplete="username" placeholder="Nómina o usuario" onkeydown="loginEnter(event)"/>
     <label id="l-pass-lbl">Contraseña</label>
@@ -175,7 +175,7 @@
 
 <div id="app" class="hide">
   <header>
-    <div style="display:flex;align-items:center;gap:10px"><img src="spie-logo.png" alt="SPIE" style="width:30px;height:30px;border-radius:7px"/><b>Panel HSE</b> <span class="ver" title="Versión del panel">v2026.10.28</span></div>
+    <div style="display:flex;align-items:center;gap:10px"><img src="spie-logo.png" alt="SPIE" style="width:30px;height:30px;border-radius:7px"/><b>Panel HSE</b> <span class="ver" title="Versión del panel">v2026.11.03</span></div>
     <div class="row">
       <button class="navbtn active" id="nav-hazards" onclick="showView('hazards')">Hazards</button>
       <button class="navbtn" id="nav-jsa" onclick="showView('jsa')">JSA</button>
@@ -207,8 +207,9 @@
         <option value="medio">Medio</option>
         <option value="bajo">Bajo</option>
       </select>
-      <button id="btnMios" class="btn sm ghost hide" onclick="toggleMisAsignados()"
-              title="Ver solo los hazards de la gente que tengo asignada">Solo mis asignados</button>
+      <select id="fHse" class="hide" onchange="render()" title="Filtrar por el HSE responsable">
+        <option value="">Todos los HSE</option>
+      </select>
       <select id="fRevision" onchange="render()">
         <option value="">Revisión</option>
         <option value="Pendiente">Por revisar</option>
@@ -681,36 +682,27 @@ function buildPaisFilter(){
   sel.classList.toggle('hide', paises.length<2);
 }
 
-// Daniel es el único con vista general, y necesita poder aislar a su
-// propia gente. Es un botón que solo aparece para él: no muestra una
-// lista de HSE, porque los nombres de los demás no tienen por qué verse.
-let SOLO_MIOS = false;
-
+// Filtro por HSE. Solo aparece para quien tiene vista general (Daniel):
+// a un HSE normal su lista ya viene acotada a su gente, así que un
+// selector con un único nombre no aportaría nada, y los nombres de los
+// demás no tienen por qué verse.
 function buildHseFilter(){
-  const btn = document.getElementById('btnMios');
-  if(!btn) return;
+  const sel = document.getElementById('fHse');
+  if(!sel) return;
   const general = SESSION && SESSION.role === 'admin';
-  btn.classList.toggle('hide', !general);
-  if(!general && SOLO_MIOS){ SOLO_MIOS = false; }
-  pintarBotonMios();
-}
+  if(!general){ sel.value = ''; sel.classList.add('hide'); return; }
 
-function pintarBotonMios(){
-  const btn = document.getElementById('btnMios');
-  if(!btn) return;
-  btn.textContent = SOLO_MIOS ? 'Viendo solo mis asignados' : 'Solo mis asignados';
-  btn.classList.toggle('ghost', !SOLO_MIOS);
-}
-
-function toggleMisAsignados(){
-  SOLO_MIOS = !SOLO_MIOS;
-  pintarBotonMios();
-  render();
-}
-
-// El nombre del HSE de la sesión, para comparar contra el del hazard
-function miNombreHse(){
-  return (SESSION && SESSION.full_name ? SESSION.full_name : '').trim().toUpperCase();
+  const nombres = [...new Set((HAZARDS||[]).map(h=>h.hse_name).filter(Boolean))]
+                    .sort((a,b)=>a.localeCompare(b,'es'));
+  const actual = sel.value;
+  const mio = (SESSION.full_name||'').trim().toUpperCase();
+  sel.innerHTML = '<option value="">Todos los HSE</option>' +
+    nombres.map(n=>{
+      const propio = n.trim().toUpperCase() === mio;
+      return `<option value="${escapeHtml(n)}">${escapeHtml(n)}${propio ? ' — mis asignados' : ''}</option>`;
+    }).join('');
+  sel.value = nombres.includes(actual) ? actual : '';
+  sel.classList.toggle('hide', nombres.length < 2);
 }
 
 function buildCategoryFilter(){
@@ -1108,11 +1100,11 @@ function aplicarFiltros(lista){
   const fp = (document.getElementById('fPais')||{}).value || '';
   const fr = (document.getElementById('fRevision')||{}).value || '';
   const fg = (document.getElementById('fRiesgo')||{}).value || '';
-  const mio = SOLO_MIOS ? miNombreHse() : '';
+  const fh = (document.getElementById('fHse')||{}).value || '';
   return (lista||[]).filter(h=>{
     if(fr && revisionDe(h.hazard_code) !== fr) return false;
     if(fg && nivelDe(h) !== fg) return false;
-    if(mio && String(h.hse_name||'').trim().toUpperCase() !== mio) return false;
+    if(fh && (h.hse_name||'') !== fh) return false;
     const txt = `${h.hazard_code} ${h.employee_name} ${h.parque} ${h.tipo_riesgo}`.toLowerCase();
     return (!q || txt.includes(q))
         && (!fe || (h.estatus||'').includes(fe))
@@ -1142,7 +1134,7 @@ function limpiarFiltros(){
   const pa=document.getElementById('fPais'); if(pa) pa.value='';
   const rv=document.getElementById('fRevision'); if(rv) rv.value='';
   const rg=document.getElementById('fRiesgo'); if(rg) rg.value='';
-  SOLO_MIOS=false; pintarBotonMios();
+  const hs=document.getElementById('fHse'); if(hs) hs.value='';
   render();
 }
 
@@ -1162,7 +1154,8 @@ function filtroTexto(){
   const fr=(document.getElementById('fRevision')||{}).value||'';
   const fg=(document.getElementById('fRiesgo')||{}).value||'';
   if(fp) partes.push(fp);
-  if(SOLO_MIOS) partes.push('solo mis asignados');
+  const fh=(document.getElementById('fHse')||{}).value||'';
+  if(fh) partes.push('HSE: '+fh);
   if(fg) partes.push('riesgo '+fg);
   if(fr) partes.push(fr==='Pendiente'?'por revisar':fr.toLowerCase()+'s');
   if(fe) partes.push(fe);
@@ -1813,7 +1806,7 @@ async function exportCSV(){
   const fe=document.getElementById('fEstatus').value||'';
   const fp=((document.getElementById('fPais')||{}).value||'').toLowerCase().replace(/\s+/g,'-');
   const fg=((document.getElementById('fRiesgo')||{}).value||'');
-  const fh=SOLO_MIOS ? 'mis-asignados' : '';
+  const fh=((document.getElementById('fHse')||{}).value||'').toLowerCase().replace(/\s+/g,'-');
   const suf=[fm, fp, fh, fg?('riesgo-'+fg):'', fe.toLowerCase().replace(/\s+/g,'-')].filter(Boolean).join('_');
   XLSX.writeFile(wb, `hazards_${suf||new Date().toISOString().slice(0,10)}.xlsx`);
 }
@@ -1935,24 +1928,30 @@ function paisOptions(sel){
     `<option value="${p.id}" ${p.id===sel?'selected':''}>${p.flag_emoji} ${p.name}</option>`
   ).join('');
 }
-function oficinaOptions(paisId, sel){
-  const ofs=(EMP_CAT?.oficinas||[]).filter(o=>o.country_id===paisId || o.country_id===null);
-  return '<option value="">— Sin oficina fija (campo) —</option>'+
-    ofs.map(o=>`<option value="${o.id}" ${o.id===sel?'selected':''}>${escapeHtml(o.name)}</option>`).join('');
-}
-function zonaRow(paisId, selZona){
-  const zonas=zonasDePais(paisId);
-  // Solo mostrar selector de zona si el país tiene más de una zona (México)
-  if(zonas.length>1){
-    return `<label>Zona / HSE</label>
-      <select id="ef-zona">
-        ${zonas.map(z=>`<option value="${z.zone_code}" ${z.zone_code===selZona?'selected':''}>${z.zone_code} · ${escapeHtml(z.full_name)}</option>`).join('')}
-      </select>`;
+// Antes aquí se elegía la ZONA y el HSE salía deducido de ella: por eso
+// todos los de ESPINAL acababan con el mismo responsable. Ahora se elige
+// directamente a la persona, que es lo que guarda el padrón.
+function hseRow(selEmail){
+  const hse = (EMP_CAT?.hse||[]).filter(h=>h.email);
+  if(!hse.length){
+    return `<p class="muted" style="margin-top:8px">No hay HSE con cuenta de panel activa.</p>`;
   }
-  // País con un solo HSE: mostrar informativo, sin selector
-  const hse=zonas[0];
-  return `<input type="hidden" id="ef-zona" value="${hse?(hse.zone_code||''):''}"/>
-    <p class="muted" style="margin-top:8px">HSE asignado: <b>${hse?escapeHtml(hse.full_name):'—'}</b></p>`;
+  const actual = (selEmail||'').toLowerCase();
+  return `<label>HSE responsable</label>
+    <select id="ef-hse">
+      <option value="">— Selecciona el HSE —</option>
+      ${hse.map(h=>`<option value="${escapeHtml(h.email)}" ${String(h.email).toLowerCase()===actual?'selected':''}>${escapeHtml(h.full_name)}${h.asignados!==undefined?` · ${h.asignados}`:''}</option>`).join('')}
+    </select>`;
+}
+
+// La oficina se escribe, con sugerencias de las que ya existen. Si se deja
+// vacía, a esa persona la app le pedirá escribir su parque al reportar.
+function oficinaRow(valor){
+  const ofs = [...new Set((EMP_CAT?.oficinas||[]).map(o=>o.name).filter(Boolean))].sort();
+  return `<label>Oficina o parque fijo (opcional)</label>
+    <input id="ef-oficina" list="ef-oficinas" value="${escapeHtml(valor||'')}" placeholder="Déjalo vacío si trabaja en campo"/>
+    <datalist id="ef-oficinas">${ofs.map(o=>`<option value="${escapeHtml(o)}"></option>`).join('')}</datalist>
+    <p class="muted" style="margin-top:4px">Si queda vacío, al registrar un hazard tendrá que escribir su parque.</p>`;
 }
 
 function empFormHtml(emp){
@@ -1964,19 +1963,13 @@ function empFormHtml(emp){
     <label>Nombre completo</label>
     <input id="ef-name" value="${emp?escapeHtml(emp.full_name):''}" placeholder="Nombre y apellidos"/>
     <label>País</label>
-    <select id="ef-pais" onchange="onEfPaisChange()">${paisOptions(paisId)}</select>
-    <div id="ef-zona-wrap">${zonaRow(paisId, emp?emp.hse_zone:null)}</div>
-    <label>Oficina (opcional)</label>
-    <select id="ef-oficina">${oficinaOptions(paisId, emp?emp.office_id:null)}</select>
+    <select id="ef-pais">${paisOptions(paisId)}</select>
+    ${hseRow(emp?emp.hse_email:null)}
+    ${oficinaRow(emp?emp.office_name:null)}
     <button class="btn" onclick="saveEmp(${emp?`'${emp.payroll_no}'`:'null'})">${emp?'Guardar cambios':'Dar de alta'}</button>
     <p class="err" id="ef-err"></p>`;
 }
 
-function onEfPaisChange(){
-  const paisId=parseInt(document.getElementById('ef-pais').value,10);
-  document.getElementById('ef-zona-wrap').innerHTML=zonaRow(paisId, null);
-  document.getElementById('ef-oficina').innerHTML=oficinaOptions(paisId, null);
-}
 
 function openEmpForm(){
   document.getElementById('m-code').textContent='Alta de empleado';
@@ -1998,13 +1991,16 @@ async function saveEmp(payrollEdit){
   const payroll = payrollEdit || document.getElementById('ef-payroll').value.trim();
   const full_name = document.getElementById('ef-name').value.trim();
   const country_id = parseInt(document.getElementById('ef-pais').value,10);
-  const zonaEl = document.getElementById('ef-zona');
-  const zone = zonaEl ? (zonaEl.value||null) : null;
+  const hseEl = document.getElementById('ef-hse');
+  const hse_email = hseEl ? (hseEl.value||'') : '';
   const ofEl = document.getElementById('ef-oficina');
-  const office_id = ofEl && ofEl.value ? parseInt(ofEl.value,10) : null;
+  // Cadena vacía = quitarle la oficina. No se manda null, que significaría
+  // "no la toques" y dejaría la anterior puesta.
+  const oficina = ofEl ? ofEl.value.trim() : '';
   if(!payroll || !full_name){ err.textContent='Nómina y nombre son obligatorios.'; err.classList.add('show'); return; }
+  if(!hse_email){ err.textContent='Hay que asignarle un HSE.'; err.classList.add('show'); return; }
   const action = payrollEdit ? 'emp-edit' : 'emp-add';
-  const d = await api(action, {payroll, full_name, country_id, zone, office_id});
+  const d = await api(action, {payroll, full_name, country_id, zone:null, office_id:null, hse_email, oficina});
   if(d.ok){ closeModal(); await loadEmpleados(); }
   else { err.textContent=d.error||'No se pudo guardar.'; err.classList.add('show'); }
 }
@@ -2683,7 +2679,7 @@ document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='
 
 // Restaurar sesión al cargar (refrescar la página ya no cierra sesión)
 // Sello de versión: sirve para saber, sin adivinar, qué archivo está cargado.
-console.log('%c Panel HSE v2026.10.28 ', 'background:#0F1E5A;color:#fff;font-weight:bold',
+console.log('%c Panel HSE v2026.11.03 ', 'background:#0F1E5A;color:#fff;font-weight:bold',
   '· filtro de riesgo:', typeof nivelDe === 'function' ? 'sí' : 'NO',
   '· bitácora:', typeof cargarHistorial === 'function' ? 'sí' : 'NO',
   '· contadores:', typeof conteoAcciones === 'function' ? 'sí' : 'NO',

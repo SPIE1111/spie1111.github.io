@@ -77,11 +77,9 @@ html,body{font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-sm
 /* ── LOGIN ── */
 #v-login{padding:0;min-height:100vh;background:var(--ink)}
 #v-login.active{display:flex;flex-direction:column}
-.login-top{padding:calc(env(safe-area-inset-top) + 48px) 24px 36px;color:#fff;max-width:620px;margin:0 auto}
-.login-top .brandrow{display:flex;align-items:center;gap:12px;margin-bottom:26px}
-.login-top .logo-plate{height:64px;padding:7px 14px;border-radius:10px}
-.login-top .appicon{width:64px;height:64px;display:block}
-.login-top .k{font:600 12px var(--mono);letter-spacing:2px;color:#7fd3cb;text-transform:uppercase}
+.login-top{padding:calc(env(safe-area-inset-top) + 18px) 20px 36px;color:#fff;max-width:620px;margin:0 auto}
+.login-top .brandrow{display:flex;justify-content:flex-end;margin-bottom:34px}
+.login-top .logo-plate{height:56px;padding:7px 14px;border-radius:10px}
 .login-top h1{font-size:28px;line-height:1.15;font-weight:700;margin:6px 0 8px}
 .login-top p{color:#b9c3cf;font-size:14.5px}
 .login-card{background:var(--bg);border-radius:18px 18px 0 0;flex:1;padding:28px 24px}
@@ -283,11 +281,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
   <div class="login-top">
     <div class="brandrow">
       <div class="logo-plate"><img src="spie-logo.png" alt="SPIE"/></div>
-      <img class="appicon" src="icon-192.png" alt=""/>
     </div>
-    <div class="k">Eólico · Palas</div>
     <h1>Inspección fotográfica de palas</h1>
-    <p>Registra la actividad y sube las fotos directo a SharePoint, aunque estés sin señal.</p>
+    <p>Registrar la actividad realizada en campo. Si no cuentas con señal, la evidencia se subirá tan pronto tengas red.</p>
   </div>
   <div class="login-card">
     <div class="wrap">
@@ -510,7 +506,7 @@ const metaSet = (k,v) => idbPut('meta',{k,v});
 // Reinicio único de datos locales cuando se limpia la base (fin de una etapa de pruebas).
 // Borra historial, fotos ya usadas, envíos pendientes y borradores; conserva sesión y catálogos.
 // Para volver a limpiar todos los teléfonos, sube DATA_EPOCH.
-const DATA_EPOCH = 2;
+const DATA_EPOCH = 3;
 async function resetLocalDataIfNeeded(){
   if((await metaGet('data_epoch')) === DATA_EPOCH) return;
   const db = await idbOpen();
@@ -688,7 +684,9 @@ async function compress(file, wm){
   ctx.drawImage(src,0,0,c.width,c.height);
   close();
   if(wm) await drawWatermark(ctx, c.width, c.height, wm);
-  return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('No se pudo comprimir')),'image/jpeg',JPEG_Q));
+  const out = await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('No se pudo comprimir')),'image/jpeg',JPEG_Q));
+  out.srcW = w; out.srcH = h;   // tamaño original (para detectar capturas de pantalla)
+  return out;
 }
 const blobToB64 = b => new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(String(fr.result).split(',')[1]); fr.onerror=()=>rej(fr.error); fr.readAsDataURL(b); });
 
@@ -762,7 +760,7 @@ async function renderLists(){
       <div class="meter"><div style="width:${n?Math.round(up/n*100):0}%"></div></div>
     </div>`;
   }).join('') + `<button class="btn sm" onclick="syncOutbox(true)">Enviar ahora</button>`
-  : '<div class="empty">Nada pendiente. Todo está en SharePoint.</div>';
+  : '<div class="empty">Nada pendiente.</div>';
 
   const hist = (await idbAll('history')).filter(mine).sort((a,b)=>b.done_at-a.done_at).slice(0,30);
   $('h-hist-n').textContent = hist.length || '';
@@ -940,12 +938,20 @@ const FLAG_INFO = {
   ubicacion_lejana:{lvl:'warn',  txt:`Tomada a más de ${FAR_KM} km del resto de las fotos`},
   sin_metadatos:   {lvl:'block', txt:'No tiene fecha ni hora en sus datos (captura de pantalla, descargada o reenviada)'},
   editada:         {lvl:'block', txt:'Fue editada o recortada con otra app después de tomarla'},
+  no_camara:       {lvl:'block', txt:'No proviene de una cámara (captura de pantalla, recorte, descargada o reenviada)'},
+  captura:         {lvl:'block', txt:'Es una captura de pantalla'},
   sin_gps:         {lvl:'info',  txt:'No tiene ubicación GPS'},
 };
 
 // Una foto se considera editada si la guardó un editor conocido o si su fecha de
 // modificación se aleja más de 2 min de la fecha en que se tomó.
 const EDITOR_SW = /photoshop|lightroom|snapseed|gimp|picsart|canva|facetune|vsco|pixlr|photoroom|remini|lensa|meitu|airbrush|fotor|polarr|befunky|photo ?editor|editor de fotos/i;
+const SCREENSHOT_SW = /screenshot|screen ?capture|captura/i;
+// Mide igual que la pantalla del teléfono (en cualquier orientación) → captura de pantalla.
+function isScreenSized(w, h){
+  const sw = Math.round(screen.width * (window.devicePixelRatio||1)), sh = Math.round(screen.height * (window.devicePixelRatio||1));
+  return (w===sw && h===sh) || (w===sh && h===sw);
+}
 function isEdited(exif){
   if(exif.software && EDITOR_SW.test(exif.software)) return true;
   if(exif.taken_at && exif.modified_at){
@@ -974,6 +980,9 @@ async function addFiles(files){
         source:'carrete', sha256:sha, original_name:file.name, size_bytes:file.size, blob, url:URL.createObjectURL(blob),
         taken_at:exif.taken_at||null, subsec:exif.subsec||null, make:exif.make||null, model:exif.model||null,
         gps_lat:exif.gps_lat??null, gps_lon:exif.gps_lon??null, gps_acc:null, edited:isEdited(exif), used, flags:[],
+        // Las fotos de cámara siempre traen marca y modelo; capturas, recortes y descargas no.
+        no_camera: !exif.make || !exif.model,
+        screenshot: (exif.software && SCREENSHOT_SW.test(exif.software)) || isScreenSized(blob.srcW, blob.srcH),
       });
     }catch(e){ console.warn(e); failed++; }
   }
@@ -1047,6 +1056,8 @@ function evaluatePhotos(){
     const f = [];
     if(p.used) f.push('ya_usada');
     if(p.edited) f.push('editada');
+    if(p.screenshot) f.push('captura');
+    else if(p.no_camera) f.push('no_camara');
     if(!p.taken_at) f.push('sin_metadatos');
     else{
       if(p.taken_at.slice(0,10)!==date) f.push('fecha_distinta');

@@ -2587,6 +2587,21 @@ function limpiarBadge(){ try{ if(navigator.clearAppBadge) navigator.clearAppBadg
 limpiarBadge();
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) limpiarBadge(); });
 window.addEventListener('focus', limpiarBadge);
+
+// Entrada desde el cascarón SPIE HSE: si hay sesión del cascarón, entrar directo
+// con esa nómina (el PIN se pide solo si es supervisor, dentro de doEntrar).
+(function(){
+  window.addEventListener('DOMContentLoaded', async ()=>{
+    let hs=null; try{ hs=JSON.parse(localStorage.getItem('hse_session')||'null'); }catch(_e){}
+    if(!hs || !hs.nomina || SESSION || !navigator.onLine) return;
+    const lv=document.getElementById('v-login'); if(lv) lv.style.visibility='hidden';
+    try{
+      await validarNomina(String(hs.nomina));
+      if(_empValidado){ await doEntrar(); }
+    }catch(_e){}
+    if(!SESSION && lv) lv.style.visibility='visible';
+  });
+})();
 </script>
 </body>
 </html>

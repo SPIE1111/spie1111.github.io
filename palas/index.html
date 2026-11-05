@@ -1335,6 +1335,15 @@ window.addEventListener('offline',showOffline);
     // Si la app se cerró a media actividad (no por "Salir"), volver directo a donde iba.
     const rec = await savedDraft();
     if(rec && !rec.exited && CATALOG){ await resumeDraft(rec); toast('Recuperamos la actividad que tenías en curso.'); }
+    return;
+  }
+  // Sin sesión propia: si venimos del cascarón SPIE HSE, entrar directo con esa nómina.
+  let hs=null; try{ hs=JSON.parse(localStorage.getItem('hse_session')||'null'); }catch(_e){}
+  if(hs && hs.nomina && navigator.onLine){
+    $('l-nom').value = hs.nomina;
+    const lv=$('v-login'); if(lv) lv.style.visibility='hidden';
+    try{ await doLogin(); }catch(_e){}
+    if(!SESSION && lv) lv.style.visibility='visible';
   }
 })();
 </script>

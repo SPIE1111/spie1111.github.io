@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="theme-color" content="#0b1f4d"/>
+<title>SPIE HSE</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
+<style>
+  :root{ --navy:#0b1f4d; --navy2:#0b1733; --cyan:#49c3f5; --line:#1e3366; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; }
+  body{ background:var(--navy2); color:#fff; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+        display:flex; flex-direction:column; min-height:100%; }
+  header{ background:var(--navy); display:flex; align-items:center; gap:10px; padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top)); }
+  header img{ width:30px; height:30px; border-radius:7px; }
+  header .ht{ font-size:15px; font-weight:600; letter-spacing:.5px; }
+  main{ flex:1; display:flex; flex-direction:column; padding:20px 18px calc(24px + env(safe-area-inset-bottom)); max-width:460px; width:100%; margin:0 auto; }
+  .hide{ display:none !important; }
+  /* Login */
+  .lead{ font-size:19px; font-weight:600; margin:10px 0 4px; }
+  .sub{ font-size:13px; color:#9fb6d6; margin:0 0 20px; }
+  label{ font-size:12px; color:#9fb6d6; display:block; margin:0 0 6px; }
+  input[type=tel]{ width:100%; font-size:20px; letter-spacing:2px; padding:13px 14px; border-radius:11px; border:1px solid #c7d0de; background:#fff; color:#0b1f4d; }
+  input[type=tel]:focus{ outline:none; border-color:var(--cyan); box-shadow:0 0 0 3px rgba(73,195,245,.25); }
+  .verif{ margin-top:14px; background:#12294f; border:1px solid var(--line); border-radius:11px; padding:12px 14px; display:flex; align-items:center; gap:10px; }
+  .verif .nm{ font-size:15px; font-weight:600; }
+  .verif .dt{ font-size:12px; color:#9fb6d6; }
+  .btn{ margin-top:16px; width:100%; background:var(--cyan); color:#06213a; border:none; border-radius:11px; padding:14px; font-size:16px; font-weight:600; cursor:pointer; }
+  .btn:disabled{ background:#2a4066; color:#7e93b5; cursor:default; }
+  .err{ color:#ff9a9a; font-size:13px; margin-top:12px; min-height:18px; }
+  .foot{ margin-top:auto; display:flex; align-items:center; gap:7px; color:#6f84a8; font-size:12px; padding-top:18px; }
+  .foot svg{ width:15px; height:15px; }
+  /* Home */
+  .hello{ font-size:20px; font-weight:600; margin:6px 0 2px; }
+  .ask{ font-size:13px; color:#9fb6d6; margin:0 0 16px; }
+  .tiles{ display:flex; flex-direction:column; gap:12px; }
+  .tile{ display:flex; align-items:center; gap:14px; background:#fff; border-radius:15px; padding:16px 15px; text-decoration:none; color:#0b1f4d; }
+  .tile .ic{ width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .tile .ic svg{ width:26px; height:26px; }
+  .tile .tx{ flex:1; }
+  .tile .t1{ font-size:16px; font-weight:600; }
+  .tile .t2{ font-size:12px; color:#5b6472; }
+  .tile .ch{ color:#9aa4b4; }
+  .logout{ margin-top:22px; background:none; border:none; color:#9fb6d6; font-size:13px; text-decoration:underline; cursor:pointer; align-self:center; }
+</style>
+</head>
+<body>
+<header>
+  <img src="icon-192.png" alt="SPIE HSE"/>
+  <span class="ht">SPIE · HSE</span>
+</header>
+
+<main id="v-login">
+  <p class="lead">Ingresa tu nómina</p>
+  <p class="sub">Con tu número de nómina entras a todo.</p>
+  <label for="nom">Número de nómina</label>
+  <input id="nom" type="tel" inputmode="numeric" autocomplete="off" placeholder="Ej. 1236" oninput="onNom()"/>
+  <div id="verif" class="verif hide">
+    <div>
+      <div class="nm" id="v-nombre">—</div>
+      <div class="dt" id="v-det">—</div>
+    </div>
+  </div>
+  <button id="btn" class="btn" disabled onclick="entrar()">Continuar</button>
+  <div class="err" id="err"></div>
+  <div class="foot">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18M10.7 5.1A9 9 0 0 1 21 12M6 8.5A9 9 0 0 0 3 12M8.5 11A5 5 0 0 1 12 9m2.5 2.5A5 5 0 0 0 12 9M12 15h.01"/></svg>
+    <span>Funciona sin conexión</span>
+  </div>
+</main>
+
+<main id="v-home" class="hide">
+  <p class="hello" id="hello">Hola</p>
+  <p class="ask">¿Qué quieres hacer?</p>
+  <div class="tiles">
+    <a class="tile" href="../">
+      <span class="ic" style="background:#fdeceb"><svg viewBox="0 0 24 24" fill="none" stroke="#c0392b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
+      <span class="tx"><div class="t1">Reportar hazard</div><div class="t2">Reporta una condición o acto inseguro</div></span>
+      <span class="ch">›</span>
+    </a>
+    <a class="tile" href="../jsa/">
+      <span class="ic" style="background:#e5f3ea"><svg viewBox="0 0 24 24" fill="none" stroke="#1d7a46" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2V4a1 1 0 0 1 1-1z"/><path d="M9 14l2 2 4-4"/></svg></span>
+      <span class="tx"><div class="t1">Hacer JSA</div><div class="t2">Análisis de seguridad del trabajo</div></span>
+      <span class="ch">›</span>
+    </a>
+    <a class="tile" href="../palas/">
+      <span class="ic" style="background:#e7f1fb"><svg viewBox="0 0 24 24" fill="none" stroke="#0a84c4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
+      <span class="tx"><div class="t1">Fotos de palas</div><div class="t2">Carga de evidencia fotográfica</div></span>
+      <span class="ch">›</span>
+    </a>
+  </div>
+  <button class="logout" onclick="salir()">Cambiar de usuario</button>
+</main>
+
+<script>
+const SUPABASE_URL = "https://lzvkrechpvxuaczvhfwh.supabase.co";
+const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6dmtyZWNocHZ4dWFjenZoZndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3OTA1NzMsImV4cCI6MjA5NzM2NjU3M30.qLxLeMl7vVusb1jC4R_nQWYxdRWSB9GK-xcvbGAo-oA";
+const SKEY = "hse_session";
+let _t=null, _emp=null;
+
+function onNom(){
+  const v=(document.getElementById('nom').value||'').trim();
+  _emp=null; document.getElementById('verif').classList.add('hide');
+  document.getElementById('err').textContent=''; document.getElementById('btn').disabled=true;
+  clearTimeout(_t);
+  if(!/^\d{3,10}$/.test(v)) return;
+  _t=setTimeout(()=>validar(v),400);
+}
+
+async function validarEmpleado(nomina){
+  // 1) tabla de empleados (Hazard)
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/validate-employee`,{
+    method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${ANON}`},
+    body:JSON.stringify({payroll_no:nomina})
+  });
+  const d = await r.json().catch(()=>({}));
+  if(r.ok && d.employee){
+    const e=d.employee;
+    const pais={MX:'México',UY:'Uruguay',RD:'Rep. Dominicana',CL:'Chile'}[e.country_code]||e.country_code||'';
+    return { nomina:String(e.payroll_no), nombre:e.employee_name, detalle:[e.office_name,pais].filter(Boolean).join(' · ') };
+  }
+  // 2) respaldo: padrón de JSA (estar en el padrón da acceso)
+  const rr = await fetch(`${SUPABASE_URL}/functions/v1/jsa-api`,{
+    method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${ANON}`},
+    body:JSON.stringify({action:'roster-member', payroll_no:nomina})
+  });
+  const rd = await rr.json().catch(()=>({}));
+  if(rr.ok && rd.member){
+    const m=rd.member;
+    return { nomina:String(m.payroll_no), nombre:m.full_name, detalle:[m.project, m.country].filter(Boolean).join(' · ') };
+  }
+  return null;
+}
+
+async function validar(nomina){
+  const err=document.getElementById('err');
+  try{
+    const e=await validarEmpleado(nomina);
+    if(!e){ err.textContent='No encontramos esa nómina. Revísala con tu HSE.'; return; }
+    _emp=e; pintar(e,false);
+  }catch(_){
+    err.textContent='Sin conexión. Conéctate una vez para validar tu nómina.';
+  }
+}
+
+function pintar(e, offline){
+  document.getElementById('v-nombre').textContent=e.nombre+(offline?' (sin conexión)':'');
+  document.getElementById('v-det').textContent=e.detalle||'';
+  document.getElementById('verif').classList.remove('hide');
+  document.getElementById('btn').disabled=false;
+}
+
+function entrar(){
+  if(!_emp) return;
+  try{ localStorage.setItem(SKEY, JSON.stringify({nomina:_emp.nomina, nombre:_emp.nombre, ts:Date.now()})); }catch(_){}
+  mostrarHome(_emp);
+}
+
+function mostrarHome(e){
+  const first=(e.nombre||'').trim().split(/\s+/)[0]||'';
+  document.getElementById('hello').textContent = first ? ('Hola, '+first) : 'Hola';
+  document.getElementById('v-login').classList.add('hide');
+  document.getElementById('v-home').classList.remove('hide');
+}
+
+function salir(){
+  try{ localStorage.removeItem(SKEY); }catch(_){}
+  _emp=null;
+  document.getElementById('nom').value='';
+  document.getElementById('verif').classList.add('hide');
+  document.getElementById('btn').disabled=true;
+  document.getElementById('v-home').classList.add('hide');
+  document.getElementById('v-login').classList.remove('hide');
+}
+
+// Sesión persistente
+(function(){
+  try{
+    const s=JSON.parse(localStorage.getItem(SKEY)||'null');
+    if(s && s.nomina){ mostrarHome(s); }
+  }catch(_){}
+})();
+
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+</script>
+</body>
+</html>

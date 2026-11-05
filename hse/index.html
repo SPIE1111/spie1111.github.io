@@ -3,95 +3,148 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<meta name="theme-color" content="#0b1f4d"/>
+<meta name="theme-color" content="#0b2a6b"/>
 <title>SPIE HSE</title>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="icon-192.png"/>
 <style>
-  :root{ --navy:#0b1f4d; --navy2:#0b1733; --cyan:#49c3f5; --line:#1e3366; }
+  :root{
+    --navy:#0b1f4d; --blue:#123f9e; --cyan:#19c6f4;
+    --ink:#0b1f4d; --muted:#5b6b86; --page:#eef2fb;
+  }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body{ margin:0; height:100%; }
-  body{ background:var(--navy2); color:#fff; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-        display:flex; flex-direction:column; min-height:100%; }
-  header{ background:var(--navy); display:flex; align-items:center; gap:10px; padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top)); }
-  header img{ width:30px; height:30px; border-radius:7px; }
-  header .ht{ font-size:15px; font-weight:600; letter-spacing:.5px; }
-  main{ flex:1; display:flex; flex-direction:column; padding:20px 18px calc(24px + env(safe-area-inset-bottom)); max-width:460px; width:100%; margin:0 auto; }
+  html,body{ margin:0; min-height:100%; }
+  body{ background:var(--navy); color:var(--ink);
+        font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
   .hide{ display:none !important; }
-  /* Login */
-  .lead{ font-size:19px; font-weight:600; margin:10px 0 4px; }
-  .sub{ font-size:13px; color:#9fb6d6; margin:0 0 20px; }
-  label{ font-size:12px; color:#9fb6d6; display:block; margin:0 0 6px; }
-  input[type=tel]{ width:100%; font-size:20px; letter-spacing:2px; padding:13px 14px; border-radius:11px; border:1px solid #c7d0de; background:#fff; color:#0b1f4d; }
-  input[type=tel]:focus{ outline:none; border-color:var(--cyan); box-shadow:0 0 0 3px rgba(73,195,245,.25); }
-  .verif{ margin-top:14px; background:#12294f; border:1px solid var(--line); border-radius:11px; padding:12px 14px; display:flex; align-items:center; gap:10px; }
-  .verif .nm{ font-size:15px; font-weight:600; }
-  .verif .dt{ font-size:12px; color:#9fb6d6; }
-  .btn{ margin-top:16px; width:100%; background:var(--cyan); color:#06213a; border:none; border-radius:11px; padding:14px; font-size:16px; font-weight:600; cursor:pointer; }
-  .btn:disabled{ background:#2a4066; color:#7e93b5; cursor:default; }
-  .err{ color:#ff9a9a; font-size:13px; margin-top:12px; min-height:18px; }
-  .foot{ margin-top:auto; display:flex; align-items:center; gap:7px; color:#6f84a8; font-size:12px; padding-top:18px; }
-  .foot svg{ width:15px; height:15px; }
-  /* Home */
-  .hello{ font-size:20px; font-weight:600; margin:6px 0 2px; }
-  .ask{ font-size:13px; color:#9fb6d6; margin:0 0 16px; }
-  .tiles{ display:flex; flex-direction:column; gap:12px; }
-  .tile{ display:flex; align-items:center; gap:14px; background:#fff; border-radius:15px; padding:16px 15px; text-decoration:none; color:#0b1f4d; }
-  .tile .ic{ width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-  .tile .ic svg{ width:26px; height:26px; }
-  .tile .tx{ flex:1; }
-  .tile .t1{ font-size:16px; font-weight:600; }
-  .tile .t2{ font-size:12px; color:#5b6472; }
-  .tile .ch{ color:#9aa4b4; }
-  .logout{ margin-top:22px; background:none; border:none; color:#9fb6d6; font-size:13px; text-decoration:underline; cursor:pointer; align-self:center; }
+  .wrap{ max-width:480px; margin:0 auto; }
+
+  /* ===== LOGIN ===== */
+  #v-login{ min-height:100dvh; display:flex; flex-direction:column; justify-content:center;
+    padding:28px 22px calc(28px + env(safe-area-inset-bottom));
+    background:radial-gradient(130% 90% at 20% 0%, #1b58d6 0%, #0e2f86 42%, #0a1c4a 100%); color:#fff; }
+  .brand{ display:flex; align-items:center; gap:12px; margin-bottom:28px; }
+  .brand img{ width:56px; height:56px; border-radius:15px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+  .brand .bt{ font-size:22px; font-weight:800; letter-spacing:.5px; }
+  .brand .bs{ font-size:12.5px; color:#bcd4ff; margin-top:2px; }
+  .hero-h{ font-size:30px; font-weight:800; line-height:1.15; margin:4px 0 8px; }
+  .hero-h span{ color:var(--cyan); }
+  .hero-p{ font-size:14px; color:#c3d6ff; margin:0 0 22px; max-width:300px; }
+  .lcard{ background:#fff; color:var(--ink); border-radius:22px; padding:20px 18px;
+    box-shadow:0 24px 60px rgba(4,14,43,.45); }
+  .lcard label{ font-size:12px; color:var(--muted); display:block; margin:0 0 7px; font-weight:600; }
+  #nom{ width:100%; font-size:22px; font-weight:700; letter-spacing:3px; padding:15px 16px;
+    border-radius:14px; border:2px solid #e2e8f4; background:#f7f9fe; color:var(--ink); }
+  #nom:focus{ outline:none; border-color:var(--cyan); background:#fff; box-shadow:0 0 0 4px rgba(25,198,244,.18); }
+  .verif{ margin-top:14px; background:#eef9ff; border:1px solid #c9ecfb; border-radius:14px;
+    padding:12px 14px; display:flex; align-items:center; gap:12px; }
+  .verif .vdot{ width:38px; height:38px; border-radius:50%; background:#19c6f4;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .verif .vdot svg{ width:20px; height:20px; color:#063; }
+  .verif .nm{ font-size:15px; font-weight:700; }
+  .verif .dt{ font-size:12px; color:var(--muted); }
+  .btn{ margin-top:16px; width:100%; border:none; border-radius:14px; padding:16px;
+    font-size:16px; font-weight:800; cursor:pointer; color:#04233f;
+    background:linear-gradient(135deg,#2fe0ff,#12a9e8); box-shadow:0 12px 26px rgba(18,169,232,.45); }
+  .btn:disabled{ background:#e7ecf6; color:#9fb0cc; box-shadow:none; cursor:default; }
+  .err{ color:#ffd0d0; font-size:13px; margin-top:14px; min-height:18px; font-weight:600; }
+  .offline{ display:flex; align-items:center; gap:8px; color:#9fb6e6; font-size:12px; margin-top:22px; justify-content:center; }
+  .offline svg{ width:15px; height:15px; }
+
+  /* ===== HOME ===== */
+  #v-home{ min-height:100dvh; background:var(--page); padding-bottom:calc(26px + env(safe-area-inset-bottom)); }
+  .hero{ background:radial-gradient(120% 120% at 85% -10%, #1f66e6 0%, #123f9e 45%, #0b2560 100%);
+    color:#fff; border-radius:0 0 30px 30px; padding:26px 22px 30px;
+    padding-top:calc(26px + env(safe-area-inset-top)); box-shadow:0 14px 34px rgba(11,37,96,.35); }
+  .hero .top{ display:flex; align-items:center; gap:10px; margin-bottom:20px; }
+  .hero .top img{ width:34px; height:34px; border-radius:9px; }
+  .hero .top .ht{ font-size:14px; font-weight:700; letter-spacing:1px; }
+  .hero .hi{ font-size:27px; font-weight:800; line-height:1.1; }
+  .hero .q{ font-size:14px; color:#bcd4ff; margin-top:5px; }
+  .tiles{ padding:18px 18px 0; display:flex; flex-direction:column; gap:14px; margin-top:-16px; }
+  .mcard{ position:relative; display:flex; align-items:center; gap:15px; text-decoration:none;
+    color:#fff; border-radius:22px; padding:18px 16px; overflow:hidden;
+    box-shadow:0 16px 30px rgba(10,25,70,.16); transform:translateY(12px); opacity:0;
+    animation:rise .5s cubic-bezier(.2,.8,.2,1) forwards; }
+  .mcard:active{ transform:scale(.98); }
+  .mcard.haz{ background:linear-gradient(135deg,#ff8a3d 0%,#f5365c 100%); animation-delay:.05s; }
+  .mcard.jsa{ background:linear-gradient(135deg,#2dd4bf 0%,#0ea5a3 55%,#0d8f6e 100%); animation-delay:.13s; }
+  .mcard.palas{ background:linear-gradient(135deg,#4f9bff 0%,#1f74e6 50%,#06b6d4 100%); animation-delay:.21s; }
+  @keyframes rise{ to{ transform:none; opacity:1; } }
+  .mcard .glow{ position:absolute; right:-30px; top:-40px; width:150px; height:150px; border-radius:50%;
+    background:rgba(255,255,255,.16); }
+  .mic{ width:56px; height:56px; border-radius:17px; background:rgba(255,255,255,.22);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; backdrop-filter:blur(2px); }
+  .mic svg{ width:30px; height:30px; color:#fff; }
+  .mtx{ flex:1; z-index:1; }
+  .mt1{ font-size:18px; font-weight:800; }
+  .mt2{ font-size:12.5px; opacity:.92; margin-top:2px; }
+  .marr{ z-index:1; opacity:.9; }
+  .marr svg{ width:22px; height:22px; color:#fff; }
+  .logout{ display:block; margin:24px auto 0; background:none; border:none; color:var(--muted);
+    font-size:13px; font-weight:600; text-decoration:underline; cursor:pointer; }
 </style>
 </head>
 <body>
-<header>
-  <img src="icon-192.png" alt="SPIE HSE"/>
-  <span class="ht">SPIE · HSE</span>
-</header>
 
 <main id="v-login">
-  <p class="lead">Ingresa tu nómina</p>
-  <p class="sub">Con tu número de nómina entras a todo.</p>
-  <label for="nom">Número de nómina</label>
-  <input id="nom" type="tel" inputmode="numeric" autocomplete="off" placeholder="Ej. 1236" oninput="onNom()"/>
-  <div id="verif" class="verif hide">
-    <div>
-      <div class="nm" id="v-nombre">—</div>
-      <div class="dt" id="v-det">—</div>
+  <div class="wrap">
+    <div class="brand">
+      <img src="icon-192.png" alt="SPIE HSE"/>
+      <div><div class="bt">SPIE HSE</div><div class="bs">Seguridad · Campo</div></div>
     </div>
-  </div>
-  <button id="btn" class="btn" disabled onclick="entrar()">Continuar</button>
-  <div class="err" id="err"></div>
-  <div class="foot">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18M10.7 5.1A9 9 0 0 1 21 12M6 8.5A9 9 0 0 0 3 12M8.5 11A5 5 0 0 1 12 9m2.5 2.5A5 5 0 0 0 12 9M12 15h.01"/></svg>
-    <span>Funciona sin conexión</span>
+    <div class="hero-h">Todo tu trabajo,<br/><span>en una app.</span></div>
+    <p class="hero-p">Reportes, JSA y fotos de palas. Entra con tu número de nómina.</p>
+
+    <div class="lcard">
+      <label for="nom">Número de nómina</label>
+      <input id="nom" type="tel" inputmode="numeric" autocomplete="off" placeholder="Ej. 1236" oninput="onNom()"/>
+      <div id="verif" class="verif hide">
+        <span class="vdot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+        <div><div class="nm" id="v-nombre">—</div><div class="dt" id="v-det">—</div></div>
+      </div>
+      <button id="btn" class="btn" disabled onclick="entrar()">Continuar</button>
+      <div class="err" id="err"></div>
+    </div>
+
+    <div class="offline">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18M10.7 5.1A9 9 0 0 1 21 12M6 8.5A9 9 0 0 0 3 12M8.5 11A5 5 0 0 1 12 9m2.5 2.5A5 5 0 0 0 12 9M12 15h.01"/></svg>
+      <span>Funciona sin conexión</span>
+    </div>
   </div>
 </main>
 
 <main id="v-home" class="hide">
-  <p class="hello" id="hello">Hola</p>
-  <p class="ask">¿Qué quieres hacer?</p>
-  <div class="tiles">
-    <a class="tile" href="../">
-      <span class="ic" style="background:#fdeceb"><svg viewBox="0 0 24 24" fill="none" stroke="#c0392b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
-      <span class="tx"><div class="t1">Reportar hazard</div><div class="t2">Reporta una condición o acto inseguro</div></span>
-      <span class="ch">›</span>
-    </a>
-    <a class="tile" href="../jsa/">
-      <span class="ic" style="background:#e5f3ea"><svg viewBox="0 0 24 24" fill="none" stroke="#1d7a46" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2V4a1 1 0 0 1 1-1z"/><path d="M9 14l2 2 4-4"/></svg></span>
-      <span class="tx"><div class="t1">Hacer JSA</div><div class="t2">Análisis de seguridad del trabajo</div></span>
-      <span class="ch">›</span>
-    </a>
-    <a class="tile" href="../palas/">
-      <span class="ic" style="background:#e7f1fb"><svg viewBox="0 0 24 24" fill="none" stroke="#0a84c4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
-      <span class="tx"><div class="t1">Fotos de palas</div><div class="t2">Carga de evidencia fotográfica</div></span>
-      <span class="ch">›</span>
-    </a>
+  <div class="hero">
+    <div class="wrap">
+      <div class="top"><img src="icon-192.png" alt=""/><span class="ht">SPIE · HSE</span></div>
+      <div class="hi" id="hello">Hola</div>
+      <div class="q">¿Qué quieres hacer hoy?</div>
+    </div>
   </div>
-  <button class="logout" onclick="salir()">Cambiar de usuario</button>
+  <div class="wrap">
+    <div class="tiles">
+      <a class="mcard haz" href="../">
+        <span class="glow"></span>
+        <span class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
+        <span class="mtx"><div class="mt1">Reportar hazard</div><div class="mt2">Condición o acto inseguro</div></span>
+        <span class="marr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
+      </a>
+      <a class="mcard jsa" href="../jsa/">
+        <span class="glow"></span>
+        <span class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2V4a1 1 0 0 1 1-1z"/><path d="m9 14 2 2 4-4"/></svg></span>
+        <span class="mtx"><div class="mt1">Hacer JSA</div><div class="mt2">Análisis de seguridad del trabajo</div></span>
+        <span class="marr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
+      </a>
+      <a class="mcard palas" href="../palas/">
+        <span class="glow"></span>
+        <span class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
+        <span class="mtx"><div class="mt1">Fotos de palas</div><div class="mt2">Carga de evidencia fotográfica</div></span>
+        <span class="marr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
+      </a>
+    </div>
+    <button class="logout" onclick="salir()">Cambiar de usuario</button>
+  </div>
 </main>
 
 <script>
@@ -110,7 +163,6 @@ function onNom(){
 }
 
 async function validarEmpleado(nomina){
-  // 1) tabla de empleados (Hazard)
   const r = await fetch(`${SUPABASE_URL}/functions/v1/validate-employee`,{
     method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${ANON}`},
     body:JSON.stringify({payroll_no:nomina})
@@ -121,7 +173,6 @@ async function validarEmpleado(nomina){
     const pais={MX:'México',UY:'Uruguay',RD:'Rep. Dominicana',CL:'Chile'}[e.country_code]||e.country_code||'';
     return { nomina:String(e.payroll_no), nombre:e.employee_name, detalle:[e.office_name,pais].filter(Boolean).join(' · ') };
   }
-  // 2) respaldo: padrón de JSA (estar en el padrón da acceso)
   const rr = await fetch(`${SUPABASE_URL}/functions/v1/jsa-api`,{
     method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${ANON}`},
     body:JSON.stringify({action:'roster-member', payroll_no:nomina})
@@ -139,14 +190,14 @@ async function validar(nomina){
   try{
     const e=await validarEmpleado(nomina);
     if(!e){ err.textContent='No encontramos esa nómina. Revísala con tu HSE.'; return; }
-    _emp=e; pintar(e,false);
+    _emp=e; pintar(e);
   }catch(_){
     err.textContent='Sin conexión. Conéctate una vez para validar tu nómina.';
   }
 }
 
-function pintar(e, offline){
-  document.getElementById('v-nombre').textContent=e.nombre+(offline?' (sin conexión)':'');
+function pintar(e){
+  document.getElementById('v-nombre').textContent=e.nombre;
   document.getElementById('v-det').textContent=e.detalle||'';
   document.getElementById('verif').classList.remove('hide');
   document.getElementById('btn').disabled=false;
@@ -163,6 +214,7 @@ function mostrarHome(e){
   document.getElementById('hello').textContent = first ? ('Hola, '+first) : 'Hola';
   document.getElementById('v-login').classList.add('hide');
   document.getElementById('v-home').classList.remove('hide');
+  document.querySelector('meta[name=theme-color]').setAttribute('content','#123f9e');
 }
 
 function salir(){
@@ -173,9 +225,9 @@ function salir(){
   document.getElementById('btn').disabled=true;
   document.getElementById('v-home').classList.add('hide');
   document.getElementById('v-login').classList.remove('hide');
+  document.querySelector('meta[name=theme-color]').setAttribute('content','#0b2a6b');
 }
 
-// Sesión persistente
 (function(){
   try{
     const s=JSON.parse(localStorage.getItem(SKEY)||'null');

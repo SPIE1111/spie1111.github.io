@@ -8,7 +8,7 @@
 //    la app esté cerrada.
 // Sube el número de versión cada vez que quieras forzar actualización total.
 // ════════════════════════════════════════════
-const CACHE = 'hazard-hse-v7';
+const CACHE = 'hazard-hse-v8';
 const CORE = [
   './',
   './index.html',

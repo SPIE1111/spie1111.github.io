@@ -3965,6 +3965,20 @@ function init(){
 
   }catch(e){}
 
+  // ── Entrada desde el cascarón SPIE HSE: entrar directo con esa nómina ──
+  try{
+    const qsHse=new URLSearchParams(window.location.search);
+    if(!qsHse.get('corregir') && !SESSION && navigator.onLine){
+      let hs=null; try{ hs=JSON.parse(localStorage.getItem('hse_session')||'null'); }catch(_e){}
+      if(hs && hs.nomina){
+        const inp=document.getElementById('l-nomina'); if(inp) inp.value=hs.nomina;
+        Promise.resolve(doLogin()).then(()=>{
+          if(_empValidado && _empValidado._debeElegirHse && !_empValidado._hse){ setScreen('screen-login'); }
+        }).catch(()=>{});
+      }
+    }
+  }catch(_e){}
+
   showOffline();
 
   // Si arrancamos con conexión, intentar enviar lo que quedó pendiente

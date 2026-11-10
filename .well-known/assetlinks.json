@@ -22,5 +22,13 @@
       "package_name": "io.github.spie1111.palas",
       "sha256_cert_fingerprints": ["F5:C9:82:28:58:67:AF:75:57:7A:C8:CC:B0:CD:A5:71:61:87:68:89:D1:1D:13:95:D1:27:49:3E:6B:B5:82:25"]
     }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.spie1111.hse",
+      "sha256_cert_fingerprints": ["A3:9B:67:C2:28:D6:52:B9:5A:2A:C3:2E:88:DB:F3:DB:63:D1:69:18:D1:38:C5:42:D6:56:93:54:DA:4B:69:38"]
+    }
   }
 ]

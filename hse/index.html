@@ -133,12 +133,12 @@
           <span class="mtx"><div class="mt1">Reportar hazard</div><div class="mt2">Condición o acto inseguro</div></span>
           <span class="marr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
         </a>
-        <a class="mcard" href="../jsa/">
+        <a class="mcard" id="tile-jsa" href="../jsa/">
           <span class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2V4a1 1 0 0 1 1-1z"/><path d="m9 14 2 2 4-4"/></svg></span>
           <span class="mtx"><div class="mt1">Hacer JSA</div><div class="mt2">Análisis de seguridad del trabajo</div></span>
           <span class="marr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
         </a>
-        <a class="mcard" href="../palas/">
+        <a class="mcard" id="tile-palas" href="../palas/">
           <span class="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
           <span class="mtx"><div class="mt1">Fotos de palas</div><div class="mt2">Carga de evidencia fotográfica</div></span>
           <span class="marr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
@@ -190,11 +190,24 @@ async function validarEmpleado(nomina){
   return null;
 }
 
+// Área del empleado (OPERACION/CORPORATIVO). null = no está en la lista → permisivo (ve los 3).
+async function fetchArea(nomina){
+  try{
+    const r=await fetch(`${SUPABASE_URL}/functions/v1/jsa-api`,{
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${ANON}`},
+      body:JSON.stringify({action:'emp-area', payroll_no:nomina})
+    });
+    const d=await r.json().catch(()=>({}));
+    return d && d.area ? d.area : null;
+  }catch(_){ return null; }
+}
+
 async function validar(nomina){
   const err=document.getElementById('err');
   try{
     const e=await validarEmpleado(nomina);
     if(!e){ err.textContent='No encontramos esa nómina. Verifícala con tu HSE.'; return; }
+    e.area = await fetchArea(nomina);
     _emp=e; pintar(e);
   }catch(_){
     err.textContent='Sin conexión. Conéctate una vez para validar tu nómina.';
@@ -210,8 +223,16 @@ function pintar(e){
 
 function entrar(){
   if(!_emp) return;
-  try{ localStorage.setItem(SKEY, JSON.stringify({nomina:_emp.nomina, nombre:_emp.nombre, ts:Date.now()})); }catch(_){}
+  try{ localStorage.setItem(SKEY, JSON.stringify({nomina:_emp.nomina, nombre:_emp.nombre, area:_emp.area||null, ts:Date.now()})); }catch(_){}
   mostrarHome(_emp);
+}
+
+// CORPORATIVO → solo Hazard. OPERACION o desconocido → los 3 módulos.
+function aplicarModulos(area){
+  const corp = /^CORPOR/.test(String(area||'').toUpperCase());
+  const j=document.getElementById('tile-jsa'), p=document.getElementById('tile-palas');
+  if(j) j.classList.toggle('hide', corp);
+  if(p) p.classList.toggle('hide', corp);
 }
 
 function mostrarHome(e){
@@ -219,6 +240,7 @@ function mostrarHome(e){
   document.getElementById('hello').textContent = first ? ('Hola, '+first) : 'Hola';
   const who=document.getElementById('who');
   if(who) who.textContent = (e.nombre||'') + (e.nomina?(' · '+e.nomina):'');
+  aplicarModulos(e.area);
   document.getElementById('v-login').classList.add('hide');
   document.getElementById('v-home').classList.remove('hide');
 }

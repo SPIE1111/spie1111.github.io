@@ -1,8 +1,8 @@
 {
   "id": "/hse/",
-  "name": "SPIE HSE",
-  "short_name": "SPIE HSE",
-  "description": "Hazard, JSA y fotos de palas en una sola app.",
+  "name": "SPIE",
+  "short_name": "SPIE",
+  "description": "Hazard, JSA, fotos de palas y registro de jornada en una sola app.",
   "start_url": "/hse/",
   "scope": "/",
   "display": "standalone",

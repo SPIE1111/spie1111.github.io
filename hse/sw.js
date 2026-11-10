@@ -1,6 +1,6 @@
 // SPIE HSE — cascarón unificado
 // index.html: network-first (para tomar versiones nuevas). Íconos/estáticos: cache-first.
-const CACHE = 'spie-hse-v7';
+const CACHE = 'spie-hse-v8';
 const CORE = [
   './',
   './index.html',

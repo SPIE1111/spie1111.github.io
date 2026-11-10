@@ -60,7 +60,9 @@
     padding-top:calc(16px + env(safe-area-inset-top)); border-bottom:3px solid var(--accent); }
   .hbar .row{ display:flex; align-items:center; gap:10px; }
   .hbar .row img{ width:30px; height:30px; border-radius:8px; }
-  .hbar .row img.brand-logo{ width:auto; height:30px; border-radius:0; }
+  .hbar .brand-chip{ display:inline-flex; align-items:center; background:#fff;
+    border-radius:9px; padding:6px 11px; box-shadow:0 2px 8px rgba(0,0,0,.16); }
+  .hbar .brand-chip img{ width:auto; height:22px; border-radius:0; display:block; }
   .hbar .row .bt{ font-size:13.5px; font-weight:600; letter-spacing:1.2px; }
   .hbar .hi{ font-size:21px; font-weight:700; margin-top:16px; }
   .hbar .sub{ font-size:13px; color:#aebdd9; margin-top:3px; }
@@ -120,7 +122,7 @@
 <main id="v-home" class="hide">
   <div class="hbar">
     <div class="wrap">
-      <div class="row"><img src="spie-logo-white.png" alt="SPIE" class="brand-logo"/></div>
+      <div class="row"><span class="brand-chip"><img src="spie-logo.png" alt="SPIE"/></span></div>
       <div class="hi" id="hello">Hola</div>
       <div class="sub">¿Qué deseas realizar?</div>
     </div>
@@ -230,6 +232,7 @@ function pintar(e){
 function entrar(){
   if(!_emp) return;
   try{ localStorage.setItem(SKEY, JSON.stringify({nomina:_emp.nomina, nombre:_emp.nombre, area:_emp.area||null, ts:Date.now()})); }catch(_){}
+  try{ sessionStorage.setItem('hse_active','1'); }catch(_){}
   mostrarHome(_emp);
 }
 
@@ -253,6 +256,7 @@ function mostrarHome(e){
 
 function salir(){
   try{ localStorage.removeItem(SKEY); }catch(_){}
+  try{ sessionStorage.removeItem('hse_active'); }catch(_){}
   _emp=null;
   document.getElementById('nom').value='';
   document.getElementById('verif').classList.add('hide');
@@ -261,11 +265,20 @@ function salir(){
   document.getElementById('v-login').classList.remove('hide');
 }
 
+// Al ABRIR la app siempre se pide la nómina. Solo se restaura el menú al volver
+// desde un módulo DENTRO de la misma sesión (marca en sessionStorage, que se borra
+// cuando la app se cierra). Un arranque en frío limpia la sesión y muestra el login.
 (function(){
-  try{
-    const s=JSON.parse(localStorage.getItem(SKEY)||'null');
-    if(s && s.nomina){ mostrarHome(s); }
-  }catch(_){}
+  var activo=false;
+  try{ activo = sessionStorage.getItem('hse_active')==='1'; }catch(_){}
+  if(activo){
+    try{
+      var s=JSON.parse(localStorage.getItem(SKEY)||'null');
+      if(s && s.nomina){ mostrarHome(s); return; }
+    }catch(_){}
+  }
+  // Arranque en frío: sin sesión precargada → pedir nómina.
+  try{ localStorage.removeItem(SKEY); }catch(_){}
 })();
 
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }

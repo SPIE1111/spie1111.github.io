@@ -28,7 +28,10 @@
     "target": {
       "namespace": "android_app",
       "package_name": "io.github.spie1111.hse",
-      "sha256_cert_fingerprints": ["07:11:22:04:78:DA:FD:72:C5:87:76:F5:C3:ED:E2:20:92:84:A3:1E:10:89:6C:FF:74:E9:7A:AD:2C:B2:C0:5B"]
+      "sha256_cert_fingerprints": [
+        "07:11:22:04:78:DA:FD:72:C5:87:76:F5:C3:ED:E2:20:92:84:A3:1E:10:89:6C:FF:74:E9:7A:AD:2C:B2:C0:5B",
+        "A3:9B:67:C2:28:D6:52:B9:5A:2A:C3:2E:88:DB:F3:DB:63:D1:69:18:D1:38:C5:42:D6:56:93:54:DA:4B:69:38"
+      ]
     }
   }
 ]

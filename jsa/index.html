@@ -407,9 +407,12 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
       <!-- Captura -->
       <div id="cl-captura">
         <label class="req">Proyecto</label>
-        <select id="cl-site" onchange="CL.site_id=this.value;CL.site_name=this.options[this.selectedIndex]?.text||''"></select>
+        <select id="cl-site" onchange="onSiteChangeCliente()"></select>
         <div id="cl-proj-hint" class="sub mt0" style="color:var(--cyan);display:none"></div>
         <div id="cl-site-err" class="err">No se pudo cargar el catálogo de sitios. Conéctate una vez para descargarlo.</div>
+
+        <label class="req" style="margin-top:14px">HSE que aprueba</label>
+        <select id="cl-hse" onchange="CL.approver_payroll_no=this.value"></select>
 
         <label style="margin-top:16px">Fotos del JSA del cliente</label>
         <div class="sub mt0">Toma fotos claras del documento. Se mejoran (color) y comprimen automáticamente.</div>
@@ -491,9 +494,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
         <div class="sub mt0">Información del trabajo por realizar.</div>
 
         <label class="req">Proyecto</label>
-        <select id="f-site" onchange="D.site_id=this.value;D.site_name=this.options[this.selectedIndex]?.text||''"></select>
+        <select id="f-site" onchange="onSiteChange()"></select>
         <div id="f-proj-hint" class="sub mt0" style="color:var(--cyan);display:none"></div>
         <div id="site-err" class="err">No se pudo cargar el catálogo de sitios. Conéctate una vez para descargarlo.</div>
+
+        <label class="req" style="margin-top:14px">HSE que aprueba</label>
+        <select id="f-hse" onchange="D.approver_payroll_no=this.value"></select>
+        <div class="sub mt0">El JSA le llegará a este HSE. Se propone el del proyecto; puedes cambiarlo.</div>
 
         <div style="display:flex;gap:10px">
           <div style="flex:1">
@@ -1081,6 +1088,7 @@ async function cargarSitios(){
 }
 
 function pintarSitios(sites){
+  indexarSitios(sites);
   const sel = document.getElementById('f-site');
   const errEl = document.getElementById('site-err');
   sel.innerHTML = '<option value="">— Selecciona el proyecto —</option>';
@@ -1107,6 +1115,46 @@ function pintarSitios(sites){
 }
 
 // ════════════════════════════════════════════
+// HSE por país — el técnico elige a quién le llega el JSA
+// ════════════════════════════════════════════
+let ALL_SITES = [];      // catálogo de sitios cargado
+let SITE_HSE = {};       // site_id -> {payroll, name} (HSE "dueño" del proyecto)
+function _normP(s){ return (s==null?'':String(s)).toUpperCase().trim(); }
+function indexarSitios(sites){
+  ALL_SITES = sites || [];
+  SITE_HSE = {};
+  ALL_SITES.forEach(s=>{ SITE_HSE[s.id] = { payroll:String(s.supervisor_payroll_no||''), name:s.supervisor_name||'' }; });
+}
+function hsesDePais(pais){
+  const P=_normP(pais); const m=new Map();
+  (ALL_SITES||[]).forEach(s=>{
+    if(P && _normP(s.country)!==P) return;
+    const pay=String(s.supervisor_payroll_no||''); if(!pay) return;
+    if(!m.has(pay)) m.set(pay, s.supervisor_name||pay);
+  });
+  return [...m.entries()].map(([payroll,name])=>({payroll,name})).sort((a,b)=>a.name.localeCompare(b.name));
+}
+function pintarHSE(selectId, value){
+  const sel=document.getElementById(selectId); if(!sel) return;
+  const list=hsesDePais(SESSION?.pais);
+  sel.innerHTML='<option value="">— Selecciona el HSE —</option>'+
+    list.map(h=>`<option value="${h.payroll}">${h.name} (${h.payroll})</option>`).join('');
+  if(value){ sel.value=String(value); }
+}
+function onSiteChange(){
+  const s=document.getElementById('f-site');
+  D.site_id=s.value; D.site_name=s.options[s.selectedIndex]?.text||'';
+  const h=SITE_HSE[D.site_id];
+  if(h && h.payroll){ D.approver_payroll_no=h.payroll; const hs=document.getElementById('f-hse'); if(hs) hs.value=h.payroll; }
+}
+function onSiteChangeCliente(){
+  const s=document.getElementById('cl-site');
+  CL.site_id=s.value; CL.site_name=s.options[s.selectedIndex]?.text||'';
+  const h=SITE_HSE[CL.site_id];
+  if(h && h.payroll){ CL.approver_payroll_no=h.payroll; const hs=document.getElementById('cl-hse'); if(hs) hs.value=h.payroll; }
+}
+
+// ════════════════════════════════════════════
 // WIZARD JSA
 // ════════════════════════════════════════════
 let D = null;        // borrador actual
@@ -1118,7 +1166,7 @@ function draftNuevo(){
   return {
     id: uuid(),
     _nomina: SESSION.nomina,           // dueño del borrador en este dispositivo
-    site_id:'', site_name:'',
+    site_id:'', site_name:'', approver_payroll_no:'',
     work_date: now.toISOString().slice(0,10),
     work_time: now.toTimeString().slice(0,5),
     work_permit:'', work_description:'', project:'', work_area:'',
@@ -1190,9 +1238,11 @@ async function arrancarWizard(){
   showView('v-jsa');
   const sites = await cargarSitios();
   pintarSitios(sites);
-  const p = await preseleccionarProyecto('f-site','f-proj-hint');
-  if(p && !D.site_id){ D.site_id=p.site_id; D.site_name=p.project; }
-  else if(D.site_id){ const s=document.getElementById('f-site'); if(s) s.value=D.site_id; }
+  // Sin autollenado desde el padrón: el técnico elige el proyecto y el HSE.
+  const hint=document.getElementById('f-proj-hint'); if(hint) hint.style.display='none';
+  if(D.site_id){ const s=document.getElementById('f-site'); if(s) s.value=D.site_id;
+    if(!D.approver_payroll_no){ const h=SITE_HSE[D.site_id]; if(h&&h.payroll) D.approver_payroll_no=h.payroll; } }
+  pintarHSE('f-hse', D.approver_payroll_no);
 }
 
 // ════════════════════════════════════════════
@@ -1201,7 +1251,7 @@ async function arrancarWizard(){
 let CL = null;
 
 async function nuevoJSACliente(){
-  CL = { id:uuid(), _nomina:SESSION.nomina, jsa_type:'cliente', site_id:'', site_name:'', modo:'color', photos:[],
+  CL = { id:uuid(), _nomina:SESSION.nomina, jsa_type:'cliente', site_id:'', site_name:'', approver_payroll_no:'', modo:'color', photos:[],
     crew:[{payroll_no:SESSION.nomina, employee_name:SESSION.nombre, sig:null, _creator:true}] };
   document.getElementById('cl-titulo').textContent = 'JSA Cliente';
   document.getElementById('cl-captura').style.display = 'block';
@@ -1214,11 +1264,12 @@ async function nuevoJSACliente(){
   showView('v-cliente');
   const sites = await cargarSitios();
   pintarSitiosCliente(sites);
-  const p = await preseleccionarProyecto('cl-site','cl-proj-hint');
-  if(p && !CL.site_id){ CL.site_id=p.site_id; CL.site_name=p.project; }
+  const hint=document.getElementById('cl-proj-hint'); if(hint) hint.style.display='none';
+  pintarHSE('cl-hse', CL.approver_payroll_no);
 }
 
 function pintarSitiosCliente(sites){
+  indexarSitios(sites);
   const sel = document.getElementById('cl-site');
   const errEl = document.getElementById('cl-site-err');
   sel.innerHTML = '<option value="">— Selecciona el proyecto —</option>';
@@ -1441,7 +1492,9 @@ function _zToggle(focal){ const z=_zoom; if(!z) return; if(z.s>1.05){ _zRecenter
 function clContinuar(){
   const err = document.getElementById('cl-captura-err');
   CL.site_id = document.getElementById('cl-site').value;
+  CL.approver_payroll_no = document.getElementById('cl-hse').value;
   if(!CL.site_id){ err.textContent='Selecciona el proyecto.'; err.classList.add('show'); return; }
+  if(!CL.approver_payroll_no){ err.textContent='Selecciona el HSE que aprobará el JSA.'; err.classList.add('show'); return; }
   if(!CL.photos.length){ err.textContent='Toma al menos una foto del JSA del cliente.'; err.classList.add('show'); return; }
   err.classList.remove('show');
   document.getElementById('cl-captura').style.display='none';
@@ -1530,7 +1583,7 @@ async function enviarCliente(){
   btn.disabled=true; btn.textContent = esReenvio?'Reenviando…':'Enviando…';
   const now = new Date();
   const payload = {
-    jsa:{ id:CL.id, created_by_payroll_no:CL._nomina, site_id:CL.site_id, jsa_type:'cliente',
+    jsa:{ id:CL.id, created_by_payroll_no:CL._nomina, site_id:CL.site_id, approver_payroll_no:CL.approver_payroll_no||null, jsa_type:'cliente',
       work_date: now.toISOString().slice(0,10), work_time: now.toTimeString().slice(0,5),
       work_description:'JSA otorgado por el cliente (fotos).', distinct_risks:'NA', crew_declaration_accepted:false },
     risks:[], epp:[], activities:[],
@@ -1642,6 +1695,7 @@ function leerPaso(n){
 function validarPaso(n){
   if(n===1){
     if(!D.site_id) return 'Selecciona el proyecto.';
+    if(!D.approver_payroll_no) return 'Selecciona el HSE que aprobará el JSA.';
     if(!D.work_date) return 'Indica la fecha.';
     if(!D.work_time) return 'Indica la hora.';
     if(!D.work_description) return 'Describe el trabajo por realizar.';
@@ -1993,6 +2047,7 @@ function buildPayload(){
       id: D.id,
       created_by_payroll_no: D._nomina,
       site_id: D.site_id,
+      approver_payroll_no: D.approver_payroll_no||null,
       work_date: D.work_date,
       work_time: D.work_time,
       work_permit: D.work_permit||null,
@@ -2091,7 +2146,7 @@ async function detailToDraft(d){
   if(!crew.length) crew.push({payroll_no:SESSION.nomina, employee_name:SESSION.nombre, sig:null, _creator:true});
   return {
     id: h.id, _nomina: h.created_by_payroll_no || SESSION.nomina, _resubmit: true,
-    site_id: h.site_id||'', site_name: (h.jsa_sites&&h.jsa_sites.site)||'',
+    site_id: h.site_id||'', site_name: (h.jsa_sites&&h.jsa_sites.site)||'', approver_payroll_no: h.approver_payroll_no||'',
     work_date: h.work_date||'', work_time: (h.work_time||'').slice(0,5),
     work_permit: h.work_permit||'', work_description: h.work_description||'',
     project: h.project||'', work_area: h.work_area||'',
@@ -2137,7 +2192,7 @@ async function corregirJSA(id, btn){
     if((d.head&&d.head.jsa_type)==='cliente'){
       // Reabrir el flujo de fotos con las fotos existentes cargadas
       CL = { id:d.head.id, _nomina:d.head.created_by_payroll_no||SESSION.nomina, jsa_type:'cliente', _resubmit:true,
-        site_id:d.head.site_id||'', site_name:(d.head.jsa_sites&&d.head.jsa_sites.site)||'', modo:'color', photos:[], crew:[] };
+        site_id:d.head.site_id||'', site_name:(d.head.jsa_sites&&d.head.jsa_sites.site)||'', approver_payroll_no:d.head.approver_payroll_no||'', modo:'color', photos:[], crew:[] };
       for(const p of (d.photos||[])){ const du = await _urlToDataURL(p.image_url); if(du) CL.photos.push(du); }
       for(const c of (d.crew||[])){ CL.crew.push({payroll_no:c.payroll_no||null, employee_name:c.employee_name, sig: await _urlToDataURL(c.signature_url), _creator: String(c.payroll_no)===String(d.head.created_by_payroll_no)}); }
       if(!CL.crew.length) CL.crew.push({payroll_no:SESSION.nomina, employee_name:SESSION.nombre, sig:null, _creator:true});
@@ -2151,6 +2206,8 @@ async function corregirJSA(id, btn){
       renderFotosCliente();
       showView('v-cliente');
       const sites = await cargarSitios(); pintarSitiosCliente(sites);
+      if(CL.site_id){ const s=document.getElementById('cl-site'); if(s) s.value=CL.site_id; if(!CL.approver_payroll_no){ const h=SITE_HSE[CL.site_id]; if(h&&h.payroll) CL.approver_payroll_no=h.payroll; } }
+      pintarHSE('cl-hse', CL.approver_payroll_no);
       toast('Modifica lo que corresponda: quita o vuelve a tomar fotos, y reenvía.');
     } else {
       D = await detailToDraft(d);
@@ -2160,6 +2217,8 @@ async function corregirJSA(id, btn){
       const sites = await cargarSitios();
       pintarSitios(sites);
       const sel=document.getElementById('f-site'); if(sel && D.site_id) sel.value = D.site_id;
+      if(D.site_id && !D.approver_payroll_no){ const h=SITE_HSE[D.site_id]; if(h&&h.payroll) D.approver_payroll_no=h.payroll; }
+      pintarHSE('f-hse', D.approver_payroll_no);
       toast('Corrige lo necesario y reenvía. La firma se conserva; puedes re-firmar si cambió algo.');
     }
   }catch(e){ toast('No se pudo abrir para corregir: '+e.message); }

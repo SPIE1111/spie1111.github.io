@@ -134,6 +134,22 @@
       doc.text(lines, x + 5, oy);
     }
 
+    // Ajusta un texto para que QUEPA en un alto dado (maxH mm), reduciendo la
+    // fuente si hace falta. Devuelve { lines, fs, lh(mm por línea) }.
+    // (1 pt ≈ 0.42 mm de interlínea con el factor por defecto de jsPDF.)
+    function fitLines(str, w, maxH, fsMax, fsMin) {
+      str = String(str == null ? '' : str);
+      if (!str) return { lines: [], fs: fsMax, lh: fsMax * 0.42 };
+      for (let fs = fsMax; fs >= fsMin; fs -= 0.3) {
+        doc.setFontSize(fs);
+        const lines = doc.splitTextToSize(str, w);
+        const lh = fs * 0.42;
+        if (lines.length * lh <= maxH) return { lines, fs, lh };
+      }
+      doc.setFontSize(fsMin);
+      return { lines: doc.splitTextToSize(str, w), fs: fsMin, lh: fsMin * 0.42 };
+    }
+
     // ════════════════ PÁGINA 1 ════════════════
     header();
     let y = 22;
@@ -202,11 +218,21 @@
       riskCell(M + catW + fColW, yy, fColW, rowH, 'Flora y Fauna', FLORA.b[i]);
       riskCell(M + catW + fColW * 2, yy, fCW, rowH, 'Flora y Fauna', FLORA.c[i]);
     }
-    // caja riesgo extra
-    cell(extraX, y, extraW, fH);
+    // caja riesgo extra — crece hacia abajo para NO cortar el texto (hay espacio
+    // libre en la pág 1 antes del pie) y auto-ajusta la fuente como red de seguridad.
+    const extraBottom = (PH - 8) - 2;                 // tope: justo sobre la línea del pie
     doc.setFont('helvetica', 'normal'); doc.setFontSize(7); setText(BLACK);
-    doc.text(doc.splitTextToSize('Si se detectó algún riesgo extra a la actividad descríbalo:', extraW - 4), extraX + 2, y + 3.5);
-    if (h.extra_risk) { doc.setFontSize(7.5); doc.text(doc.splitTextToSize(h.extra_risk, extraW - 4).slice(0, 3), extraX + 2, y + 9.5); }
+    const extraLabLines = doc.splitTextToSize('Si se detectó algún riesgo extra a la actividad descríbalo:', extraW - 4);
+    const extraLabH = extraLabLines.length * 3.0;
+    const erTop = y + 3.0 + extraLabH + 2.5;          // dónde empieza el texto del riesgo
+    let erFit = { lines: [], fs: 7.5, lh: 7.5 * 0.42 };
+    if (h.extra_risk) erFit = fitLines(h.extra_risk, extraW - 4, Math.max(8, extraBottom - erTop), 7.5, 5.5);
+    let extraH = Math.max(fH, (erTop - y) + erFit.lines.length * erFit.lh + 2);
+    if (y + extraH > extraBottom) extraH = extraBottom - y;
+    cell(extraX, y, extraW, extraH);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7); setText(BLACK);
+    doc.text(extraLabLines, extraX + 2, y + 3.0);
+    if (h.extra_risk) { doc.setFontSize(erFit.fs); doc.text(erFit.lines, extraX + 2, erTop); }
     y += fH;
 
     footer(1);
@@ -237,7 +263,15 @@
       sx += pw + 5.5;
     };
     paren('SI', dr === 'SI');
-    doc.setFont('helvetica', 'normal'); doc.text('Cuales: ' + (dr === 'SI' && h.distinct_risks_detail ? h.distinct_risks_detail : '______________________'), sx, sy);
+    // "Cuales: <detalle>" ajustado para NO desbordar ni chocar con "No / No Aplica"
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+    const lab = 'Cuales: '; doc.text(lab, sx, sy);
+    const detX = sx + doc.getTextWidth(lab);
+    const detStr = (dr === 'SI' && h.distinct_risks_detail ? h.distinct_risks_detail : '______________________');
+    const dFit = fitLines(detStr, Math.max(20, 62 - doc.getTextWidth(lab) - 2), 6.0, 8.5, 6);
+    doc.setFontSize(dFit.fs);
+    doc.text(dFit.lines.slice(0, 2), detX, sy - (dFit.lines.length > 1 ? 1.8 : 0));
+    doc.setFontSize(8.5);
     sx += 62; paren('No', dr === 'NO'); sx += 2; paren('No Aplica', dr === 'NA');
     y += s2H + 3;
 
@@ -262,14 +296,14 @@
     y += eppRowH * 4;
 
     navBar(y, '5._  LISTADO DE ACTIVIDADES A REALIZAR:', 6); y += 6;
-    y = drawActTable(20, acts);
+    y = drawActTable(acts, { fillTo: PH - 8 });
     footer(2);
 
     // ════════════════ PÁGINA 3 ════════════════
     doc.addPage(); header();
     y = 22;
     navBar(y, '(RIESGOS ESPECÍFICOS IDENTIFICADOS DURANTE LA EJECUCIÓN DE LA TAREA)', 6, true); y += 6;
-    y = drawActTable(2, actsE);
+    y = drawActTable(actsE, { minRows: 2 });
     y += 1;
     // declaración
     doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(8); setText(BLACK);
@@ -336,8 +370,18 @@
     footer(3);
 
     // ── tabla de actividades (usada en pág 2 y 3) ──
-    function drawActTable(nRows, data) {
+    // Tabla de actividades con alto de fila ADAPTABLE al texto:
+    //  - cada fila crece lo que necesita (texto envuelto en varias líneas);
+    //  - auto-ajuste de fuente con tope (maxRowH) para textos muy largos;
+    //  - opts.fillTo: rellena con filas vacías hasta esa Y (formulario completo);
+    //  - opts.minRows: mínimo de filas visibles cuando no se rellena.
+    // Así la 2ª/3ª línea NUNCA queda tapada por la división de filas.
+    function drawActTable(data, opts) {
+      opts = opts || {};
+      const fillTo = opts.fillTo || 0, minRows = opts.minRows || 0;
       const cNo = 12, cTa = 62, cRi = (W - 12) * 0.42, cCo = W - cNo - cTa - cRi;
+      const colW = [cTa - 3, cRi - 3, cCo - 3];
+      const colX = [M + cNo + 1.5, M + cNo + cTa + 1.5, M + cNo + cTa + cRi + 1.5];
       // encabezado
       setFill([235, 238, 245]); doc.rect(M, y, W, 6, 'F');
       doc.setFont('helvetica', 'bold'); doc.setFontSize(8); setText(BLACK);
@@ -346,21 +390,42 @@
         cell(x, y, w, 6); doc.text(t, i === 0 ? x + w / 2 : x + 1.8, y + 4, i === 0 ? { align: 'center' } : undefined); x += w;
       });
       y += 6;
-      const arH = nRows >= 15 ? 5.5 : (nRows > 5 ? 6.4 : 8);
-      for (let i = 0; i < nRows; i++) {
-        const d = data[i];
-        let xx = M;
-        [cNo, cTa, cRi, cCo].forEach(w => { cell(xx, y, w, arH); xx += w; });
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); setText(BLACK);
-        doc.text((i + 1) + '.-', M + 2, y + arH / 2 + 1);
-        if (d) {
-          doc.setFontSize(7.2);
-          doc.text(doc.splitTextToSize(d.task || '', cTa - 3).slice(0, 2), M + cNo + 1.5, y + 3.4);
-          doc.text(doc.splitTextToSize(d.risk || '', cRi - 3).slice(0, 2), M + cNo + cTa + 1.5, y + 3.4);
-          doc.text(doc.splitTextToSize(d.control || '', cCo - 3).slice(0, 2), M + cNo + cTa + cRi + 1.5, y + 3.4);
+
+      const baseH = 6.0, padY = 1.8, maxRowH = 20, fsMax = 7.2, fsMin = 5.4, topBase = padY + 2.2;
+      function drawRow(num, cells) {
+        let rowH = baseH;
+        if (cells) {
+          const need = Math.max.apply(null, cells.map(c => c.lines.length * c.lh)) + 2 * padY;
+          rowH = Math.min(maxRowH, Math.max(baseH, need));
         }
-        y += arH;
+        if (fillTo && y + rowH > fillTo) rowH = Math.max(3, fillTo - y);   // no rebasar el pie
+        let xx = M;
+        [cNo, cTa, cRi, cCo].forEach(w => { cell(xx, y, w, rowH); xx += w; });
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7.2); setText(BLACK);
+        doc.text(num + '.-', M + 2, y + topBase);
+        if (cells) {
+          cells.forEach((c, i) => {
+            if (!c.lines.length) return;
+            const maxL = Math.max(1, Math.floor((rowH - 2 * padY + 0.6) / c.lh));
+            doc.setFontSize(c.fs); setText(BLACK);
+            doc.text(c.lines.slice(0, maxL), colX[i], y + topBase);
+          });
+        }
+        y += rowH;
       }
+
+      const n = data.length, cap = maxRowH - 2 * padY;
+      for (let i = 0; i < n; i++) {
+        const d = data[i] || {};
+        drawRow(i + 1, [
+          fitLines(d.task || '', colW[0], cap, fsMax, fsMin),
+          fitLines(d.risk || '', colW[1], cap, fsMax, fsMin),
+          fitLines(d.control || '', colW[2], cap, fsMax, fsMin),
+        ]);
+      }
+      let num = n;
+      if (fillTo) { while (y + baseH <= fillTo) { drawRow(++num, null); } }
+      else { while (num < minRows) { drawRow(++num, null); } }
       return y;
     }
 
